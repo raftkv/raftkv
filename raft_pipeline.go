@@ -49,7 +49,7 @@ type PipelineConfig struct {
 func DefaultPipelineConfig() PipelineConfig {
 	return PipelineConfig{
 		EnableWAL:  true,
-		WALPath:    filepath.Join(os.TempDir(), "daijin235_raft.wal"),
+		WALPath:    filepath.Join("/app/wal-data", "daijin235_raft.wal"),
 		SM4Key:     []byte("daijin235_012345"), // 16 字节默认密钥（生产环境应从 KMS 加载）
 		EnableSink: false,
 		SinkConfig: adapters.DefaultSinkConfig(),
