@@ -1,0 +1,41 @@
+# 岱境235 日志加密传输代理 - 配置文件
+# 修改后保存，重启 relay_agent 即可生效
+
+[Output]
+# 传输模式：File（本地目录）| USB（外挂硬盘）| HTTP（云端API）| S3（对象存储）
+Mode = "File"
+
+# 目标地址（根据Mode不同含义不同）：
+#   File: 本地目录路径，如 "D:\\daijin235_backup"
+#   USB:  自动检测，无需填写
+#   HTTP: 云端API地址，如 "https://api.example.com/upload"
+#   S3:   S3兼容端点，如 "https://oss-cn-hangzhou.aliyuncs.com"
+Target = "./relay_output/"
+
+# 加密密钥（请修改为您自己的密钥，至少16位）
+EncryptKey = "daijin235_relay_2026_secure_key"
+
+# 打包间隔（支持 h/m/s，如 6h / 30m / 120s）
+Interval = "30s"
+
+# 本地缓存最大容量（超出自动清理最旧文件）
+MaxLocalCacheSize = "20MB"
+
+# 触发打包的文件大小阈值（单文件达到此大小时立即打包）
+PackThreshold = "5MB"
+
+# 监控目录（probe_report.dat/json 所在目录）
+WatchDir = ".."
+
+[S3]
+# S3模式专用配置（Mode=S3时生效）
+AccessKey = "your_access_key"
+SecretKey = "your_secret_key"
+Bucket   = "daijin235-logs"
+Region   = "cn-hangzhou"
+
+[Heartbeat]
+# 远程心跳监控（后台上报设备存活状态，不影响主流程）
+Enable = true
+Url = "https://your-api-server.com/heartbeat"
+Interval = "300"

@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  research-node-1:
+    image: daijin235-state-protection-research:v2.4-research
+    container_name: research-node-1
+    environment:
+      - NODE_ID=node-1
+      - HTTP_PORT=9000
+      - PEERS=node-2,node-3
+      - LEADER_ID=node-1
+      - STATE_BIN_PATH=/app/data/state.bin
+      - STATE_HMAC_PATH=/app/data/state.bin.hmac
+      - STATE_HMAC_KEY_PATH=/app/data/state_hmac_key.bin
+      - RSA_PUBLIC_KEY_PATH=/app/keys/public.pem
+      - STATE_SNAPSHOT_INTERVAL_MS=100
+    ports:
+      - "9000:9000"
+    volumes:
+      - node1-data:/app/data
+      - ./keys:/app/keys:ro
+    networks:
+      - research-net
+
+  research-node-2:
+    image: daijin235-state-protection-research:v2.4-research
+    container_name: research-node-2
+    environment:
+      - NODE_ID=node-2
+      - HTTP_PORT=9000
+      - PEERS=node-1,node-3
+      - LEADER_ID=node-1
+      - STATE_BIN_PATH=/app/data/state.bin
+      - STATE_HMAC_PATH=/app/data/state.bin.hmac
+      - STATE_HMAC_KEY_PATH=/app/data/state_hmac_key.bin
+      - RSA_PUBLIC_KEY_PATH=/app/keys/public.pem
+      - STATE_SNAPSHOT_INTERVAL_MS=100
+    ports:
+      - "9001:9000"
+    volumes:
+      - node2-data:/app/data
+      - ./keys:/app/keys:ro
+    networks:
+      - research-net
+
+  research-node-3:
+    image: daijin235-state-protection-research:v2.4-research
+    container_name: research-node-3
+    environment:
+      - NODE_ID=node-3
+      - HTTP_PORT=9000
+      - PEERS=node-1,node-2
+      - LEADER_ID=node-1
+      - STATE_BIN_PATH=/app/data/state.bin
+      - STATE_HMAC_PATH=/app/data/state.bin.hmac
+      - STATE_HMAC_KEY_PATH=/app/data/state_hmac_key.bin
+      - RSA_PUBLIC_KEY_PATH=/app/keys/public.pem
+      - STATE_SNAPSHOT_INTERVAL_MS=100
+    ports:
+      - "9002:9000"
+    volumes:
+      - node3-data:/app/data
+      - ./keys:/app/keys:ro
+    networks:
+      - research-net
+
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:
+
+networks:
+  research-net:
+    driver: bridge

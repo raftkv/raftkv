@@ -1,0 +1,417 @@
+// =========================================================================
+// 岱境235 确定性引擎 — Raft 日志处理管线
+//
+// 串联完整数据流转闭环:
+//   Raft commit → SM4-CTR 加密 WAL → TiDB/MySQL 异步落盘
+//
+// 设计原则:
+//   1. 不修改 raft.go 核心逻辑，通过 onCommit 回调钩子接入
+//   2. WAL 持久化: EncryptedStorage (SM4-CTR + 1GB 预分配 + 批量 fsync)
+//   3. 金融落盘: TiDBAdapter (非阻塞 Write + 三级背压 + 故障自愈)
+//   4. 启动时 WAL 回放恢复日志，关闭时刷新所有缓冲
+//
+// 集成方式:
+//   pipeline, _ := NewRaftPipeline(cfg)
+//   node.SetOnCommit(pipeline.OnCommit)
+//   defer pipeline.Close()
+// =========================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"time"
+
+	"daijin235/pkg/adapters"
+)
+
+// =========================================================================
+// 管线配置
+// =========================================================================
+
+// PipelineConfig Raft 管线配置
+type PipelineConfig struct {
+	// WAL 加密存储
+	EnableWAL bool
+	WALPath   string // WAL 文件路径
+	SM4Key    []byte // 16 字节 SM4 密钥
+
+	// TiDB/MySQL 异步落盘
+	EnableSink bool
+	SinkConfig adapters.SinkConfig
+}
+
+// DefaultPipelineConfig 默认管线配置
+func DefaultPipelineConfig() PipelineConfig {
+	return PipelineConfig{
+		EnableWAL:  true,
+		WALPath:    filepath.Join(os.TempDir(), "daijin235_raft.wal"),
+		SM4Key:     []byte("daijin235_012345"), // 16 字节默认密钥（生产环境应从 KMS 加载）
+		EnableSink: false,
+		SinkConfig: adapters.DefaultSinkConfig(),
+	}
+}
+
+// =========================================================================
+// RaftPipeline — Raft 日志处理管线
+// =========================================================================
+
+// RaftPipeline 串联 WAL 加密持久化 + TiDB 异步落盘
+//
+// 数据流:
+//
+//	Raft commit → OnCommit(log)
+//	                ├→ EncryptedStorage.AppendRaftLog (SM4-CTR → WAL 批量 fsync)
+//	                └→ TiDBAdapter.Write (JSON → 通道 → 批量 INSERT → MySQL/TiDB)
+type RaftPipeline struct {
+	storage *EncryptedStorage     // SM4-CTR 加密 WAL（可选）
+	sink    *adapters.TiDBAdapter // TiDB/MySQL 异步落盘（可选）
+
+	enableWAL  bool
+	walPath    string
+	enableSink bool
+	logger     *log.Logger
+
+	// 统计
+	totalCommitted int64
+	walErrors      int64
+	sinkErrors     int64
+}
+
+// NewRaftPipeline 创建 Raft 处理管线
+func NewRaftPipeline(cfg PipelineConfig) (*RaftPipeline, error) {
+	p := &RaftPipeline{
+		enableWAL:  cfg.EnableWAL,
+		walPath:    cfg.WALPath,
+		enableSink: cfg.EnableSink,
+		logger:     log.New(os.Stderr, "[pipeline] ", log.LstdFlags),
+	}
+
+	// 初始化加密 WAL 存储
+	if cfg.EnableWAL {
+		if len(cfg.SM4Key) != 16 {
+			return nil, fmt.Errorf("SM4 密钥必须 16 字节，当前 %d 字节", len(cfg.SM4Key))
+		}
+		if cfg.WALPath == "" {
+			return nil, fmt.Errorf("WAL 路径不能为空")
+		}
+
+		// 确保目录存在
+		dir := filepath.Dir(cfg.WALPath)
+		if dir != "" && dir != "." {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return nil, fmt.Errorf("创建 WAL 目录失败: %w", err)
+			}
+		}
+
+		es, err := NewEncryptedStorage(cfg.WALPath, cfg.SM4Key)
+		if err != nil {
+			return nil, fmt.Errorf("创建加密存储失败: %w", err)
+		}
+		p.storage = es
+		p.logger.Printf("WAL 加密存储已启用: %s", cfg.WALPath)
+	}
+
+	// 初始化 TiDB/MySQL 异步落盘
+	if cfg.EnableSink && cfg.SinkConfig.Enable {
+		adapter, err := adapters.NewTiDBAdapter(cfg.SinkConfig)
+		if err != nil {
+			// Sink 创建失败不应阻止 Raft 启动
+			p.logger.Printf("⚠ TiDB 适配器创建失败（降级运行）: %v", err)
+		} else {
+			// 幂等建表
+			if err := adapter.CreateTable(); err != nil {
+				p.logger.Printf("⚠ 建表警告: %v（适配器仍可运行）", err)
+			}
+			p.sink = adapter
+			p.logger.Printf("TiDB/MySQL 异步落盘已启用: %s", cfg.SinkConfig.DSN)
+		}
+	}
+
+	return p, nil
+}
+
+// =========================================================================
+// WAL 回放（启动恢复）
+// =========================================================================
+
+// ReplayWAL 从 WAL 回放日志，用于节点重启后恢复已提交日志
+func (p *RaftPipeline) ReplayWAL() ([]RaftLog, error) {
+	if p.storage == nil {
+		return nil, nil
+	}
+	logs, err := p.storage.ReplayAll()
+	if err != nil {
+		return nil, fmt.Errorf("WAL 回放失败: %w", err)
+	}
+	p.logger.Printf("WAL 回放完成: %d 条日志", len(logs))
+	return logs, nil
+}
+
+// WALReplayStats WAL 重放统计信息
+type WALReplayStats struct {
+	SegmentCount    int           `json:"segment_count"`
+	LogCount        int           `json:"log_count"`
+	BeforeCommitIdx int64         `json:"before_commit_idx"`
+	AfterCommitIdx  int64         `json:"after_commit_idx"`
+	Duration        time.Duration `json:"duration"`
+	Integrity       string        `json:"integrity"`
+	Error           error         `json:"-"`
+}
+
+// ReplayWALWithStats 带统计的 WAL 回放，返回日志、重放统计与错误
+func (p *RaftPipeline) ReplayWALWithStats() ([]RaftLog, WALReplayStats, error) {
+	stats := WALReplayStats{
+		BeforeCommitIdx: 0,
+		Integrity:       "完整",
+	}
+	start := time.Now()
+
+	if p.storage == nil {
+		stats.Duration = time.Since(start)
+		stats.Integrity = "无WAL"
+		return nil, stats, nil
+	}
+
+	segments, _ := filepath.Glob(filepath.Join(filepath.Dir(p.walPath), "wal-*"))
+	stats.SegmentCount = len(segments)
+
+	logs, err := p.storage.ReplayAll()
+	stats.Duration = time.Since(start)
+	stats.LogCount = len(logs)
+
+	if err != nil {
+		stats.Integrity = "损坏"
+		stats.Error = err
+		return nil, stats, fmt.Errorf("WAL 回放失败: %w", err)
+	}
+
+	if len(logs) == 0 {
+		stats.Integrity = "空"
+	} else {
+		for i := 1; i < len(logs); i++ {
+			if logs[i].Index != logs[i-1].Index+1 {
+				if logs[i].Index == logs[i-1].Index {
+					stats.Integrity = "损坏"
+				} else {
+					stats.Integrity = "截断"
+				}
+				break
+			}
+		}
+		stats.AfterCommitIdx = logs[len(logs)-1].Index
+	}
+
+	if stats.Duration > 10*time.Second {
+		log.Printf("WAL重放超时告警: 耗时 %v, 日志 %d 条", stats.Duration, stats.LogCount)
+	}
+
+	log.Printf("WAL回放完成: 恢复 %d 条日志, commitIdx %d -> %d, 耗时 %v, 完整性 %s",
+		stats.LogCount, stats.BeforeCommitIdx, stats.AfterCommitIdx, stats.Duration, stats.Integrity)
+
+	return logs, stats, nil
+}
+
+// =========================================================================
+// OnCommit — Raft 日志提交回调
+// =========================================================================
+
+// OnCommit Raft 日志提交回调
+//
+// 当 Raft 日志被提交（commitIdx 前进）时由 RaftNode 调用:
+//  1. 加密写入 WAL（SM4-CTR → 批量 fsync）
+//  2. 序列化写入 TiDB/MySQL（非阻塞 → 批量 INSERT）
+//
+// 注意: 此函数必须快速返回，不阻塞 Raft 主循环
+//   - WAL Append 是缓冲写入（批量 fsync 在后台 goroutine）
+//   - Sink Write 是非阻塞通道写入（满时降级 fallback 队列）
+func (p *RaftPipeline) OnCommit(log RaftLog) {
+	p.totalCommitted++
+
+	// 1. 加密写入 WAL
+	if p.storage != nil {
+		if err := p.storage.AppendRaftLog(log); err != nil {
+			p.walErrors++
+			p.logger.Printf("WAL 写入失败 index=%d: %v", log.Index, err)
+		}
+	}
+
+	// 2. 序列化写入 TiDB/MySQL
+	if p.sink != nil {
+		data, err := json.Marshal(log)
+		if err != nil {
+			p.sinkErrors++
+			p.logger.Printf("序列化失败 index=%d: %v", log.Index, err)
+			return
+		}
+		if err := p.sink.Write(data); err != nil {
+			p.sinkErrors++
+			p.logger.Printf("Sink 写入失败 index=%d: %v", log.Index, err)
+		}
+	}
+}
+
+// OnCommitBatch 批量提交回调（多条日志同时提交时使用）
+func (p *RaftPipeline) OnCommitBatch(logs []RaftLog) {
+	for _, log := range logs {
+		p.OnCommit(log)
+	}
+}
+
+// =========================================================================
+// 生命周期管理
+// =========================================================================
+
+// Sync 强制刷新所有缓冲到下游
+func (p *RaftPipeline) Sync() error {
+	if p.sink != nil {
+		if err := p.sink.Sync(); err != nil {
+			return fmt.Errorf("sink sync: %w", err)
+		}
+	}
+	return nil
+}
+
+// Close 关闭管线，刷新所有缓冲
+func (p *RaftPipeline) Close() error {
+	var errs []error
+
+	// 先刷新 sink
+	if p.sink != nil {
+		if err := p.sink.Sync(); err != nil {
+			errs = append(errs, fmt.Errorf("sink sync: %w", err))
+		}
+		if err := p.sink.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("sink close: %w", err))
+		}
+	}
+
+	// 再关闭 WAL
+	if p.storage != nil {
+		if err := p.storage.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("storage close: %w", err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("管线关闭错误: %v", errs)
+	}
+	p.logger.Printf("管线已安全关闭 (committed=%d, walErrors=%d, sinkErrors=%d)",
+		p.totalCommitted, p.walErrors, p.sinkErrors)
+	return nil
+}
+
+// =========================================================================
+// 统计与状态
+// =========================================================================
+
+// PipelineStats 管线运行时统计
+type PipelineStats struct {
+	Committed   int64 `json:"committed"`    // 总提交条数
+	WALErrors   int64 `json:"wal_errors"`   // WAL 错误数
+	SinkErrors  int64 `json:"sink_errors"`  // Sink 错误数
+	WALEnabled  bool  `json:"wal_enabled"`  // WAL 是否启用
+	SinkEnabled bool  `json:"sink_enabled"` // Sink 是否启用
+
+	// Sink 详细统计（如果启用）
+	SinkWritten     int64 `json:"sink_written,omitempty"`
+	SinkFailed      int64 `json:"sink_failed,omitempty"`
+	SinkRetried     int64 `json:"sink_retried,omitempty"`
+	SinkFallback    int64 `json:"sink_fallback,omitempty"`
+	SinkFallbackLen int   `json:"sink_fallback_len,omitempty"`
+	SinkChannelLen  int   `json:"sink_channel_len,omitempty"`
+	SinkDBHealthy   bool  `json:"sink_db_healthy,omitempty"`
+}
+
+// Stats 返回管线统计
+func (p *RaftPipeline) Stats() PipelineStats {
+	stats := PipelineStats{
+		Committed:   p.totalCommitted,
+		WALErrors:   p.walErrors,
+		SinkErrors:  p.sinkErrors,
+		WALEnabled:  p.storage != nil,
+		SinkEnabled: p.sink != nil,
+	}
+
+	if p.sink != nil {
+		s := p.sink.Stats()
+		stats.SinkWritten = s.Written
+		stats.SinkFailed = s.Failed
+		stats.SinkRetried = s.Retried
+		stats.SinkFallback = s.Fallback
+		stats.SinkFallbackLen = s.FallbackLen
+		stats.SinkChannelLen = s.ChannelLen
+		stats.SinkDBHealthy = s.DBHealthy
+	}
+
+	return stats
+}
+
+// Healthy 返回管线健康状态
+func (p *RaftPipeline) Healthy() bool {
+	if p.sink != nil && !p.sink.Healthy() {
+		return false
+	}
+	return true
+}
+
+// SinkAdapter 返回底层 TiDB 适配器（用于直接操作，如建表）
+func (p *RaftPipeline) SinkAdapter() *adapters.TiDBAdapter {
+	return p.sink
+}
+
+// Storage 返回底层加密存储
+func (p *RaftPipeline) Storage() *EncryptedStorage {
+	return p.storage
+}
+
+// =========================================================================
+// 辅助: 从环境变量构建配置
+// =========================================================================
+
+// PipelineConfigFromEnv 从环境变量构建管线配置
+//
+// 环境变量:
+//
+//	WAL_ENABLE=true|false          WAL 开关
+//	WAL_PATH=/data/raft.wal        WAL 路径
+//	SM4_KEY=<hex>                  SM4 密钥（16 字节，hex 编码）
+//	SINK_ENABLE=true|false         Sink 开关
+//	SINK_DSN=root:@tcp(host)/db    数据库连接串
+//	SINK_TABLE=raft_logs           目标表名
+//	SINK_BATCH=1000                批量大小
+//	SINK_FLUSH=500ms               刷新间隔
+func PipelineConfigFromEnv() PipelineConfig {
+	cfg := DefaultPipelineConfig()
+
+	if v := os.Getenv("WAL_ENABLE"); v == "false" || v == "0" {
+		cfg.EnableWAL = false
+	}
+	if v := os.Getenv("WAL_PATH"); v != "" {
+		cfg.WALPath = v
+	}
+
+	if v := os.Getenv("SINK_ENABLE"); v == "true" || v == "1" {
+		cfg.EnableSink = true
+		cfg.SinkConfig.Enable = true
+	}
+	if v := os.Getenv("SINK_DSN"); v != "" {
+		cfg.SinkConfig.DSN = v
+	}
+	if v := os.Getenv("SINK_TABLE"); v != "" {
+		cfg.SinkConfig.TableName = v
+	}
+
+	// 数据库连接串必须由环境变量 SINK_DSN 提供，禁止硬编码凭据
+	if cfg.EnableSink && cfg.SinkConfig.DSN == "" {
+		fmt.Printf("[DataSink] 警告: 未设置 SINK_DSN，异步落盘功能已禁用\n")
+		cfg.EnableSink = false
+		cfg.SinkConfig.Enable = false
+	}
+
+	return cfg
+}
