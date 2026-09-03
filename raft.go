@@ -832,6 +832,7 @@ func (rn *RaftNode) sendHeartbeats() {
 	wg.Wait()
 
 	// V2.3: 推进 commitIdx（联合共识需 C_old 和 C_new 各自多数派）
+	var committedLogs []RaftLog
 	rn.mu.Lock()
 	if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
 		oldPeers := rn.config.oldPeers()
@@ -861,12 +862,14 @@ func (rn *RaftNode) sendHeartbeats() {
 				oldCommit := rn.commitIdx
 				rn.commitIdx = N
 				rn.applyConfigChangesLocked(oldCommit, N)
+				committedLogs = rn.collectCommittedLogs(oldCommit)
 				break
 			}
 		}
 		rn.updateStats()
 	}
 	rn.mu.Unlock()
+	rn.fireOnCommit(committedLogs)
 
 	if timeoutCount > 0 {
 		atomic.AddInt32(&rn.consecutiveTimeouts, int32(timeoutCount))
