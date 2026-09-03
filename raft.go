@@ -662,9 +662,9 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 
 func (rn *RaftNode) stepDown(higherTerm int64) {
 	rn.mu.Lock()
-	defer rn.mu.Unlock()
 
 	if higherTerm <= rn.term {
+		rn.mu.Unlock()
 		return
 	}
 
@@ -683,17 +683,28 @@ func (rn *RaftNode) stepDown(higherTerm int64) {
 		case rn.heartbeatStop <- struct{}{}:
 		default:
 		}
-		// TCX-Ⅳ: 停止批量同步管理器
-		if rn.batchSyncMgr != nil {
-			rn.batchSyncMgr.Stop()
-			rn.batchSyncMgr = NewBatchSyncManager(rn, rn.batchSyncMgr.config)
-		}
 	}
 
 	// 重置选举计时器
 	rn.electionTimer.Reset(randomElectionTimeout())
 
+	// Fix Bug C: 收集需要锁外执行的回调
+	var oldBatchSyncMgr *BatchSyncManager
+	if oldState == StateLeader && rn.batchSyncMgr != nil {
+		oldBatchSyncMgr = rn.batchSyncMgr
+		rn.batchSyncMgr = nil
+	}
+
 	rn.updateStats()
+	rn.mu.Unlock()
+
+	// 锁外停止批量同步管理器（避免死锁：Stop()等待SyncLoop，SyncLoop需要RLock）
+	if oldBatchSyncMgr != nil {
+		oldBatchSyncMgr.Stop()
+		rn.mu.Lock()
+		rn.batchSyncMgr = NewBatchSyncManager(rn, oldBatchSyncMgr.config)
+		rn.mu.Unlock()
+	}
 }
 
 // =========================================================================
