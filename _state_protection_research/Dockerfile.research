@@ -1,0 +1,28 @@
+FROM golang:1.24-alpine AS builder
+
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w -X 'main.Version=v2.4-research' -X 'main.BuildTime=2026-08-31'" \
+    -o /gateway_research ./cmd/state-protection-research/
+
+FROM alpine:3.21
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+RUN apk add --no-cache ca-certificates tzdata curl
+ENV TZ=Asia/Shanghai
+
+RUN mkdir -p /app/data /app/keys
+
+WORKDIR /app
+COPY --from=builder /gateway_research .
+
+EXPOSE 9500 9000
+ENTRYPOINT ["./gateway_research"]

@@ -1,0 +1,1320 @@
+// =========================================================================
+// 岱境235 确定性引擎 — 纯 Go Raft 共识引擎
+//
+// 设计原则：
+//   1. 零外部 Raft 库依赖 — 纯 Go + goroutine + channel 实现
+//   2. 严格遵循 Raft 论文状态机（Follower → Candidate → Leader）
+//   3. 三节点模式，通过 gRPC 进行 RPC 通信
+//   4. 随机选举超时避免脑裂（150-300ms 范围）
+//   5. Leader 心跳间隔 50ms，快速检测故障
+// =========================================================================
+
+package main
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"sort"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	pb "daijin235/proto"
+)
+
+// =========================================================================
+// 编译时常量
+// =========================================================================
+
+const (
+	// 选举超时范围（毫秒）— Fix #7: 增大至 >rpcTimeout，防止投票期间其他节点触发新选举
+	electionTimeoutMin = 1000 // 最小选举超时
+	electionTimeoutMax = 2000 // 最大选举超时
+
+	// Leader 心跳间隔
+	heartbeatIntervalMin = 50 * time.Millisecond
+	heartbeatIntervalMax = 500 * time.Millisecond
+
+	// 弱网自适应阈值
+	adaptiveTimeoutThreshold = 3
+	adaptiveRecoverySuccess  = 3
+
+	// gRPC 调用超时
+	rpcTimeout = 500 * time.Millisecond
+)
+
+// =========================================================================
+// RaftNode — 纯 Go Raft 节点
+// =========================================================================
+
+type RaftNode struct {
+	// --- 持久状态（所有节点）---
+	id        string            // 节点唯一 ID
+	peers     []PeerInfo        // 集群成员列表（不含自身）
+	peerAddrs map[string]string // peerID → gRPC address 快速索引
+
+	mu       sync.RWMutex // 保护以下所有字段
+	state    NodeState    // Follower / Candidate / Leader
+	term     int64        // 当前任期
+	votedFor string       // 本任期投票给谁（空=未投票）
+	leaderID string       // 当前已知 Leader
+
+	// --- 日志 ---
+	logs        []RaftLog // 日志条目（索引从 1 开始，0 为哨兵）
+	commitIdx   int64     // 已提交的最高索引
+	lastApplied int64     // 已应用到状态机的最高索引
+
+	// --- Leader 专用 ---
+	nextIdx  map[string]int64 // peerID → 下一条要发给该 peer 的日志索引
+	matchIdx map[string]int64 // peerID → 已知已复制的最高日志索引
+
+	// --- 通信通道 ---
+	electionTimer *time.Timer     // 选举超时计时器
+	heartbeatStop chan struct{}   // 停止心跳循环
+	voteResultCh  chan voteResult // 投票结果汇总通道
+	stateChangeCh chan NodeState  // 状态变更通知
+	shutdownCh    chan struct{}   // 优雅关闭信号
+	shutdownOnce  sync.Once       // 确保只关闭一次
+
+	// --- gRPC 客户端工厂 ---
+	// 每个 peer 一个 gRPC 客户端连接，由外部注入
+	peerClients map[string]pb.RaftServiceClient
+
+	// --- 统计 ---
+	stats  *RaftStats
+	logger Logger
+
+	// --- 日志提交回调（管线钩子）---
+	// 当 commitIdx 前进时调用，用于接入 WAL 持久化 + TiDB 落盘
+	// 设置方式: node.SetOnCommit(pipeline.OnCommit)
+	onCommit func(RaftLog)
+
+	// 选举开始时间（用于日志）
+	electionStart time.Time
+
+	// --- 新节点日志追赶标志 ---
+	// false = 新加入节点，日志尚未追上 Leader，不发起选举也不接收投票
+	// true  = 日志已追上 Leader 的 commitIdx，可正常参与选举
+	logCaughtUp bool
+
+	// --- V2.3: 动态成员变更配置 ---
+	config *ClusterConfig
+
+	// --- 最近收到 Leader 心跳时间（zero = 从未见过 Leader，全新集群） ---
+	lastHeartbeat time.Time
+
+	// --- 弱网自适应心跳 ---
+	consecutiveTimeouts      int32
+	consecutiveSuccess       int32
+	currentHeartbeatInterval time.Duration
+
+	// --- 选举风暴自愈：logCaughtUp 死锁突破 ---
+	candidateFailCount int32     // 连续选举失败次数
+	firstCandidateTime time.Time // 首次进入 Candidate 的时间窗口起点
+
+	// --- TCX-Ⅳ 硬修复：WAL重放门禁 ---
+	walReplayCompleted bool           // WAL重放是否完成
+	replayStats        WALReplayStats // 重放统计
+
+	// --- TCX-Ⅳ 硬修复：WAL物理剥离门禁 ---
+	walGateClosed      bool     // WAL门禁是否关闭
+	walGate            *WALGate // WAL门禁实例
+	rejectedWriteCount int64    // 被拒绝的写入计数
+
+	// --- TCX-Ⅳ 硬修复：批量闪电同步 ---
+	batchSyncMgr *BatchSyncManager // 批量同步管理器
+}
+
+type voteResult struct {
+	peerID      string
+	term        int64
+	voteGranted bool
+	err         error
+}
+
+// =========================================================================
+// 节点构造函数
+// =========================================================================
+
+func NewRaftNode(
+	id string,
+	peerAddrs map[string]string,
+	peerClients map[string]pb.RaftServiceClient,
+	logger Logger,
+) *RaftNode {
+	peers := make([]PeerInfo, 0, len(peerAddrs))
+	for pid, addr := range peerAddrs {
+		peers = append(peers, PeerInfo{ID: pid, Address: addr})
+	}
+
+	rn := &RaftNode{
+		id:            id,
+		peers:         peers,
+		peerAddrs:     peerAddrs,
+		state:         StateFollower,
+		term:          0,
+		votedFor:      "",
+		leaderID:      "",
+		logs:          make([]RaftLog, 0),
+		commitIdx:     0,
+		lastApplied:   0,
+		nextIdx:       make(map[string]int64),
+		matchIdx:      make(map[string]int64),
+		electionTimer: time.NewTimer(randomElectionTimeout()),
+		heartbeatStop: make(chan struct{}),
+		voteResultCh:  make(chan voteResult, 256),
+		stateChangeCh: make(chan NodeState, 8),
+		shutdownCh:    make(chan struct{}),
+		peerClients:   peerClients,
+		stats: &RaftStats{
+			ID:        id,
+			State:     "Follower",
+			Term:      0,
+			LeaderID:  "",
+			PeerCount: len(peers),
+		},
+		logger:                   logger,
+		consecutiveTimeouts:      0,
+		consecutiveSuccess:       0,
+		currentHeartbeatInterval: heartbeatIntervalMin,
+		logCaughtUp:              false,
+	}
+
+	// V2.3: 初始化集群配置（自身 + 所有 peer）
+	initialPeers := make([]string, 0, len(peerAddrs)+1)
+	initialPeers = append(initialPeers, id)
+	for pid := range peerAddrs {
+		initialPeers = append(initialPeers, pid)
+	}
+	rn.config = NewClusterConfig(initialPeers, logger)
+
+	return rn
+}
+
+// SetLogCaughtUp 设置日志追赶状态
+// 外部在从 WAL 恢复日志后调用此方法标记节点已追上
+func (rn *RaftNode) SetLogCaughtUp(caughtUp bool) {
+	rn.mu.Lock()
+	rn.logCaughtUp = caughtUp
+	rn.mu.Unlock()
+}
+
+// RestoreFromWAL 从 WAL 回放日志恢复内存状态
+// 在节点启动时调用，将磁盘上已持久化的日志重新加载回内存
+func (rn *RaftNode) RestoreFromWAL(logs []RaftLog) {
+	if len(logs) == 0 {
+		rn.mu.Lock()
+		rn.walReplayCompleted = true
+		rn.mu.Unlock()
+		return
+	}
+
+	// Fix #3: WAL条目按Index排序后再校验，避免随机存储顺序导致误判
+	sort.Slice(logs, func(i, j int) bool {
+		return logs[i].Index < logs[j].Index
+	})
+
+	integrity, validUntil := rn.validateLogIntegrity(logs)
+
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	if integrity != "完整" && validUntil > 0 {
+		rn.logs = logs[:validUntil]
+		rn.logf("[raft/%s] WAL完整性告警: %s, 恢复至 index=%d", rn.id, integrity, validUntil)
+	} else {
+		rn.logs = logs
+	}
+
+	// Fix #1: 截断后重编号index为连续序列(1,2,...N)，确保log位置与index一致
+	for i := range rn.logs {
+		rn.logs[i].Index = int64(i + 1)
+	}
+
+	lastLog := rn.logs[len(rn.logs)-1]
+	// Fix #1: commitIdx/lastApplied基于log位置而非原始WAL index，防止截断后index空洞
+	rn.commitIdx = int64(len(rn.logs))
+	rn.lastApplied = int64(len(rn.logs))
+	if lastLog.Term > rn.term {
+		rn.term = lastLog.Term
+	}
+	rn.logCaughtUp = true
+	rn.walReplayCompleted = true
+
+	rn.stats.Lock()
+	rn.stats.Term = rn.term
+	rn.stats.CommitIndex = rn.commitIdx
+	rn.stats.LastApplied = rn.lastApplied
+	rn.stats.LogCount = len(rn.logs)
+	rn.stats.Unlock()
+
+	if rn.logger != nil {
+		rn.logger.Printf("WAL回放完成: 恢复 %d 条日志, commitIdx=%d, term=%d, 完整性=%s",
+			len(rn.logs), rn.commitIdx, rn.term, integrity)
+	}
+}
+
+// validateLogIntegrity 校验日志索引连续性与完整性
+func (rn *RaftNode) validateLogIntegrity(logs []RaftLog) (integrity string, validUntil int64) {
+	integrity = "完整"
+	validUntil = int64(len(logs))
+
+	for i := 1; i < len(logs); i++ {
+		if logs[i].Index == logs[i-1].Index {
+			integrity = "损坏"
+			validUntil = int64(i)
+			return
+		}
+		if logs[i].Index != logs[i-1].Index+1 {
+			integrity = "截断"
+			validUntil = int64(i)
+			return
+		}
+	}
+	return
+}
+
+// StepDownForWALFailure WAL故障强制降级为Follower
+func (rn *RaftNode) StepDownForWALFailure(reason string) {
+	rn.mu.Lock()
+	oldState := rn.state
+	rn.state = StateFollower
+	rn.votedFor = ""
+	rn.leaderID = ""
+	rn.walGateClosed = true
+
+	if oldState == StateLeader {
+		select {
+		case rn.heartbeatStop <- struct{}{}:
+		default:
+		}
+	}
+
+	rn.electionTimer.Reset(randomElectionTimeout())
+	rn.updateStats()
+	rn.mu.Unlock()
+
+	rn.logf("[raft/%s] WAL门禁触发: 强制降级为Follower, 原因: %s (原状态: %s)",
+		rn.id, reason, oldState.String())
+}
+
+// IdentifyLaggingFollowers 识别日志落后的Follower节点
+func (rn *RaftNode) IdentifyLaggingFollowers() []LaggingFollower {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+
+	if rn.state != StateLeader {
+		return nil
+	}
+
+	threshold := int64(100)
+	if rn.batchSyncMgr != nil {
+		threshold = rn.batchSyncMgr.config.LagThreshold
+	}
+
+	var result []LaggingFollower
+	for _, p := range rn.peers {
+		matchIdx := rn.matchIdx[p.ID]
+		gap := rn.commitIdx - matchIdx
+		if gap > threshold {
+			batchSize := int64(4096)
+			if rn.batchSyncMgr != nil {
+				batchSize = rn.batchSyncMgr.config.MaxBatchSize
+			}
+			if gap < batchSize {
+				batchSize = gap
+			}
+			result = append(result, LaggingFollower{
+				PeerID:    p.ID,
+				Gap:       gap,
+				BatchSize: batchSize,
+				StartIdx:  matchIdx + 1,
+				EndIdx:    rn.commitIdx,
+			})
+		}
+	}
+	return result
+}
+
+// LaggingFollower 落后Follower信息
+type LaggingFollower struct {
+	PeerID    string
+	Gap       int64
+	BatchSize int64
+	StartIdx  int64
+	EndIdx    int64
+}
+
+// GetLogEntries 获取指定索引范围的日志条目（转换为proto格式）
+func (rn *RaftNode) GetLogEntries(startIdx, endIdx int64) []*pb.LogEntry {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+
+	var entries []*pb.LogEntry
+	for i := startIdx; i <= endIdx; i++ {
+		if i > 0 && int(i-1) < len(rn.logs) {
+			entries = append(entries, &pb.LogEntry{
+				Term:    rn.logs[i-1].Term,
+				Index:   rn.logs[i-1].Index,
+				Command: rn.logs[i-1].Command,
+				Sm3Hash: rn.logs[i-1].SM3Hash,
+			})
+		}
+	}
+	return entries
+}
+
+// GetLogTerm 获取指定索引日志的任期
+func (rn *RaftNode) GetLogTerm(idx int64) int64 {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	if idx <= 0 || int(idx-1) >= len(rn.logs) {
+		return 0
+	}
+	return rn.logs[idx-1].Term
+}
+
+// getCommitIdx 获取当前commitIdx
+func (rn *RaftNode) getCommitIdx() int64 {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return rn.commitIdx
+}
+
+// UpdateFollowerProgress 更新Follower的同步进度
+func (rn *RaftNode) UpdateFollowerProgress(peerID string, lastMatch int64) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+	if lastMatch > rn.matchIdx[peerID] {
+		rn.matchIdx[peerID] = lastMatch
+	}
+	rn.nextIdx[peerID] = lastMatch + 1
+}
+
+// =========================================================================
+// 公共接口
+// =========================================================================
+
+func (rn *RaftNode) ID() string        { return rn.id }
+func (rn *RaftNode) Stats() *RaftStats { return rn.stats }
+
+func (rn *RaftNode) State() NodeState {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return rn.state
+}
+
+func (rn *RaftNode) Term() int64 {
+	return atomic.LoadInt64(&rn.term)
+}
+
+func (rn *RaftNode) LeaderID() string {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return rn.leaderID
+}
+
+func (rn *RaftNode) IsLeader() bool {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return rn.state == StateLeader
+}
+
+// SetOnCommit 设置日志提交回调
+// 当 Raft 日志被提交（commitIdx 前进）时调用此回调
+// 用于接入 WAL 加密持久化 + TiDB/MySQL 异步落盘管线
+func (rn *RaftNode) SetOnCommit(fn func(RaftLog)) {
+	rn.mu.Lock()
+	rn.onCommit = fn
+	rn.mu.Unlock()
+}
+
+// collectCommittedLogs 收集从 oldCommit+1 到 commitIdx 的已提交日志
+// 调用前必须持有 rn.mu 锁
+func (rn *RaftNode) collectCommittedLogs(oldCommit int64) []RaftLog {
+	if rn.onCommit == nil || rn.commitIdx <= oldCommit {
+		return nil
+	}
+	var logs []RaftLog
+	for i := oldCommit + 1; i <= rn.commitIdx; i++ {
+		if int(i-1) >= 0 && int(i-1) < len(rn.logs) {
+			logs = append(logs, rn.logs[i-1])
+		}
+	}
+	return logs
+}
+
+// fireOnCommit 触发已提交日志的回调
+func (rn *RaftNode) fireOnCommit(logs []RaftLog) {
+
+	if rn.onCommit == nil || len(logs) == 0 {
+		return
+	}
+	for _, log := range logs {
+		rn.onCommit(log)
+	}
+}
+
+// =========================================================================
+// 状态机主循环
+// =========================================================================
+
+func (rn *RaftNode) Run() {
+	rn.logf("[raft/%s] 启动，初始状态: %s, peers: %v", rn.id, rn.state, rn.peerIDs())
+	for {
+		select {
+		case <-rn.shutdownCh:
+			rn.logf("[raft/%s] 收到关闭信号，退出主循环", rn.id)
+			return
+
+		case <-rn.electionTimer.C:
+			rn.handleElectionTimeout()
+
+		case newState := <-rn.stateChangeCh:
+			rn.transitionTo(newState)
+		}
+	}
+}
+
+// =========================================================================
+// 选举超时处理 — Follower/Candidate → Candidate
+// =========================================================================
+
+func (rn *RaftNode) handleElectionTimeout() {
+	rn.mu.Lock()
+	if rn.state == StateLeader {
+		rn.mu.Unlock()
+		return
+	}
+
+	if !rn.walReplayCompleted {
+		rn.mu.Unlock()
+		rn.logf("[raft/%s] 重放未完成拒绝选举", rn.id)
+		rn.electionTimer.Reset(randomElectionTimeout() * 2)
+		return
+	}
+
+	if rn.walGateClosed {
+		rn.mu.Unlock()
+		rn.logf("[raft/%s] WAL门禁关闭，拒绝选举", rn.id)
+		rn.electionTimer.Reset(randomElectionTimeout() * 2)
+		return
+	}
+
+	// V2.3: 无 peer 的节点不发起选举（等待被动态加入集群）
+	if len(rn.peers) == 0 {
+		rn.mu.Unlock()
+		rn.electionTimer.Reset(randomElectionTimeout() * 10)
+		return
+	}
+
+	// 新节点日志未追上 Leader 时，不发起选举，给 Leader 更多时间同步日志
+	// 豁免条件：
+	//   1. 从未见过 Leader（lastHeartbeat zero，全新集群）
+	//   2. Leader 心跳过期（>5s，需接任）
+	//   3. 连续3次选举失败（选举风暴自愈，强制突破）
+	if !rn.logCaughtUp && !rn.lastHeartbeat.IsZero() && time.Since(rn.lastHeartbeat) < 5*time.Second &&
+		rn.candidateFailCount < 3 {
+		rn.mu.Unlock()
+		rn.logf("[raft/%s] 日志尚未追上 Leader，跳过选举 (logs=%d, failCount=%d)", rn.id, len(rn.logs), rn.candidateFailCount)
+		rn.electionTimer.Reset(randomElectionTimeout() * 3)
+		return
+	}
+
+	// 选举风暴自愈：连续3次失败后强制突破 logCaughtUp，允许发起选举
+	if !rn.logCaughtUp && rn.candidateFailCount >= 3 {
+		rn.logCaughtUp = true
+		rn.logf("[raft/%s] ⚡ 选举超时突破: 连续 %d 次失败，强制 logCaughtUp=true", rn.id, rn.candidateFailCount)
+	}
+
+	// 进入 Candidate 状态
+	rn.state = StateCandidate
+	currentTerm := atomic.AddInt64(&rn.term, 1)
+	rn.votedFor = rn.id
+	rn.leaderID = ""
+	rn.electionStart = time.Now()
+
+	// 选举风暴自愈：记录首次 Candidate 时间窗口
+	if rn.candidateFailCount == 0 {
+		rn.firstCandidateTime = time.Now()
+	}
+
+	peers := make([]PeerInfo, len(rn.peers))
+	copy(peers, rn.peers)
+	rn.mu.Unlock()
+
+	rn.logf("[raft/%s] 选举超时触发 → Candidate, term=%d", rn.id, currentTerm)
+
+	// 向所有 peer 并发发送 RequestVote
+	rn.requestVotes(currentTerm, peers)
+
+	// Fix #5: 重置选举计时器移到投票收集之后，避免在投票期间触发新选举导致term被改
+	rn.electionTimer.Reset(randomElectionTimeout())
+}
+
+// =========================================================================
+// 并发投票请求
+// =========================================================================
+
+func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
+	votesNeeded := rn.config.quorumSize() // V2.3: 动态 quorum（支持联合共识）
+	votesGranted := int32(1)              // 自己投自己一票
+	peersCount := int32(len(peers))
+
+	var wg sync.WaitGroup
+	for _, peer := range peers {
+		wg.Add(1)
+		go func(p PeerInfo) {
+			defer func() {
+				if r := recover(); r != nil {
+					rn.logf("[raft/%s] RequestVote RPC panic recovered: %v", rn.id, r)
+				}
+			}()
+			defer wg.Done()
+			client, ok := rn.peerClients[p.ID]
+			if !ok {
+				rn.logf("[raft/%s] 未找到 peer %s 的 gRPC 客户端", rn.id, p.ID)
+				return
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+			defer cancel()
+
+			req := &pb.RequestVoteRequest{
+				Term:         term,
+				CandidateId:  rn.id,
+				LastLogIndex: rn.getLastLogIndex(),
+				LastLogTerm:  rn.getLastLogTerm(),
+			}
+
+			resp, err := client.RequestVote(ctx, req)
+			if err != nil {
+				rn.logf("[raft/%s] RequestVote → %s 失败: %v", rn.id, p.ID, err)
+				return
+			}
+
+			// 处理响应中的 term
+			if resp.Term > term {
+				rn.stepDown(resp.Term)
+				return
+			}
+
+			if resp.VoteGranted {
+				atomic.AddInt32(&votesGranted, 1)
+			}
+		}(peer)
+	}
+	wg.Wait()
+
+	// 检查是否赢得选举
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	if atomic.LoadInt32(&votesGranted) >= int32(votesNeeded) &&
+		rn.state == StateCandidate &&
+		atomic.LoadInt64(&rn.term) == term {
+		rn.logf("[raft/%s] 赢得选举！得票 %d/%d (term=%d, elapsed=%v)",
+			rn.id, votesGranted, peersCount+1, term, time.Since(rn.electionStart))
+
+		// 切换到 Leader
+		rn.state = StateLeader
+		rn.leaderID = rn.id
+
+		// 选举风暴自愈：重置计数器
+		rn.candidateFailCount = 0
+		rn.firstCandidateTime = time.Time{}
+
+		// 初始化 Leader 状态
+		lastLogIdx := int64(len(rn.logs))
+		for _, p := range rn.peers {
+			rn.nextIdx[p.ID] = lastLogIdx + 1
+			rn.matchIdx[p.ID] = 0
+		}
+
+		// 启动心跳循环
+		go rn.heartbeatLoop()
+
+		// TCX-Ⅳ: 启动批量同步管理器
+		if rn.batchSyncMgr != nil {
+			rn.batchSyncMgr.Start()
+		}
+
+		rn.updateStats()
+	} else {
+		rn.logf("[raft/%s] 选举失败 (得票 %d/%d, term=%d)",
+			rn.id, votesGranted, peersCount+1, term)
+
+		// 选举风暴自愈：连续3次以上选举失败且在60秒窗口内，强制突破 logCaughtUp 死锁
+		rn.candidateFailCount++
+		if rn.candidateFailCount >= 3 && time.Since(rn.firstCandidateTime) <= 60*time.Second {
+			if !rn.logCaughtUp {
+				rn.logCaughtUp = true
+				rn.logf("[raft/%s] ⚡ 选举风暴自愈: 连续 %d 次选举失败，强制突破 logCaughtUp 死锁", rn.id, rn.candidateFailCount)
+			}
+		}
+	}
+}
+
+// =========================================================================
+// 降级为 Follower（收到更高 term 的消息时）
+// =========================================================================
+
+func (rn *RaftNode) stepDown(higherTerm int64) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	if higherTerm <= rn.term {
+		return
+	}
+
+	rn.logf("[raft/%s] stepDown: term %d → %d (当前状态: %s)",
+		rn.id, rn.term, higherTerm, rn.state)
+
+	oldState := rn.state
+	rn.term = higherTerm
+	rn.state = StateFollower
+	rn.votedFor = ""
+	rn.leaderID = ""
+
+	// 如果之前是 Leader，停止心跳
+	if oldState == StateLeader {
+		select {
+		case rn.heartbeatStop <- struct{}{}:
+		default:
+		}
+		// TCX-Ⅳ: 停止批量同步管理器
+		if rn.batchSyncMgr != nil {
+			rn.batchSyncMgr.Stop()
+			rn.batchSyncMgr = NewBatchSyncManager(rn, rn.batchSyncMgr.config)
+		}
+	}
+
+	// 重置选举计时器
+	rn.electionTimer.Reset(randomElectionTimeout())
+
+	rn.updateStats()
+}
+
+// =========================================================================
+// Leader 心跳循环
+// =========================================================================
+
+func (rn *RaftNode) heartbeatLoop() {
+	ticker := time.NewTicker(rn.currentHeartbeatInterval)
+	defer ticker.Stop()
+
+	rn.logf("[raft/%s] 心跳循环启动 (间隔: %v)", rn.id, rn.currentHeartbeatInterval)
+
+	for {
+		select {
+		case <-rn.shutdownCh:
+			rn.logf("[raft/%s] 心跳循环关闭 (shutdown)", rn.id)
+			return
+
+		case <-rn.heartbeatStop:
+			rn.logf("[raft/%s] 心跳循环停止 (降级)", rn.id)
+			return
+
+		case <-ticker.C:
+			rn.sendHeartbeats()
+			newInterval := rn.adaptiveHeartbeatAdjust()
+			if newInterval != rn.currentHeartbeatInterval {
+				rn.currentHeartbeatInterval = newInterval
+				ticker.Reset(newInterval)
+				rn.logf("[raft/%s] 自适应心跳调整: %v", rn.id, newInterval)
+			}
+		}
+	}
+}
+
+func (rn *RaftNode) sendHeartbeats() {
+	rn.mu.RLock()
+	if rn.state != StateLeader {
+		rn.mu.RUnlock()
+		return
+	}
+	term := rn.term
+	leaderCommit := rn.commitIdx
+	peers := make([]PeerInfo, len(rn.peers))
+	copy(peers, rn.peers)
+	nextIdxSnapshot := make(map[string]int64, len(rn.nextIdx))
+	for k, v := range rn.nextIdx {
+		nextIdxSnapshot[k] = v
+	}
+	logSnapshot := make([]RaftLog, len(rn.logs))
+	copy(logSnapshot, rn.logs)
+	rn.mu.RUnlock()
+
+	var timeoutCount int32
+	var successCount int32
+
+	var wg sync.WaitGroup
+	for _, peer := range peers {
+		wg.Add(1)
+		go func(p PeerInfo) {
+			defer func() {
+				if r := recover(); r != nil {
+					rn.logf("[raft/%s] AppendEntries RPC panic recovered: %v", rn.id, r)
+				}
+			}()
+			defer wg.Done()
+			client, ok := rn.peerClients[p.ID]
+			if !ok {
+				return
+			}
+
+			prevLogIdx := nextIdxSnapshot[p.ID] - 1
+			var prevLogTerm int64
+			if prevLogIdx > 0 && int(prevLogIdx-1) < len(logSnapshot) {
+				prevLogTerm = logSnapshot[prevLogIdx-1].Term
+			}
+
+			// V2.3: 收集待发送日志条目（心跳 + 日志复制，含配置条目）
+			var entries []*pb.LogEntry
+			startIdx := nextIdxSnapshot[p.ID]
+			for i := startIdx; i <= int64(len(logSnapshot)); i++ {
+				if i > 0 && int(i-1) < len(logSnapshot) {
+					entries = append(entries, &pb.LogEntry{
+						Term:    logSnapshot[i-1].Term,
+						Index:   logSnapshot[i-1].Index,
+						Command: logSnapshot[i-1].Command,
+						Sm3Hash: logSnapshot[i-1].SM3Hash,
+					})
+				}
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+			defer cancel()
+
+			req := &pb.AppendEntriesRequest{
+				Term:         term,
+				LeaderId:     rn.id,
+				PrevLogIndex: prevLogIdx,
+				PrevLogTerm:  prevLogTerm,
+				Entries:      entries,
+				LeaderCommit: leaderCommit,
+			}
+
+			resp, err := client.AppendEntries(ctx, req)
+			if err != nil {
+				atomic.AddInt32(&timeoutCount, 1)
+				return
+			}
+
+			atomic.AddInt32(&successCount, 1)
+
+			if resp.Term > term {
+				rn.stepDown(resp.Term)
+				return
+			}
+
+			// V2.3: 根据响应更新 nextIdx / matchIdx
+			if resp.Success {
+				rn.mu.Lock()
+				if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
+					newMatch := int64(len(logSnapshot))
+					if newMatch > rn.matchIdx[p.ID] {
+						rn.matchIdx[p.ID] = newMatch
+					}
+					rn.nextIdx[p.ID] = newMatch + 1
+				}
+				rn.mu.Unlock()
+			} else {
+				rn.mu.Lock()
+				if rn.nextIdx[p.ID] > 1 {
+					rn.nextIdx[p.ID]--
+				}
+				rn.mu.Unlock()
+			}
+		}(peer)
+	}
+	wg.Wait()
+
+	// V2.3: 推进 commitIdx（联合共识需 C_old 和 C_new 各自多数派）
+	rn.mu.Lock()
+	if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
+		oldPeers := rn.config.oldPeers()
+		newPeers := rn.config.newPeers()
+		for N := int64(len(rn.logs)); N > rn.commitIdx; N-- {
+			oldOK := true
+			newOK := true
+			if len(oldPeers) > 0 {
+				oldCount := 1 // Leader 自己
+				for _, p := range rn.peers {
+					if stringInSlice(p.ID, oldPeers) && rn.matchIdx[p.ID] >= N {
+						oldCount++
+					}
+				}
+				oldOK = oldCount >= len(oldPeers)/2+1
+			}
+			if len(newPeers) > 0 {
+				newCount := 1
+				for _, p := range rn.peers {
+					if stringInSlice(p.ID, newPeers) && rn.matchIdx[p.ID] >= N {
+						newCount++
+					}
+				}
+				newOK = newCount >= len(newPeers)/2+1
+			}
+			if oldOK && newOK {
+				oldCommit := rn.commitIdx
+				rn.commitIdx = N
+				rn.applyConfigChangesLocked(oldCommit, N)
+				break
+			}
+		}
+		rn.updateStats()
+	}
+	rn.mu.Unlock()
+
+	if timeoutCount > 0 {
+		atomic.AddInt32(&rn.consecutiveTimeouts, int32(timeoutCount))
+		atomic.StoreInt32(&rn.consecutiveSuccess, 0)
+	} else {
+		atomic.AddInt32(&rn.consecutiveSuccess, 1)
+		atomic.StoreInt32(&rn.consecutiveTimeouts, 0)
+	}
+}
+
+// =========================================================================
+// Propose — 客户端写入入口
+// Leader直接appendLog → sendHeartbeats(复制) → 等待多数派commit → 返回
+// =========================================================================
+
+func (rn *RaftNode) Propose(command []byte) (int64, error) {
+	rn.mu.Lock()
+	if rn.state != StateLeader {
+		leader := rn.leaderID
+		rn.mu.Unlock()
+		return 0, fmt.Errorf("not leader: current leader is %s", leader)
+	}
+	if rn.walGateClosed {
+		rn.mu.Unlock()
+		return 0, fmt.Errorf("WAL gate closed")
+	}
+
+	index := int64(len(rn.logs)) + 1
+	entry := RaftLog{
+		Index:   index,
+		Term:    rn.term,
+		Command: command,
+	}
+	rn.logs = append(rn.logs, entry)
+
+	rn.stats.Lock()
+	rn.stats.LogCount = len(rn.logs)
+	rn.stats.Unlock()
+
+	rn.mu.Unlock()
+
+	rn.logf("[raft/%s] Propose: index=%d term=%d cmd_len=%d", rn.id, index, entry.Term, len(command))
+
+	for attempt := 0; attempt < 50; attempt++ {
+		rn.sendHeartbeats()
+
+		rn.mu.RLock()
+		committed := rn.commitIdx >= index
+		stillLeader := rn.state == StateLeader
+		rn.mu.RUnlock()
+
+		if committed {
+			return index, nil
+		}
+		if !stillLeader {
+			return 0, fmt.Errorf("lost leadership while waiting for commit at index=%d", index)
+		}
+
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	return 0, fmt.Errorf("commit timeout: index=%d not committed after 1s", index)
+}
+
+// GetLog 返回指定索引的日志条目（供客户端读取校验）
+func (rn *RaftNode) GetLog(index int64) (RaftLog, bool) {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	if index < 1 || int(index) > len(rn.logs) {
+		return RaftLog{}, false
+	}
+	return rn.logs[index-1], true
+}
+
+// V2.3: 应用已提交的配置变更（调用前必须持有 rn.mu 写锁）
+func (rn *RaftNode) applyConfigChangesLocked(from, to int64) {
+	for i := from + 1; i <= to; i++ {
+		if int(i-1) < 0 || int(i-1) >= len(rn.logs) {
+			continue
+		}
+		if !isConfigEntry(rn.logs[i-1].Command) {
+			continue
+		}
+		change, ok := decodeConfigChange(rn.logs[i-1].Command)
+		if !ok {
+			continue
+		}
+		rn.config.commitConfigChange(change)
+		if change.Type == ConfigAdd {
+			if _, exists := rn.peerAddrs[change.NodeID]; !exists && change.NodeID != rn.id {
+				rn.addPeerDynamic(change.NodeID, change.Address)
+			}
+		}
+		if change.Type == ConfigRemove {
+			if _, exists := rn.peerAddrs[change.NodeID]; exists {
+				rn.removePeerDynamic(change.NodeID)
+			}
+		}
+		rn.logf("[raft/%s] [membership] 配置变更已提交并应用: index=%d, type=%d, node=%s, C_new=%v",
+			rn.id, i, change.Type, change.NodeID, change.NewPeers)
+	}
+}
+
+// =========================================================================
+// gRPC 服务端处理 — RequestVote
+// =========================================================================
+
+func (rn *RaftNode) HandleRequestVote(
+	ctx context.Context, req *pb.RequestVoteRequest,
+) (*pb.RequestVoteResponse, error) {
+	rn.mu.Lock()
+
+	resp := &pb.RequestVoteResponse{Term: rn.term, VoteGranted: false}
+
+	if req.Term < rn.term {
+		resp.Term = rn.term
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	// V2.3: 拒绝不在当前配置中的候选者的投票请求（防止被移除的节点扰乱集群）
+	if rn.config != nil {
+		allNodes := rn.config.allNodes()
+		if len(allNodes) > 1 && !stringInSlice(req.CandidateId, allNodes) {
+			rn.mu.Unlock()
+			return resp, nil
+		}
+	}
+
+	if req.Term > rn.term {
+		if req.Term-rn.term > 10000 {
+			rn.logf("[raft/%s] 拦截异常高 Term 飙升: 候选者 Term=%d, 本地 Term=%d, 差额=%d, 更新term并拒绝投票",
+				rn.id, req.Term, rn.term, req.Term-rn.term)
+			rn.term = req.Term
+			rn.state = StateFollower
+			rn.votedFor = ""
+			rn.leaderID = ""
+			rn.electionTimer.Reset(randomElectionTimeout())
+			resp.Term = req.Term
+			rn.mu.Unlock()
+			return resp, nil
+		}
+		rn.term = req.Term
+		rn.state = StateFollower
+		rn.votedFor = ""
+		rn.leaderID = ""
+		rn.electionTimer.Reset(randomElectionTimeout())
+		resp.Term = req.Term
+	}
+
+	if !rn.walReplayCompleted {
+		rn.logf("[raft/%s] 拒绝投票给 %s: WAL重放未完成", rn.id, req.CandidateId)
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	if rn.walGateClosed {
+		rn.logf("[raft/%s] 拒绝投票给 %s: WAL门禁关闭", rn.id, req.CandidateId)
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	if rn.votedFor != "" && rn.votedFor != req.CandidateId {
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	// 严格拦截规则 1：自身日志未追上 Leader 的新节点不参与投票
+	// 豁免：从未见过 Leader（lastHeartbeat zero，全新集群）时允许投票给首个候选者，避免选举死锁
+	// 选举风暴自愈（自身突破）：连续3次以上选举失败且在60秒窗口内，强制突破 logCaughtUp 死锁
+	if !rn.logCaughtUp && rn.candidateFailCount >= 3 && !rn.firstCandidateTime.IsZero() && time.Since(rn.firstCandidateTime) <= 60*time.Second {
+		rn.logCaughtUp = true
+		rn.logf("[raft/%s] ⚡ 投票死锁突破(自身): 连续 %d 次选举失败(窗口内)，强制 logCaughtUp=true",
+			rn.id, rn.candidateFailCount)
+	}
+	// 选举风暴自愈（协同突破）：候选者 term 高出 3+，说明其已经历多轮选举失败
+	// 当前节点强制突破 logCaughtUp，允许投票给该候选者 —— 解决9节点跨机房死锁
+	if !rn.logCaughtUp && req.Term-rn.term >= 3 && !rn.lastHeartbeat.IsZero() && time.Since(rn.lastHeartbeat) > 3*time.Second {
+		rn.logCaughtUp = true
+		rn.logf("[raft/%s] ⚡ 投票死锁突破(协同): 候选者 %s term=%d 高出 %d，强制 logCaughtUp=true",
+			rn.id, req.CandidateId, req.Term, req.Term-rn.term)
+	}
+	if !rn.logCaughtUp && !rn.lastHeartbeat.IsZero() {
+		rn.logf("[raft/%s] 拒绝投票给 %s: 自身日志尚未追上 Leader (logCaughtUp=false)",
+			rn.id, req.CandidateId)
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	// 严格拦截规则 2：空日志候选者在集群已有提交日志时绝对禁止当选
+	if req.LastLogIndex == 0 && rn.commitIdx > 0 {
+		rn.logf("[raft/%s] 拒绝投票给 %s: 候选者日志为空但集群已提交到 index=%d",
+			rn.id, req.CandidateId, rn.commitIdx)
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	lastIdx := int64(len(rn.logs))
+	var lastTerm int64
+	if lastIdx > 0 {
+		lastTerm = rn.logs[lastIdx-1].Term
+	}
+
+	if req.LastLogTerm < lastTerm ||
+		(req.LastLogTerm == lastTerm && req.LastLogIndex < lastIdx) {
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	rn.votedFor = req.CandidateId
+	rn.electionTimer.Reset(randomElectionTimeout())
+	resp.VoteGranted = true
+
+	rn.updateStats()
+	rn.mu.Unlock()
+
+	return resp, nil
+}
+
+// =========================================================================
+// gRPC 服务端处理 — AppendEntries (心跳 + 日志复制)
+// =========================================================================
+
+func (rn *RaftNode) HandleAppendEntries(
+	ctx context.Context, req *pb.AppendEntriesRequest,
+) (*pb.AppendEntriesResponse, error) {
+	rn.mu.Lock()
+
+	resp := &pb.AppendEntriesResponse{Term: rn.term, Success: false}
+
+	if rn.walGateClosed {
+		atomic.AddInt64(&rn.rejectedWriteCount, 1)
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	if req.Term < rn.term {
+		resp.Term = rn.term
+		rn.mu.Unlock()
+		return resp, nil
+	}
+
+	if req.Term > rn.term {
+		rn.term = req.Term
+		rn.state = StateFollower
+		rn.votedFor = ""
+	} else if req.Term == rn.term && rn.state == StateLeader {
+		// Fix #4: 同Term的Leader拒绝AppendEntries — Raft保证同Term最多一个Leader，
+		// 收到同Term AppendEntries说明对端自称Leader，属异常，拒绝以保护日志完整性
+		rn.mu.Unlock()
+		return resp, nil
+	} else if req.Term == rn.term && rn.state == StateCandidate {
+		// V2.3: 同Term收到Leader有效心跳：Candidate回正为Follower
+		rn.state = StateFollower
+		rn.votedFor = ""
+	}
+
+	// V2.3: 拒绝不在当前配置中的 Leader（已被移除的节点不能继续当 Leader）
+	// 但新节点（配置只有自己）可以接受任何 Leader 的 AppendEntries
+	if rn.config != nil {
+		allNodes := rn.config.allNodes()
+		if len(allNodes) > 1 && !stringInSlice(req.LeaderId, allNodes) {
+			rn.mu.Unlock()
+			return resp, nil
+		}
+	}
+
+	rn.electionTimer.Reset(randomElectionTimeout())
+	rn.leaderID = req.LeaderId
+	rn.lastHeartbeat = time.Now() // 收到 Leader 消息即刷新心跳（含心跳/日志同步）
+
+	if len(req.Entries) == 0 {
+		var committedLogs []RaftLog
+		// Fix #2: 仅Follower才根据LeaderCommit推进commitIdx，防止外部请求直接推进
+		if req.LeaderCommit > rn.commitIdx && rn.state == StateFollower {
+			oldCommit := rn.commitIdx
+			lastLogIdx := int64(len(rn.logs))
+			if req.LeaderCommit < lastLogIdx {
+				rn.commitIdx = req.LeaderCommit
+			} else {
+				rn.commitIdx = lastLogIdx
+			}
+			committedLogs = rn.collectCommittedLogs(oldCommit)
+			rn.applyConfigChangesLocked(oldCommit, rn.commitIdx) // V2.3
+		}
+		// 日志追上 Leader 后，允许参与选举
+		if !rn.logCaughtUp && req.LeaderCommit > 0 && int64(len(rn.logs)) >= req.LeaderCommit {
+			rn.logCaughtUp = true
+			rn.logf("[raft/%s] 日志已追上 Leader (logs=%d, leaderCommit=%d)，允许参与选举",
+				rn.id, len(rn.logs), req.LeaderCommit)
+		}
+		resp.Success = true
+		rn.updateStats()
+		rn.mu.Unlock()
+		rn.fireOnCommit(committedLogs)
+		return resp, nil
+	}
+
+	lastLogIdx := int64(len(rn.logs))
+
+	if req.PrevLogIndex > lastLogIdx {
+		rn.mu.Unlock()
+		return resp, nil
+	}
+	if req.PrevLogIndex > 0 {
+		if rn.logs[req.PrevLogIndex-1].Term != req.PrevLogTerm {
+			rn.mu.Unlock()
+			return resp, nil
+		}
+	}
+
+	for _, entry := range req.Entries {
+		if entry.Index <= lastLogIdx {
+			if entry.Index > 0 && int(entry.Index-1) < len(rn.logs) {
+				if rn.logs[entry.Index-1].Term != entry.Term {
+					rn.logs = rn.logs[:entry.Index-1]
+				}
+			}
+		}
+		if entry.Index > int64(len(rn.logs)) {
+			rn.logs = append(rn.logs, RaftLog{
+				Index:   entry.Index,
+				Term:    entry.Term,
+				Command: entry.Command,
+				SM3Hash: entry.Sm3Hash,
+			})
+		}
+	}
+
+	var committedLogs []RaftLog
+	// Fix #2: 仅Follower才根据LeaderCommit推进commitIdx，防止外部请求直接推进
+	if req.LeaderCommit > rn.commitIdx && rn.state == StateFollower {
+		oldCommit := rn.commitIdx
+		newLast := int64(len(rn.logs))
+		if req.LeaderCommit < newLast {
+			rn.commitIdx = req.LeaderCommit
+		} else {
+			rn.commitIdx = newLast
+		}
+		rn.lastApplied = rn.commitIdx
+		committedLogs = rn.collectCommittedLogs(oldCommit)
+		rn.applyConfigChangesLocked(oldCommit, rn.commitIdx) // V2.3
+	}
+
+	// 日志追上 Leader 后，允许参与选举
+	if !rn.logCaughtUp && req.LeaderCommit > 0 && int64(len(rn.logs)) >= req.LeaderCommit {
+		rn.logCaughtUp = true
+		rn.logf("[raft/%s] 日志已追上 Leader (logs=%d, leaderCommit=%d)，允许参与选举",
+			rn.id, len(rn.logs), req.LeaderCommit)
+	}
+
+	resp.Success = true
+	rn.updateStats()
+	rn.mu.Unlock()
+	rn.fireOnCommit(committedLogs)
+
+	return resp, nil
+}
+
+// =========================================================================
+// 状态转换
+// =========================================================================
+
+func (rn *RaftNode) transitionTo(newState NodeState) {
+	rn.mu.Lock()
+	oldState := rn.state
+	rn.state = newState
+	rn.mu.Unlock()
+
+	rn.logf("[raft/%s] 状态转换: %s → %s", rn.id, oldState, newState)
+}
+
+// =========================================================================
+// 安全关闭
+// =========================================================================
+
+func (rn *RaftNode) Shutdown() {
+	rn.shutdownOnce.Do(func() {
+		close(rn.shutdownCh)
+		rn.logf("[raft/%s] 节点已安全关闭", rn.id)
+	})
+}
+
+// =========================================================================
+// 内部辅助方法
+// =========================================================================
+
+func (rn *RaftNode) getLastLogIndex() int64 {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return int64(len(rn.logs))
+}
+
+func (rn *RaftNode) getLastLogTerm() int64 {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	if len(rn.logs) == 0 {
+		return 0
+	}
+	return rn.logs[len(rn.logs)-1].Term
+}
+
+func (rn *RaftNode) updateStats() {
+	s := rn.stats
+	s.State = rn.state.String()
+	s.Term = rn.term
+	s.LeaderID = rn.leaderID
+	s.CommitIndex = rn.commitIdx
+	s.LastApplied = rn.lastApplied
+	s.LogCount = len(rn.logs)
+	s.PeerCount = len(rn.peers)
+	s.VotedFor = rn.votedFor
+}
+
+func (rn *RaftNode) peerIDs() []string {
+	ids := make([]string, len(rn.peers))
+	for i, p := range rn.peers {
+		ids[i] = p.ID
+	}
+	return ids
+}
+
+func (rn *RaftNode) logf(format string, args ...interface{}) {
+	if rn.logger != nil {
+		rn.logger.Printf(format, args...)
+	}
+}
+
+// =========================================================================
+// 工具函数
+// =========================================================================
+
+func randomElectionTimeout() time.Duration {
+	ms := electionTimeoutMin + rand.Intn(electionTimeoutMax-electionTimeoutMin)
+	return time.Duration(ms) * time.Millisecond
+}
+
+func (rn *RaftNode) adaptiveHeartbeatAdjust() time.Duration {
+	timeouts := atomic.LoadInt32(&rn.consecutiveTimeouts)
+	successes := atomic.LoadInt32(&rn.consecutiveSuccess)
+
+	if timeouts >= int32(adaptiveTimeoutThreshold) {
+		return heartbeatIntervalMax
+	}
+
+	if successes >= int32(adaptiveRecoverySuccess) {
+		return heartbeatIntervalMin
+	}
+
+	return rn.currentHeartbeatInterval
+}
