@@ -874,6 +874,7 @@ func (rn *RaftNode) sendHeartbeats() {
 				rn.commitIdx = N
 				rn.applyConfigChangesLocked(oldCommit, N)
 				committedLogs = rn.collectCommittedLogs(oldCommit)
+				rn.lastApplied = rn.commitIdx
 				break
 			}
 		}
