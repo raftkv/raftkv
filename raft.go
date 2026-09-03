@@ -1163,6 +1163,7 @@ func (rn *RaftNode) HandleAppendEntries(
 			} else {
 				rn.commitIdx = lastLogIdx
 			}
+			rn.lastApplied = rn.commitIdx
 			committedLogs = rn.collectCommittedLogs(oldCommit)
 			rn.applyConfigChangesLocked(oldCommit, rn.commitIdx) // V2.3
 		}
