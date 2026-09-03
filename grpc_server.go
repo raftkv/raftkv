@@ -271,8 +271,12 @@ func (m *PeerClientManager) GetClient(peerID string) (pb.RaftServiceClient, bool
 	}
 	// 检查连接状态
 	state := pc.conn.GetState()
-	if state == connectivity.Shutdown || state == connectivity.TransientFailure {
+	if state == connectivity.Shutdown {
 		return nil, false
+	}
+	// TransientFailure 或 Idle 时主动触发重连，返回 client 让调用方尝试 RPC
+	if state == connectivity.TransientFailure || state == connectivity.Idle {
+		pc.conn.Connect()
 	}
 	return pc.client, true
 }
