@@ -17,14 +17,14 @@ EVIDENCE_DIR="${TESTS_DIR}/evidence"
 # ── 参数解析 ──
 BRANCH="${1:?用法: knife_run.sh <branch> <tag> [suites] [--no-tag]}"
 TAG="${2:?用法: knife_run.sh <branch> <tag> [suites] [--no-tag]}"
-SUITES="${3:-baseline,idem,wal_snap}"
+SUITES="${3:-baseline,idem,wal_snap,health}"
 NO_TAG=false
 if [ "${4:-}" = "--no-tag" ] || [ "${5:-}" = "--no-tag" ]; then
     NO_TAG=true
 fi
 
 # ── 配置 ──
-LAST_GREEN_TAG="${LAST_GREEN_TAG:-v1.0.0-dev5}"
+LAST_GREEN_TAG="${LAST_GREEN_TAG:-v1.0.0-dev6}"
 IMAGE_NAME="daijin235-v26:ci-knife"
 ROLLBACK_IMAGE="daijin235-v26:ci-rollback"
 LICENSE_DIR="${LICENSE_DIR:-/licenses}"
@@ -183,6 +183,9 @@ for suite in "${SUITE_LIST[@]}"; do
             ;;
         wal_snap)
             bash "${TESTS_DIR}/suite_wal_snap.sh" 2>&1 | tee "$suite_log"
+            ;;
+        health)
+            bash "${TESTS_DIR}/suite_health.sh" 2>&1 | tee "$suite_log"
             ;;
         *)
             echo "  [ERROR] 未知套件: $suite"
