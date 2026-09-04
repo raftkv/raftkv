@@ -333,3 +333,18 @@ is_exited() {
     state=$(docker inspect -f '{{.State.Status}}' "$1" 2>/dev/null)
     [ "$state" = "exited" ] || [ "$state" = "" ]
 }
+
+# ── 等待容器退出 <container_name> [timeout_sec] ──
+# 每秒检查一次，容器exited或missing则返回0，超时返回1
+wait_for_exit() {
+    local container="$1"
+    local timeout="${2:-15}"
+    local i
+    for i in $(seq 1 "$timeout"); do
+        if is_exited "$container"; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
