@@ -38,8 +38,8 @@ sleep 10
 s2=$(stats "$leader")
 commit2=$(extract_stat "$s2" commit)
 logs2=$(extract_stat "$s2" logs)
-assert_eq "$commit2" "61" "t20: commit after restart"
-assert_eq "$logs2" "61" "t20: logs after restart"
+assert_eq "$commit2" "62" "t20: commit after restart (60 data + 2 no-op)"
+assert_eq "$logs2" "62" "t20: logs after restart"
 docker logs "$(_c_name "$leader")" 2>&1 | grep "WAL回放" | log_evidence "t20_replay.log"
 down_cluster "${RID}-t20"
 
@@ -88,6 +88,7 @@ down_cluster "${RID}-t21"
 t_begin "t22" "old_volume_compat: old-format WAL → current code replay → recover 20"
 
 FIXTURE_DIR="${TESTS_DIR}/fixtures/oldfmt-wal-1"
+FIXTURE_DIR_HOSTA="${FIXTURE_DIR_HOST:-${FIXTURE_DIR}}"
 FIXTURE_WAL_GZ="${FIXTURE_DIR}/daijin235_raft.wal.gz"
 FIXTURE_KEY_FILE="${FIXTURE_DIR}/sm4_key.txt"
 
@@ -104,8 +105,8 @@ else
     docker network create "$t22_net" 2>/dev/null
     docker volume create "$t22_vol" 2>/dev/null
     
-    # 解压旧格式WAL并复制到新卷
-    docker run --rm -v "$FIXTURE_DIR:/fixture:ro" -v "$t22_vol:/app/wal-data" alpine:3.21 \
+    # 解压旧格式WAL并复制到新卷 (FIXTURE_DIR_HOST用于Docker volume挂载)
+    docker run --rm -v "${FIXTURE_DIR_HOSTA}:/fixture:ro" -v "$t22_vol:/app/wal-data" alpine:3.21 \
         sh -c 'gunzip -c /fixture/daijin235_raft.wal.gz > /app/wal-data/daijin235_raft.wal'
     
     # 用当前镜像启动, 挂载旧WAL
@@ -122,7 +123,7 @@ else
     echo "$t22_logs" | log_evidence "t22_replay.log"
     
     # 旧格式WAL无no-op, 20条数据, commit=20
-    recovered=$(echo "$t22_logs" | grep "恢复" | grep -o '[0-9]\+' | head -1)
+    recovered=$(echo "$t22_logs" | grep "恢复" | sed -n 's/.*恢复 *\([0-9][0-9]*\) *条.*/\1/p' | head -1)
     assert_eq "$recovered" "20" "t22: recovered 20 entries from old-format WAL"
     
     t22_stats=$(docker exec "$t22_c" curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || echo "")
@@ -143,11 +144,11 @@ up_cluster "${RID}-t23" || { echo "[t23] FAIL: cluster up"; suite_end; exit 1; }
 
 # 在容器内扫描二进制
 leak_count=$(docker exec "$(_c_name 1)" \
-    sh -c 'grep -c "daijin235_012345" /app/gateway 2>/dev/null || echo 0')
+    sh -c 'grep -c "daijin235_012345" /app/gateway 2>/dev/null || true')
 assert_eq "$leak_count" "0" "t23: no hardcoded key in binary"
 
 # 也扫描容器环境变量(不应包含旧key)
-env_leak=$(docker exec "$(_c_name 1)" env 2>/dev/null | grep -c "daijin235_012345" || echo 0)
+env_leak=$(docker exec "$(_c_name 1)" env 2>/dev/null | grep -c "daijin235_012345" || true)
 assert_eq "$env_leak" "0" "t23: no hardcoded key in env"
 
 echo "binary_hits=$leak_count env_hits=$env_leak" | log_evidence "t23_leak.txt"
