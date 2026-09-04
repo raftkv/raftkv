@@ -46,6 +46,12 @@ func main() {
 	// 环境变量回退：命令行参数为空时从环境变量读取
 	nodeID := envOr("NODE_ID", *id, "node-1")
 	grpcPort := envOr("GRPC_PORT", *port, "9500")
+	if _, err := strconv.Atoi(grpcPort); err != nil {
+		log.Fatalf("[main] GRPC_PORT 非法 (%q): 必须为正整数", grpcPort)
+	}
+	if n, _ := strconv.Atoi(grpcPort); n <= 0 {
+		log.Fatalf("[main] GRPC_PORT 非法 (%q): 必须为正整数", grpcPort)
+	}
 	httpListen := envOr("HTTP_PORT", *httpPort, "9000")
 	httpBind := envOr("HTTP_BIND", "", "127.0.0.1")
 	peerList := envOr("PEERS", *peersRaw, "")

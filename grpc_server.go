@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -57,11 +58,44 @@ func (svc *RaftServiceImpl) AppendEntries(
 // =========================================================================
 
 type GRPCServer struct {
-	node     *RaftNode
-	listener net.Listener
-	server   *grpc.Server
-	ready    atomic.Bool
-	port     string
+	node       *RaftNode
+	listener   net.Listener
+	server     *grpc.Server
+	healthSrv  *healthServer
+	ready      atomic.Bool
+	port       string
+}
+
+// =========================================================================
+// healthServer — grpc.health.v1 健康检查实现
+// 判定标准: !walGateClosed → SERVING; walGateClosed → NOT_SERVING
+// Watch流式暂不实现(进backlog)
+// =========================================================================
+
+type healthServer struct {
+	healthpb.UnimplementedHealthServer
+	node *RaftNode
+}
+
+func (h *healthServer) Check(
+	ctx context.Context,
+	req *healthpb.HealthCheckRequest,
+) (*healthpb.HealthCheckResponse, error) {
+	if h.node.IsWALGateClosed() {
+		return &healthpb.HealthCheckResponse{
+			Status: healthpb.HealthCheckResponse_NOT_SERVING,
+		}, nil
+	}
+	return &healthpb.HealthCheckResponse{
+		Status: healthpb.HealthCheckResponse_SERVING,
+	}, nil
+}
+
+func (h *healthServer) Watch(
+	req *healthpb.HealthCheckRequest,
+	stream healthpb.Health_WatchServer,
+) error {
+	return status.Error(codes.Unimplemented, "Watch not implemented (backlog)")
 }
 
 func NewGRPCServer(node *RaftNode, port string) *GRPCServer {
@@ -106,6 +140,10 @@ func (s *GRPCServer) Start() error {
 	// 注册 Raft 服务实现
 	raftSvc := newRaftServiceImpl(s.node)
 	pb.RegisterRaftServiceServer(s.server, raftSvc)
+
+	// 注册 gRPC 健康检查服务 (grpc.health.v1)
+	s.healthSrv = &healthServer{node: s.node}
+	healthpb.RegisterHealthServer(s.server, s.healthSrv)
 
 	// 注册 gRPC reflection（方便 grpcurl 调试）
 	reflection.Register(s.server)

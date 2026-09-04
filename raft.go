@@ -421,6 +421,12 @@ func (rn *RaftNode) IsLeader() bool {
 	return rn.state == StateLeader
 }
 
+func (rn *RaftNode) IsWALGateClosed() bool {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return rn.walGateClosed
+}
+
 // SetOnCommit 设置日志提交回调
 // 当 Raft 日志被提交（commitIdx 前进）时调用此回调
 // 用于接入 WAL 加密持久化 + TiDB/MySQL 异步落盘管线

@@ -20,7 +20,7 @@ docker run -d --name "t01a-${RID}" --network none \
     -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
-sleep 3
+wait_for_exit "t01a-${RID}" 15
 t01a_state=$(docker inspect -f '{{.State.Status}}' "t01a-${RID}" 2>/dev/null || echo "missing")
 t01a_logs=$(docker logs "t01a-${RID}" 2>&1 || true)
 docker rm -f "t01a-${RID}" 2>/dev/null || true
@@ -34,7 +34,7 @@ docker run -d --name "t01b-${RID}" --network none \
     -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
-sleep 3
+wait_for_exit "t01b-${RID}" 15
 t01b_state=$(docker inspect -f '{{.State.Status}}' "t01b-${RID}" 2>/dev/null || echo "missing")
 t01b_logs=$(docker logs "t01b-${RID}" 2>&1 || true)
 docker rm -f "t01b-${RID}" 2>/dev/null || true
@@ -62,9 +62,9 @@ s_after=$(stats "$leader")
 commit_after=$(extract_stat "$s_after" commit)
 logs_after=$(extract_stat "$s_after" logs)
 applied_after=$(extract_stat "$s_after" applied)
-assert_eq "$commit_after" "101" "t02: commit after restart"
-assert_eq "$logs_after" "101" "t02: logs after restart"
-assert_eq "$applied_after" "101" "t02: applied after restart"
+assert_eq "$commit_after" "102" "t02: commit after restart (100 data + 2 no-op)"
+assert_eq "$logs_after" "102" "t02: logs after restart"
+assert_eq "$applied_after" "102" "t02: applied after restart"
 
 docker logs "$(_c_name "$leader")" 2>&1 | grep "WAL回放" | log_evidence "t02_replay.log"
 down_cluster "${RID}-t02"
@@ -132,7 +132,7 @@ restart_node 1; restart_node 2
 sleep 10
 s2=$(stats "$leader")
 commit2=$(extract_stat "$s2" commit)
-assert_eq "$commit2" "51" "t05: commit after restart"
+assert_eq "$commit2" "52" "t05: commit after restart (50 data + 2 no-op)"
 docker logs "$(_c_name "$leader")" 2>&1 | grep "WAL回放" | log_evidence "t05_replay.log"
 down_cluster "${RID}-t05"
 
@@ -150,7 +150,7 @@ docker run -d --name "t06a-${RID}" --network none \
     -e WAL_FLUSH_INTERVAL_MS=abc \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
-sleep 3
+wait_for_exit "t06a-${RID}" 15
 t06a_state=$(docker inspect -f '{{.State.Status}}' "t06a-${RID}" 2>/dev/null || echo "missing")
 docker rm -f "t06a-${RID}" 2>/dev/null || true
 assert_ne "$t06a_state" "running" "t06a: WAL_FLUSH_INTERVAL_MS=abc → not running"
@@ -162,7 +162,7 @@ docker run -d --name "t06b-${RID}" --network none \
     -e WAL_FLUSH_INTERVAL_MS=0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
-sleep 3
+wait_for_exit "t06b-${RID}" 15
 t06b_state=$(docker inspect -f '{{.State.Status}}' "t06b-${RID}" 2>/dev/null || echo "missing")
 docker rm -f "t06b-${RID}" 2>/dev/null || true
 assert_ne "$t06b_state" "running" "t06b: WAL_FLUSH_INTERVAL_MS=0 → not running"
