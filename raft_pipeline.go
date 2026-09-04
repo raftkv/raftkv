@@ -19,6 +19,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -45,12 +46,26 @@ type PipelineConfig struct {
 	SinkConfig adapters.SinkConfig
 }
 
+// loadSM4KeyFromEnv 从环境变量 SM4_KEY 读取 16 字节密钥（fail-closed）。
+// 未设置或非 32 位 hex 编码即拒绝启动；错误信息不包含密钥值。
+func loadSM4KeyFromEnv() []byte {
+	v := os.Getenv("SM4_KEY")
+	if v == "" {
+		log.Fatalf("[pipeline] SM4_KEY 未设置，拒绝启动 (fail-closed): 请通过环境变量 SM4_KEY 提供 32 位 hex 编码的 16 字节密钥")
+	}
+	key, err := hex.DecodeString(v)
+	if err != nil || len(key) != 16 {
+		log.Fatalf("[pipeline] SM4_KEY 非法，拒绝启动 (fail-closed): 必须为 32 位 hex 编码的 16 字节密钥")
+	}
+	return key
+}
+
 // DefaultPipelineConfig 默认管线配置
 func DefaultPipelineConfig() PipelineConfig {
 	return PipelineConfig{
 		EnableWAL:  true,
 		WALPath:    filepath.Join("/app/wal-data", "daijin235_raft.wal"),
-		SM4Key:     []byte("daijin235_012345"), // 16 字节默认密钥（生产环境应从 KMS 加载）
+		SM4Key:     loadSM4KeyFromEnv(),
 		EnableSink: false,
 		SinkConfig: adapters.DefaultSinkConfig(),
 	}
