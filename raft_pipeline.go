@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"daijin235/pkg/adapters"
@@ -95,6 +96,9 @@ type RaftPipeline struct {
 	totalCommitted int64
 	walErrors      int64
 	sinkErrors     int64
+
+	// 快照压缩
+	snapshotThreshold int64
 }
 
 // NewRaftPipeline 创建 Raft 处理管线
@@ -104,6 +108,13 @@ func NewRaftPipeline(cfg PipelineConfig) (*RaftPipeline, error) {
 		walPath:    cfg.WALPath,
 		enableSink: cfg.EnableSink,
 		logger:     log.New(os.Stderr, "[pipeline] ", log.LstdFlags),
+	}
+
+	p.snapshotThreshold = 10000
+	if v := os.Getenv("WAL_SNAPSHOT_THRESHOLD"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			p.snapshotThreshold = int64(n)
+		}
 	}
 
 	// 初始化加密 WAL 存储
@@ -252,6 +263,17 @@ func (p *RaftPipeline) OnCommit(log RaftLog) {
 		if err := p.storage.AppendRaftLog(log); err != nil {
 			p.walErrors++
 			p.logger.Printf("WAL 写入失败 index=%d: %v", log.Index, err)
+		}
+
+		if p.snapshotThreshold > 0 && p.totalCommitted >= p.snapshotThreshold {
+			n, oldBytes, err := p.storage.Snapshot()
+			if err != nil {
+				p.walErrors++
+				p.logger.Printf("快照失败: %v", err)
+			} else {
+				p.logger.Printf("快照触发: %d 条, WAL 释放 %d 字节", n, oldBytes)
+				p.totalCommitted = 0
+			}
 		}
 	}
 
