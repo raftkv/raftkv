@@ -23,8 +23,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -34,11 +36,32 @@ import (
 // =========================================================================
 
 const (
-	walPreallocSize  = int64(1 << 30)       // 1GB 预分配
+	walPreallocSize = int64(1 << 30) // 1GB 预分配
+	walLenPrefix    = 4              // 每条记录长度前缀字节数
+)
+
+var (
 	walMaxBatch      = 256                  // 批量 fsync 最大条数
 	walFlushInterval = 5 * time.Millisecond // 批量 fsync 时间窗口
-	walLenPrefix     = 4                    // 每条记录长度前缀字节数
 )
+
+
+func init() {
+	if v := os.Getenv("WAL_FLUSH_INTERVAL_MS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			log.Fatalf("[wal] WAL_FLUSH_INTERVAL_MS 非法 (%q): 必须为正整数", v)
+		}
+		walFlushInterval = time.Duration(n) * time.Millisecond
+	}
+	if v := os.Getenv("WAL_MAX_BATCH"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			log.Fatalf("[wal] WAL_MAX_BATCH 非法 (%q): 必须为正整数", v)
+		}
+		walMaxBatch = n
+	}
+}
 
 // =========================================================================
 // WAL 数据结构
