@@ -245,6 +245,7 @@ func main() {
 			index, perr := node.Propose(body)
 			idemTable.SetResult(token, index, perr)
 			if perr != nil {
+				idemTable.Remove(token)
 				json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": perr.Error()})
 			} else {
 				json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "index": index})
