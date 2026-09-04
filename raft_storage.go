@@ -18,11 +18,15 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"os"
 
 	"github.com/tjfoc/gmsm/sm4"
 )
@@ -136,14 +140,27 @@ func (es *EncryptedStorage) AppendRaftLog(log RaftLog) error {
 	})
 }
 
-// ReplayAll 读取 WAL 并解密所有日志
+// ReplayAll 读取 WAL 并解密所有日志（含快照）
 func (es *EncryptedStorage) ReplayAll() ([]RaftLog, error) {
+	var allLogs []RaftLog
+
+	snapshotPath := es.wal.path + ".snapshot.gz"
+	if data, err := os.ReadFile(snapshotPath); err == nil {
+		gz, err := gzip.NewReader(bytes.NewReader(data))
+		if err == nil {
+			decompressed, err := io.ReadAll(gz)
+			gz.Close()
+			if err == nil {
+				json.Unmarshal(decompressed, &allLogs)
+			}
+		}
+	}
+
 	entries, err := es.wal.Replay()
 	if err != nil {
 		return nil, err
 	}
 
-	logs := make([]RaftLog, 0, len(entries))
 	for _, entry := range entries {
 		decrypted, err := sm4CTRDecrypt(es.key, entry.Data)
 		if err != nil {
@@ -154,9 +171,52 @@ func (es *EncryptedStorage) ReplayAll() ([]RaftLog, error) {
 		if err := json.Unmarshal(decrypted, &log); err != nil {
 			return nil, fmt.Errorf("反序列化失败 index=%d: %w", entry.Index, err)
 		}
-		logs = append(logs, log)
+		allLogs = append(allLogs, log)
 	}
-	return logs, nil
+	return allLogs, nil
+}
+
+// Snapshot 创建 gzip 压缩快照并重置 WAL
+func (es *EncryptedStorage) Snapshot() (int, int64, error) {
+	es.wal.Flush()
+	logs, err := es.ReplayAll()
+	if err != nil {
+		return 0, 0, fmt.Errorf("快照读取失败: %w", err)
+	}
+
+	data, err := json.Marshal(logs)
+	if err != nil {
+		return 0, 0, fmt.Errorf("快照序列化失败: %w", err)
+	}
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(data); err != nil {
+		return 0, 0, fmt.Errorf("快照压缩失败: %w", err)
+	}
+	gz.Close()
+
+	snapshotPath := es.wal.path + ".snapshot.gz"
+	tmpPath := snapshotPath + ".tmp"
+	if err := os.WriteFile(tmpPath, buf.Bytes(), 0644); err != nil {
+		return 0, 0, fmt.Errorf("快照写入失败: %w", err)
+	}
+	if err := os.Rename(tmpPath, snapshotPath); err != nil {
+		return 0, 0, fmt.Errorf("快照重命名失败: %w", err)
+	}
+
+	oldSize := es.wal.offset
+
+	es.wal.Close()
+	os.Remove(es.wal.path)
+	wal, err := NewWAL(es.wal.path)
+	if err != nil {
+		return 0, 0, fmt.Errorf("WAL 重创建失败: %w", err)
+	}
+	es.wal = wal
+
+	log.Printf("[storage] 快照完成: %d 条, WAL %d → 0 字节, 快照 %d 字节", len(logs), oldSize, buf.Len())
+	return len(logs), oldSize, nil
 }
 
 // Close 关闭加密存储（含 WAL）
