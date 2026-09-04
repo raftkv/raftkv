@@ -352,6 +352,11 @@ func (w *WAL) Path() string {
 	return w.path
 }
 
+// Flush 强制刷新批缓冲到磁盘
+func (w *WAL) Flush() error {
+	return w.doFlush()
+}
+
 // HealthCheck WAL 健康检测，不修改WAL状态，仅执行可用性检测
 func (w *WAL) HealthCheck() error {
 	if w.closed {
