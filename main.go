@@ -217,6 +217,7 @@ func main() {
 			s.LogCount, s.PeerCount, s.VotedFor)
 		s.RUnlock()
 	})
+	idemTable := NewIdemTokenTable()
 	httpMux.HandleFunc("/raft/propose", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
@@ -228,13 +229,38 @@ func main() {
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 			return
 		}
-		index, err := node.Propose(body)
+		token := r.URL.Query().Get("idem_token")
 		w.Header().Set("Content-Type", "application/json")
+		if token != "" {
+			entry, duplicate := idemTable.GetOrCreate(token)
+			if duplicate {
+				<-entry.done
+				if entry.err != nil {
+					json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": entry.err.Error(), "duplicate": true})
+				} else {
+					json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "index": entry.index, "duplicate": true})
+				}
+				return
+			}
+			index, perr := node.Propose(body)
+			idemTable.SetResult(token, index, perr)
+			if perr != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": perr.Error()})
+			} else {
+				json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "index": index})
+			}
+			return
+		}
+		index, err := node.Propose(body)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 		} else {
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "index": index})
 		}
+	})
+	httpMux.HandleFunc("/idem/stats", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"size": idemTable.Size(), "capacity": idemTable.capacity})
 	})
 	httpMux.HandleFunc("/raft/get", func(w http.ResponseWriter, r *http.Request) {
 		indexStr := r.URL.Query().Get("index")
