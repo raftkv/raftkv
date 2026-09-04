@@ -9,35 +9,23 @@ suite_begin "health"
 
 RID="health-$(date +%s)"
 
-# ── 构建 grpc-health-probe helper镜像（一次性） ──
-PROBE_IMG="grpc-health-probe:ci"
-if ! docker image inspect "$PROBE_IMG" >/dev/null 2>&1; then
-    echo "[health] 构建 grpc-health-probe helper镜像..."
-    docker build --platform linux/amd64 -t "$PROBE_IMG" - << 'DOCKERFILE' 2>&1 | tail -5
-FROM golang:1.24-alpine AS builder
-ENV GOPROXY=https://goproxy.cn,direct
-ENV GOOS=linux GOARCH=amd64 CGO_ENABLED=0
-RUN go install github.com/grpc-ecosystem/grpc-health-probe@latest
-FROM alpine:latest
-COPY --from=builder /go/bin/grpc-health-probe /usr/local/bin/grpc-health-probe
-DOCKERFILE
-fi
-
-if ! docker image inspect "$PROBE_IMG" >/dev/null 2>&1; then
-    echo "[health] FAIL: grpc-health-probe 镜像构建失败"
+# ── 预编译 health probe 二进制路径 ──
+PROBE_BIN="${TESTS_DIR}/health-probe-bin"
+if [ ! -f "$PROBE_BIN" ]; then
+    echo "[health] FAIL: health-probe-bin 未找到，请先编译"
     ASSERT_FAIL=$((ASSERT_FAIL + 1))
     suite_end
     exit 1
 fi
-echo "[health] grpc-health-probe helper镜像就绪"
+echo "[health] health-probe-bin 就绪: $PROBE_BIN"
 
-# ── 辅助: grpc_health_check <container_name> <network> ──
+# ── 辅助: grpc_health_check <container_name> ──
 # 返回: SERVING 或 NOT_SERVING
 grpc_health_check() {
     local container="$1"
-    local net="$2"
-    if docker run --rm --network "$net" "$PROBE_IMG" \
-        grpc-health-probe -addr="${container}:9500" -tls=false -connect-timeout=5s 2>/dev/null; then
+    docker cp "$PROBE_BIN" "${container}:/tmp/health-probe" 2>/dev/null || true
+    docker exec "$container" chmod +x /tmp/health-probe 2>/dev/null || true
+    if docker exec "$container" /tmp/health-probe localhost:9500 >/dev/null 2>&1; then
         echo "SERVING"
     else
         echo "NOT_SERVING"
@@ -51,8 +39,8 @@ t_begin "t30" "grpc_serving: both nodes SERVING"
 
 up_cluster "${RID}-t30" || { echo "[t30] FAIL: cluster up failed"; suite_end; exit 1; }
 
-t30_1=$(grpc_health_check "$C1" "$NET_NAME")
-t30_2=$(grpc_health_check "$C2" "$NET_NAME")
+t30_1=$(grpc_health_check "$C1")
+t30_2=$(grpc_health_check "$C2")
 
 assert_eq "$t30_1" "SERVING" "t30: node1 SERVING"
 assert_eq "$t30_2" "SERVING" "t30: node2 SERVING"
@@ -71,7 +59,7 @@ follower=$(get_follower)
 follower_container=$(_c_name "$follower")
 
 # 初始状态: Follower SERVING
-t31_init=$(grpc_health_check "$follower_container" "$NET_NAME")
+t31_init=$(grpc_health_check "$follower_container")
 assert_eq "$t31_init" "SERVING" "t31: follower initially SERVING"
 
 # 停Follower
@@ -79,7 +67,7 @@ stop_node "$follower"
 sleep 3
 
 # 健康检查应失败（连接拒绝 = NOT_SERVING）
-t31_stopped=$(grpc_health_check "$follower_container" "$NET_NAME")
+t31_stopped=$(grpc_health_check "$follower_container")
 assert_eq "$t31_stopped" "NOT_SERVING" "t31: stopped follower → NOT_SERVING"
 
 # 重启Follower
@@ -87,7 +75,7 @@ start_node "$follower"
 sleep 15
 
 # 恢复后应SERVING
-t31_recovered=$(grpc_health_check "$follower_container" "$NET_NAME")
+t31_recovered=$(grpc_health_check "$follower_container")
 assert_eq "$t31_recovered" "SERVING" "t31: follower recovered → SERVING"
 
 echo "init=$t31_init stopped=$t31_stopped recovered=$t31_recovered" | log_evidence "t31_health.txt"
@@ -106,7 +94,7 @@ docker run -d --name "t32a-${RID}" --network none \
     -e NODE_ID=node-1 -e GRPC_PORT=abc -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
-sleep 3
+wait_for_exit "t32a-${RID}" 15
 t32a_state=$(docker inspect -f '{{.State.Status}}' "t32a-${RID}" 2>/dev/null || echo "missing")
 t32a_logs=$(docker logs "t32a-${RID}" 2>&1 || true)
 docker rm -f "t32a-${RID}" 2>/dev/null || true
@@ -119,7 +107,7 @@ docker run -d --name "t32b-${RID}" --network none \
     -e NODE_ID=node-1 -e GRPC_PORT=0 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
-sleep 3
+wait_for_exit "t32b-${RID}" 15
 t32b_state=$(docker inspect -f '{{.State.Status}}' "t32b-${RID}" 2>/dev/null || echo "missing")
 t32b_logs=$(docker logs "t32b-${RID}" 2>&1 || true)
 docker rm -f "t32b-${RID}" 2>/dev/null || true
