@@ -75,6 +75,15 @@ func (t *IdemTokenTable) SetResult(token string, index int64, err error) {
 	}
 }
 
+func (t *IdemTokenTable) Remove(token string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if e, ok := t.entries[token]; ok {
+		t.order.Remove(e.elem)
+		delete(t.entries, token)
+	}
+}
+
 func (t *IdemTokenTable) Size() int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
