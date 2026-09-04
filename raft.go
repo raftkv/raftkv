@@ -632,6 +632,18 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 			rn.matchIdx[p.ID] = 0
 		}
 
+		// F4b: 追加 no-op 条目，确保新 Leader 当选后可安全提交前 term 条目
+		noOpIndex := int64(len(rn.logs)) + 1
+		rn.logs = append(rn.logs, RaftLog{
+			Index:   noOpIndex,
+			Term:    rn.term,
+			Command: nil,
+		})
+		rn.stats.Lock()
+		rn.stats.LogCount = len(rn.logs)
+		rn.stats.Unlock()
+		rn.logf("[raft/%s] no-op 条目已追加: index=%d term=%d", rn.id, noOpIndex, rn.term)
+
 		// 启动心跳循环
 		go rn.heartbeatLoop()
 
