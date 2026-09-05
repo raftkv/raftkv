@@ -131,8 +131,8 @@ fi
 
 # F1纪律: strings搜旧key必须0次命中
 echo "[build] key leak scan..." | tee -a "${RUN_EVIDENCE}/build.log"
-leak=$(docker run --rm "$IMAGE_NAME" \
-    sh -c 'grep -c "daijin235_012345" /app/gateway 2>/dev/null || echo 0')
+leak=$(docker run --rm --entrypoint sh "$IMAGE_NAME" \
+    -c 'grep -c "daijin235_012345" /app/gateway 2>/dev/null || true')
 echo "key leak hits: $leak" | tee -a "${RUN_EVIDENCE}/build.log"
 if [ "$leak" != "0" ]; then
     do_rollback "BUILD" "key leak: $leak hits of daijin235_012345 in binary"
@@ -148,7 +148,9 @@ echo "  Phase 2: SMOKE"
 echo "═══════════════════════════════════════════════════"
 
 export IMAGE_NAME LICENSE_DIR FP_ANCHOR EVIDENCE_DIR TESTS_DIR
+_knife_run_id="$RUN_ID"
 source "${TESTS_DIR}/harness.sh"
+RUN_ID="$_knife_run_id"
 
 SMOKE_RID="smoke-${RUN_ID}"
 if ! up_cluster "$SMOKE_RID" 2>&1 | tee "${RUN_EVIDENCE}/smoke.log"; then
