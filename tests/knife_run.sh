@@ -44,6 +44,10 @@ echo "╚═══════════════════════�
 # ════════════════════════════════════════════════════════════
 # ROLLBACK流程（严格）
 # ════════════════════════════════════════════════════════════
+export IMAGE_NAME LICENSE_DIR FP_ANCHOR EVIDENCE_DIR TESTS_DIR
+_knife_run_id="$RUN_ID"
+source "${TESTS_DIR}/harness.sh"
+RUN_ID="$_knife_run_id"
 do_rollback() {
     local fail_phase="$1"
     local fail_detail="$2"
@@ -75,36 +79,18 @@ EOF
     docker build --platform linux/amd64 -t "$ROLLBACK_IMAGE" \
         -f Dockerfile . 2>&1 | tee -a "${RUN_EVIDENCE}/rollback_build.log"
     
-    # 冒烟确认
-    local rb_key
-    rb_key=$(openssl rand -hex 16)
-    local rb_net="net-rb-${RUN_ID}"
-    local rb_c="c-rb-${RUN_ID}"
-    local rb_vol="vol-rb-${RUN_ID}"
     
-    docker network create "$rb_net" 2>/dev/null
-    docker volume create "$rb_vol" 2>/dev/null
-    docker run -d --name "$rb_c" --network "$rb_net" \
-        -e DAIJIN235_FP_ANCHOR="$FP_ANCHOR" -e SM4_KEY="$rb_key" \
-        -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
-        -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
-        -v "${rb_vol}:/app/wal-data" \
-        "$ROLLBACK_IMAGE" 2>&1 | tee -a "${RUN_EVIDENCE}/rollback_smoke.log"
-    
-    sleep 8
-    rb_stats=$(docker exec "$rb_c" curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || echo "")
-    echo "rollback smoke stats: $rb_stats" >> "${RUN_EVIDENCE}/rollback_smoke.log"
-    
-    if echo "$rb_stats" | grep -q "state=Leader"; then
-        echo "[rollback] 冒烟绿: 已知好状态确认" | tee -a "${RUN_EVIDENCE}/rollback.log"
+    # 冒烟确认：双节点集群选主
+    local rbk_rid="rbk-${RUN_ID}"
+    local _saved_image="$IMAGE_NAME"
+    IMAGE_NAME="$ROLLBACK_IMAGE"
+    if up_cluster "$rbk_rid" 2>&1 | tee -a "${RUN_EVIDENCE}/rollback_smoke.log"; then
+        echo "[rollback] 冒烟绿: Leader当选" | tee -a "${RUN_EVIDENCE}/rollback.log"
     else
         echo "[rollback] 警告: 冒烟也失败! 基线可能已损坏!" | tee -a "${RUN_EVIDENCE}/rollback.log"
     fi
-    
-    docker rm -f "$rb_c" 2>/dev/null
-    docker volume rm "$rb_vol" 2>/dev/null
-    docker network rm "$rb_net" 2>/dev/null
-    
+    down_cluster "$rbk_rid"
+    IMAGE_NAME="$_saved_image"
     echo "[rollback] FAIL报告: ${RUN_EVIDENCE}/FAIL"
     echo "[rollback] 终止. 不修、不重试、不tag. 请人诊断."
     exit 1
@@ -147,10 +133,6 @@ echo "════════════════════════�
 echo "  Phase 2: SMOKE"
 echo "═══════════════════════════════════════════════════"
 
-export IMAGE_NAME LICENSE_DIR FP_ANCHOR EVIDENCE_DIR TESTS_DIR
-_knife_run_id="$RUN_ID"
-source "${TESTS_DIR}/harness.sh"
-RUN_ID="$_knife_run_id"
 
 SMOKE_RID="smoke-${RUN_ID}"
 if ! up_cluster "$SMOKE_RID" 2>&1 | tee "${RUN_EVIDENCE}/smoke.log"; then
