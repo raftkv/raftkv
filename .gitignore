@@ -71,3 +71,4 @@ diag_report.pdf
 # --- 无关内容 ---
 鲲鹏物理机最终撤离证据/
 main,go,
+tests/evidence/
