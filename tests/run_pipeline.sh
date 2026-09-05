@@ -34,7 +34,7 @@ PLOG="${PDIR}/progress.log"
 RLOG="${PDIR}/run.log"
 mkdir -p "$PDIR"
 
-log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$PLOG"; }
+log() { echo "[ $(date +%H:%M:%S)] $*" | tee -a "$PLOG"; }
 
 # R5: check_flags第三条独立判定
 check_flags() {
