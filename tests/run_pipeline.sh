@@ -207,40 +207,31 @@ RUN_ID="$_knife_run_id"' "$KR"
 # ── T3: sleep→wait_for统一 ──
 task_t3() {
     log "T3: sleep→wait_for统一"
-    log "方案: suite脚本中sleep>=5替换为wait_for轮询, 判定条件不变"
-    log "R4: 仅替换sleep>=5, 保留sleep 1/2/3原样"
-    log "R4删除替换点: baseline(sleep2×4), idem(sleep1×3,sleep2×1), wal_snap(sleep2×1,sleep3×1), health(sleep3×1)"
-    log "R4保留替换点: baseline(sleep10×2,sleep15×1), idem(sleep15×1), wal_snap(sleep8×1,sleep10×1,sleep15×1), health(sleep15×1)"
+    log "方案: A路线——仅保留带明确容器变量的wait_for替换, 回退裸数字is_running替换"
+    log "原因: 裸数字is_running 1引入运行态验证, 改变原始sleep盲等语义, 导致T3冻结"
+    log "保留替换点: baseline(sleep15→wait_for 15 is_running \"$follower\"), health(sleep15→wait_for 15 is_running \"$follower\")"
+    log "回退替换点: baseline(sleep10×2), idem(sleep15×1), wal_snap(sleep8/10/15×3)——均裸数字"
 
     # R1: 锚定模式全局替换（禁止行号sed）
-    # R4: 仅替换sleep >= 5
+    # A路线: 仅保留带容器变量的替换
 
     local SB="${TESTS_DIR}/suite_baseline.sh"
-    sed -i 's/sleep 10/wait_for 10 is_running 1/g' "$SB"
     sed -i 's/sleep 15/wait_for 15 is_running "$follower"/g' "$SB"
-
-    local SI="${TESTS_DIR}/suite_idem.sh"
-    sed -i 's/sleep 15/wait_for 15 is_running 1/g' "$SI"
-
-    local SW="${TESTS_DIR}/suite_wal_snap.sh"
-    sed -i 's/sleep 8/wait_for 8 is_running 1/g' "$SW"
-    sed -i 's/sleep 10/wait_for 10 is_running 1/g' "$SW"
-    sed -i 's/sleep 15/wait_for 15 is_running 1/g' "$SW"
 
     local SH="${TESTS_DIR}/suite_health.sh"
     sed -i 's/sleep 15/wait_for 15 is_running "$follower"/g' "$SH"
 
-    # R1验证: 每个文件grep确认wait_for已写入
-    for f in "$SB" "$SI" "$SW" "$SH"; do
+    # R1验证: 仅检查实际修改的文件
+    for f in "$SB" "$SH"; do
         if ! grep -q 'wait_for' "$f"; then
             log "T3 FAIL(R1): $(basename "$f") 未替换, exit 6"; return 6
         fi
         bash -n "$f"
     done
-    log "R1验证: 4个suite脚本均已替换"
+    log "R1验证: baseline+health均已替换"
     { git diff --stat || true; } | tee -a "$PLOG"
 
-    git add "$SB" "$SI" "$SW" "$SH"
+    git add "$SB" "$SH"
     check_flags "T3" || return $?
     if run_knife "v1.0.0-d2-t3" "true" | tee -a "$RLOG"; then
         local rid; rid=$(get_run_id)
