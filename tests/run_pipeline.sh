@@ -1,5 +1,6 @@
 #!/bin/bash
 # run_pipeline.sh — D1-batch2 自主流水线
+# 修复: R1-R11 (P0+P1+P2)
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,10 +9,6 @@ BRANCH="fix/d1-batch2"
 FINAL_TAG="v1.0.0-d2"
 D1_TAG_COMMIT="9d5c491"
 MERGE_COMMIT="ca84148"
-TS="$(date +%Y%m%d_%H%M%S)"
-PDIR="${TESTS_DIR}/evidence/pipeline-${TS}"
-PLOG="${PDIR}/progress.log"
-RLOG="${PDIR}/run.log"
 
 DRY_RUN=false
 RESUME=false
@@ -22,8 +19,24 @@ for a in "$@"; do
     esac
 done
 
+# R8: resume时定位既有目录
+if [ "$RESUME" = "true" ]; then
+    PDIR=$(ls -dt "${TESTS_DIR}"/evidence/pipeline-* 2>/dev/null | head -1)
+    if [ -z "${PDIR:-}" ] || [ ! -d "$PDIR" ]; then
+        echo "RESUME FAIL: 找不到pipeline目录"
+        exit 5
+    fi
+else
+    TS="$(date +%Y%m%d_%H%M%S)"
+    PDIR="${TESTS_DIR}/evidence/pipeline-${TS}"
+fi
+PLOG="${PDIR}/progress.log"
+RLOG="${PDIR}/run.log"
+mkdir -p "$PDIR"
+
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$PLOG"; }
 
+# R5: check_flags第三条独立判定
 check_flags() {
     local task="$1" d
     d=$(git diff --cached)
@@ -33,8 +46,11 @@ check_flags() {
     if echo "$d" | grep -q '^diff.*\.go'; then
         log "FLAG $task: 触碰.go文件"; return 3
     fi
-    if echo "$d" | grep -q '^+.*|| true' && echo "$d" | grep -q 'assert_'; then
-        log "FLAG $task: 测试判定路径新增||true"; return 3
+    # R5: 独立判定 — tests/下脚本新增||true即旗, 不要求assert_同现
+    if echo "$d" | grep -q '^+.*|| true'; then
+        if echo "$d" | grep -q '^diff --git.*tests/'; then
+            log "FLAG $task: 测试判定路径新增||true"; return 3
+        fi
     fi
     return 0
 }
@@ -69,11 +85,34 @@ get_run_id() {
     grep -o 'run_id=run-[0-9_]*' "$RLOG" | tail -1 | cut -d= -f2
 }
 
+# R11: run_task保留原始退出码
+run_task() {
+    "$@"
+    local rc=$?
+    if [ $rc -ne 0 ]; then
+        log "ABORT rc=$rc"
+        exit $rc
+    fi
+}
+
 # ── T1: harness.sh RUN_ID守卫 ──
 task_t1() {
     log "T1: harness.sh RUN_ID赋值加守卫"
     log "方案: RUN_ID=\"\" → RUN_ID=\"\${RUN_ID:-}\"  双保险保留knife_run save/restore"
-    sed -i 's/^RUN_ID=""$/RUN_ID="${RUN_ID:-}"/' "${TESTS_DIR}/harness.sh"
+
+    # R8: 若守卫已存在则跳过sed（修复重跑sed空操作）
+    if grep -q '^RUN_ID="\${RUN_ID:-}"$' "${TESTS_DIR}/harness.sh"; then
+        log "T1: 守卫已存在, 跳过sed"
+    else
+        sed -i 's/^RUN_ID=""$/RUN_ID="${RUN_ID:-}"/' "${TESTS_DIR}/harness.sh"
+    fi
+
+    # R3: 验证守卫已写入
+    if ! grep -q '^RUN_ID="\${RUN_ID:-}"$' "${TESTS_DIR}/harness.sh"; then
+        log "T1 FAIL(R3): 守卫未写入, exit 6"; return 6
+    fi
+    log "R3验证: $(grep -n 'RUN_ID=' "${TESTS_DIR}/harness.sh" | head -1)"
+
     bash -n "${TESTS_DIR}/harness.sh"
     git add "${TESTS_DIR}/harness.sh"
     check_flags "T1" || return $?
@@ -93,12 +132,29 @@ task_t2() {
     log "方案: 移source至do_rollback前, 替换内联docker run为up_cluster/down_cluster, RID=rbk-\${RUN_ID}"
     local KR="${TESTS_DIR}/knife_run.sh"
 
-    # 1. 删除SMOKE段source块(150-153)
-    sed -i '150,153d' "$KR"
+    # R7: 确认变量/函数定义在插入点作用域可用
+    log "R7: 作用域可用性检查"
+    grep -nE 'ROLLBACK_IMAGE|RUN_EVIDENCE|up_cluster|down_cluster' "$KR" "${TESTS_DIR}/harness.sh" | tee -a "$PLOG"
 
-    # 2. 替换冒烟段(78-106)为up_cluster/down_cluster
-    sed -i '78,106d' "$KR"
-    sed -i '77a\
+    # R1: 锚定模式删除/替换（禁止行号sed）
+
+    # 1. 删除SMOKE段source块（锚定: export IMAGE_NAME... → RUN_ID="$_knife_run_id"）
+    sed -i '/^export IMAGE_NAME LICENSE_DIR FP_ANCHOR EVIDENCE_DIR TESTS_DIR$/,/^RUN_ID="\$_knife_run_id"$/d' "$KR"
+    if grep -q '^export IMAGE_NAME LICENSE_DIR FP_ANCHOR EVIDENCE_DIR TESTS_DIR$' "$KR"; then
+        log "T2 FAIL(R1): source块未删除, exit 6"; return 6
+    fi
+    log "R1验证: source块已删除"
+    { git diff --stat || true; } | tee -a "$PLOG"
+
+    # 2. 删除内联docker run冒烟段（锚定: # 冒烟确认 → docker network rm）
+    sed -i '/^    # 冒烟确认$/,/^    docker network rm "\$rb_net" 2>\/dev\/null$/d' "$KR"
+    if grep -q 'rb_key=$(openssl rand' "$KR"; then
+        log "T2 FAIL(R1): 内联docker run未删除, exit 6"; return 6
+    fi
+    log "R1验证: 内联docker run已删除"
+
+    # 插入替换块（锚定: echo "[rollback] FAIL报告"前）
+    sed -i '/^    echo "\[rollback\] FAIL报告/i\
     # 冒烟确认：双节点集群选主\
     local rbk_rid="rbk-${RUN_ID}"\
     local _saved_image="$IMAGE_NAME"\
@@ -111,12 +167,29 @@ task_t2() {
     down_cluster "$rbk_rid"\
     IMAGE_NAME="$_saved_image"' "$KR"
 
-    # 3. 在do_rollback前插入source块
-    sed -i '46a\export IMAGE_NAME LICENSE_DIR FP_ANCHOR EVIDENCE_DIR TESTS_DIR\
+    if ! grep -q 'rbk_rid' "$KR"; then
+        log "T2 FAIL(R1): 替换块未插入, exit 6"; return 6
+    fi
+    log "R1验证: 替换块已插入"
+    { git diff --stat || true; } | tee -a "$PLOG"
+
+    # 3. 在do_rollback前插入source块（锚定: do_rollback() {）
+    sed -i '/^do_rollback() {/i\
+export IMAGE_NAME LICENSE_DIR FP_ANCHOR EVIDENCE_DIR TESTS_DIR\
 _knife_run_id="$RUN_ID"\
 source "${TESTS_DIR}/harness.sh"\
-RUN_ID="$_knife_run_id"\
-' "$KR"
+RUN_ID="$_knife_run_id"' "$KR"
+
+    if ! grep -q '^_knife_run_id="\$RUN_ID"$' "$KR"; then
+        log "T2 FAIL(R1): source块未插入, exit 6"; return 6
+    fi
+    log "R1验证: source块已插入"
+
+    # R6: 验证local在do_rollback函数体内
+    if ! grep -q 'local rbk_rid' "$KR"; then
+        log "T2 FAIL(R6): local未在函数体内, exit 6"; return 6
+    fi
+    log "R6验证: local rbk_rid在do_rollback体内"
 
     bash -n "$KR"
     git add "$KR"
@@ -134,41 +207,39 @@ RUN_ID="$_knife_run_id"\
 # ── T3: sleep→wait_for统一 ──
 task_t3() {
     log "T3: sleep→wait_for统一"
-    log "方案: suite脚本中所有sleep替换为wait_for轮询, 判定条件不变"
+    log "方案: suite脚本中sleep>=5替换为wait_for轮询, 判定条件不变"
+    log "R4: 仅替换sleep>=5, 保留sleep 1/2/3原样"
+    log "R4删除替换点: baseline(sleep2×4), idem(sleep1×3,sleep2×1), wal_snap(sleep2×1,sleep3×1), health(sleep3×1)"
+    log "R4保留替换点: baseline(sleep10×2,sleep15×1), idem(sleep15×1), wal_snap(sleep8×1,sleep10×1,sleep15×1), health(sleep15×1)"
 
-    # suite_baseline.sh
+    # R1: 锚定模式全局替换（禁止行号sed）
+    # R4: 仅替换sleep >= 5
+
     local SB="${TESTS_DIR}/suite_baseline.sh"
-    sed -i '52s/sleep 2/wait_for 2 is_running "$leader"/' "$SB"
-    sed -i '59s/sleep 10/wait_for 10 is_running 1/' "$SB"
-    sed -i '80s/sleep 2/wait_for 2 is_running "$leader"/' "$SB"
-    sed -i '98s/sleep 2/wait_for 2 is_running "$leader"/' "$SB"
-    sed -i '105s/sleep 10/wait_for 10 is_exited "$(_c_name "$follower")"/' "$SB"
-    sed -i '107s/sleep 15/wait_for 15 is_running "$follower"/' "$SB"
-    sed -i '125s/sleep 2/wait_for 2 is_running "$leader"/' "$SB"
-    sed -i '132s/sleep 10/wait_for 10 is_running 1/' "$SB"
+    sed -i 's/sleep 10/wait_for 10 is_running 1/g' "$SB"
+    sed -i 's/sleep 15/wait_for 15 is_running "$follower"/g' "$SB"
 
-    # suite_idem.sh
     local SI="${TESTS_DIR}/suite_idem.sh"
-    sed -i '88s/sleep 1/wait_for 1 is_running "$leader"/' "$SI"
-    sed -i '115s/sleep 1/wait_for 1 is_running "$leader"/' "$SI"
-    sed -i '119s/sleep 2/wait_for 2 is_running "$leader"/' "$SI"
-    sed -i '127s/sleep 1/wait_for 1 is_running "$leader"/' "$SI"
-    sed -i '134s/sleep 15/wait_for 15 is_running 1/' "$SI"
+    sed -i 's/sleep 15/wait_for 15 is_running 1/g' "$SI"
 
-    # suite_wal_snap.sh
     local SW="${TESTS_DIR}/suite_wal_snap.sh"
-    sed -i '19s/sleep 3/wait_for 3 is_running 1/' "$SW"
-    sed -i '37s/sleep 10/wait_for 10 is_running 1/' "$SW"
-    sed -i '54s/sleep 2/wait_for 2 is_running "$leader"/' "$SW"
-    sed -i '62s/sleep 15/wait_for 15 is_running 1/' "$SW"
-    sed -i '121s/sleep 8/wait_for 8 is_running 1/' "$SW"
+    sed -i 's/sleep 8/wait_for 8 is_running 1/g' "$SW"
+    sed -i 's/sleep 10/wait_for 10 is_running 1/g' "$SW"
+    sed -i 's/sleep 15/wait_for 15 is_running 1/g' "$SW"
 
-    # suite_health.sh
     local SH="${TESTS_DIR}/suite_health.sh"
-    sed -i '67s/sleep 3/wait_for 3 is_exited "$follower_container"/' "$SH"
-    sed -i '75s/sleep 15/wait_for 15 is_running "$follower"/' "$SH"
+    sed -i 's/sleep 15/wait_for 15 is_running "$follower"/g' "$SH"
 
-    for f in "$SB" "$SI" "$SW" "$SH"; do bash -n "$f"; done
+    # R1验证: 每个文件grep确认wait_for已写入
+    for f in "$SB" "$SI" "$SW" "$SH"; do
+        if ! grep -q 'wait_for' "$f"; then
+            log "T3 FAIL(R1): $(basename "$f") 未替换, exit 6"; return 6
+        fi
+        bash -n "$f"
+    done
+    log "R1验证: 4个suite脚本均已替换"
+    { git diff --stat || true; } | tee -a "$PLOG"
+
     git add "$SB" "$SI" "$SW" "$SH"
     check_flags "T3" || return $?
     if run_knife "v1.0.0-d2-t3" "true" | tee -a "$RLOG"; then
@@ -188,35 +259,66 @@ generate_decision() {
     t1_sha=$(git log --oneline --grep='T1' -1 | cut -d' ' -f1)
     t2_sha=$(git log --oneline --grep='T2' -1 | cut -d' ' -f1)
     t3_sha=$(git log --oneline --grep='T3' -1 | cut -d' ' -f1)
+
+    # R9: 从progress.log计算信任计分
+    local flags freezes tag_cnt
+    flags=$(grep -c 'FLAG' "$PLOG" 2>/dev/null || true)
+    freezes=$(grep -c 'FAIL 冻结' "$PLOG" 2>/dev/null || true)
+    if git rev-parse "${FINAL_TAG}^{commit}" >/dev/null 2>&1; then
+        tag_cnt=1
+    else
+        tag_cnt=0
+    fi
+
+    # R10: 每刀增加run_id + 断言计数
+    local t1_rid t2_rid t3_rid
+    t1_rid=$(grep 'T1 PASS' "$PLOG" | grep -o 'run_id=run-[0-9_]*' | cut -d= -f2 || true)
+    t2_rid=$(grep 'T2 PASS' "$PLOG" | grep -o 'run_id=run-[0-9_]*' | cut -d= -f2 || true)
+    t3_rid=$(grep 'T3 PASS' "$PLOG" | grep -o 'run_id=run-[0-9_]*' | cut -d= -f2 || true)
+    if [ -z "$t1_rid" ]; then t1_rid="N/A"; fi
+    if [ -z "$t2_rid" ]; then t2_rid="N/A"; fi
+    if [ -z "$t3_rid" ]; then t3_rid="N/A"; fi
+
+    # R10: 断言计数从RLOG提取
+    local all_totals
+    all_totals=$(grep '总计: PASS=' "$RLOG" 2>/dev/null || true)
+
     {
         echo "# D1-batch2 DECISION"
         echo ""
         echo "## T1: harness.sh RUN_ID守卫"
         echo "commit: $t1_sha"
-        git show --stat "$t1_sha"
+        echo "run_id: $t1_rid"
+        git show --stat "$t1_sha" 2>/dev/null || echo "(无commit)"
         echo ""
         echo "## T2: do_rollback双节点冒烟"
         echo "commit: $t2_sha"
-        git show --stat "$t2_sha"
+        echo "run_id: $t2_rid"
+        git show --stat "$t2_sha" 2>/dev/null || echo "(无commit)"
         echo ""
         echo "## T3: sleep→wait_for统一"
         echo "commit: $t3_sha"
-        git show --stat "$t3_sha"
+        echo "run_id: $t3_rid"
+        git show --stat "$t3_sha" 2>/dev/null || echo "(无commit)"
         echo ""
         echo "## 终局"
         echo "tag: $FINAL_TAG"
-        echo "merge: $(git log --oneline -1 v1.0-dev)"
+        echo "merge: $(git log --oneline -1 v1.0-dev 2>/dev/null || echo 'N/A')"
         echo ""
-        echo "## 信任计分"
-        echo "本批旗标数: 0"
-        echo "冻结次数: 0"
-        echo "门禁颁发tag数: 1"
+        echo "## 断言计数（R10）"
+        echo "$all_totals"
+        echo ""
+        echo "## 信任计分（R9: 从progress.log计算）"
+        echo "本批旗标数: $flags"
+        echo "冻结次数: $freezes"
+        echo "门禁颁发tag数: $tag_cnt"
+        echo ""
+        echo "## progress.log全文（R10）"
+        cat "$PLOG"
     } > "$md"
 }
 
 # ── 主流程 ──
-mkdir -p "$PDIR"
-
 if [ "$DRY_RUN" = "true" ]; then
     echo "=== DRY RUN ==="
     echo "队列: T1(harness RUN_ID守卫) → T2(do_rollback双节点) → T3(sleep→wait_for) → 终局(knife_run $FINAL_TAG)"
@@ -224,7 +326,7 @@ if [ "$DRY_RUN" = "true" ]; then
     echo "旗标规则:"
     echo "  - 触碰assert_*行或期望值字面量 → exit 3"
     echo "  - 触碰.go文件 → exit 3"
-    echo "  - 测试判定路径新增||true → exit 3"
+    echo "  - tests/下脚本新增||true → exit 3 (R5: 独立判定)"
     echo ""
     echo "运行护栏:"
     echo "  - 写路径白名单: 仅仓库目录内"
@@ -245,9 +347,10 @@ if [ "$RESUME" = "true" ] && [ -f "$PLOG" ]; then
     fi
 fi
 
-if [ $START -le 1 ]; then task_t1 || exit 2; fi
-if [ $START -le 2 ]; then task_t2 || exit 2; fi
-if [ $START -le 3 ]; then task_t3 || exit 2; fi
+# R11: run_task保留原始退出码（旗标=exit 3, 冻结=exit 2）
+if [ $START -le 1 ]; then run_task task_t1; fi
+if [ $START -le 2 ]; then run_task task_t2; fi
+if [ $START -le 3 ]; then run_task task_t3; fi
 
 log "终局: knife_run $BRANCH $FINAL_TAG"
 run_knife "$FINAL_TAG" "false" | tee -a "$RLOG"
