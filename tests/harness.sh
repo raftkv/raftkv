@@ -128,9 +128,9 @@ up_cluster() {
 down_cluster() {
     local rid="${1:-$RUN_ID}"
     if [ -z "$rid" ]; then return 0; fi
-    docker rm -f $(_c_name 1 "$rid") $(_c_name 2 "$rid") 2>/dev/null
-    docker volume rm $(_v_name 1 "$rid") $(_v_name 2 "$rid") 2>/dev/null
-    docker network rm $(_n_name "$rid") 2>/dev/null
+    docker rm -f $(_c_name 1 "$rid") $(_c_name 2 "$rid") 2>/dev/null || true
+    docker volume rm $(_v_name 1 "$rid") $(_v_name 2 "$rid") 2>/dev/null || true
+    docker network rm $(_n_name "$rid") 2>/dev/null || true
 }
 
 # ── 单节点控制 ──
