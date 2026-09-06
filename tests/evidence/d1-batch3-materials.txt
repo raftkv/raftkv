@@ -1,0 +1,383 @@
+====P1-a====
+suite_health.sh:52-82 t31完整测试块原文:
+
+52: # t31: grpc_not_serving — 停Follower→probe失败→重启→SERVING
+53: # ════════════════════════════════════════════════════════════
+54: t_begin "t31" "grpc_not_serving: stop follower → probe fails → restart → SERVING"
+55: 
+56: up_cluster "${RID}-t31" || { echo "[t31] FAIL: cluster up failed"; suite_end; exit 1; }
+57: leader=$(get_leader)
+58: follower=$(get_follower)
+59: follower_container=$(_c_name "$follower")
+60: 
+61: # 初始状态: Follower SERVING
+62: t31_init=$(grpc_health_check "$follower_container")
+63: assert_eq "$t31_init" "SERVING" "t31: follower initially SERVING"
+64: 
+65: # 停Follower
+66: stop_node "$follower"
+67: sleep 3
+68: 
+69: # 健康检查应失败（连接拒绝 = NOT_SERVING）
+70: t31_stopped=$(grpc_health_check "$follower_container")
+71: assert_eq "$t31_stopped" "NOT_SERVING" "t31: stopped follower → NOT_SERVING"
+72: 
+73: # 重启Follower
+74: start_node "$follower"
+75: wait_for 20 grpc_serving "$follower_container"
+76: 
+77: # 恢复后应SERVING
+78: t31_recovered=$(grpc_health_check "$follower_container")
+79: assert_eq "$t31_recovered" "SERVING" "t31: follower recovered → SERVING"
+80: 
+81: echo "init=$t31_init stopped=$t31_stopped recovered=$t31_recovered" | log_evidence "t31_health.txt"
+82: down_cluster "${RID}-t31"
+
+wait_for（line 75）之后紧跟1条断言:
+断言1 (line 79): assert_eq "$t31_recovered" "SERVING" "t31: follower recovered → SERVING"
+
+====P1-b====
+断言1前置条件论证全文:
+
+$t31_recovered赋值链:
+line 78: t31_recovered=$(grpc_health_check "$follower_container")
+
+grpc_health_check原文（suite_health.sh:24-33）:
+24: grpc_health_check() {
+25:     local container="$1"
+26:     docker cp "$PROBE_BIN" "${container}:/tmp/health-probe" 2>/dev/null || true
+27:     docker exec "$container" chmod +x /tmp/health-probe 2>/dev/null || true
+28:     if docker exec "$container" /tmp/health-probe localhost:9500 >/dev/null 2>&1; then
+29:         echo "SERVING"
+30:     else
+31:         echo "NOT_SERVING"
+32:     fi
+33: }
+
+line 28执行/tmp/health-probe localhost:9500——与grpc_serving（harness.sh:343）执行同一探针二进制、同一目标地址:
+
+harness.sh:336-344 grpc_serving原文:
+336: grpc_serving() {
+337:     local container="$1"
+338:     local probe_bin="${TESTS_DIR}/health-probe-bin"
+339:     if ! docker exec "$container" test -x /tmp/health-probe 2>/dev/null; then
+340:         docker cp "$probe_bin" "${container}:/tmp/health-probe" 2>/dev/null || true
+341:         docker exec "$container" chmod +x /tmp/health-probe 2>/dev/null || true
+342:     fi
+343:     docker exec "$container" /tmp/health-probe localhost:9500 >/dev/null 2>&1
+344: }
+
+探针二进制源码（tests/health_probe/main.go:31-43）:
+31:     client := healthpb.NewHealthClient(conn)
+32:     resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{})
+33:     if err != nil {
+34:         fmt.Println("NOT_SERVING")
+35:         os.Exit(1)
+36:     }
+37: 
+38:     if resp.Status == healthpb.HealthCheckResponse_SERVING {
+39:         fmt.Println("SERVING")
+40:         os.Exit(0)
+41:     }
+42:     fmt.Println("NOT_SERVING")
+43:     os.Exit(1)
+
+line 32: 调用client.Check() — gRPC Health Check RPC
+line 38-40: SERVING → exit 0
+line 42-43: 否则 → exit 1
+
+服务端实现（grpc_server.go:80-92）:
+80: func (h *healthServer) Check(
+81:     ctx context.Context,
+82:     req *healthpb.HealthCheckRequest,
+83: ) (*healthpb.HealthCheckResponse, error) {
+84:     if h.node.IsWALGateClosed() {
+85:         return &healthpb.HealthCheckResponse{
+86:             Status: healthpb.HealthCheckResponse_NOT_SERVING,
+87:         }, nil
+88:     }
+89:     return &healthpb.HealthCheckResponse{
+90:         Status: healthpb.HealthCheckResponse_SERVING,
+91:     }, nil
+92: }
+
+line 84: IsWALGateClosed() → NOT_SERVING
+line 89-91: 否则 → SERVING
+
+IsWALGateClosed实现（raft.go:424-428）:
+424: func (rn *RaftNode) IsWALGateClosed() bool {
+425:     rn.mu.RLock()
+426:     defer rn.mu.RUnlock()
+427:     return rn.walGateClosed
+428: }
+
+返回rn.walGateClosed（bool字段，Go零值=false）
+
+walGateClosed全代码库赋值点: 仅raft.go:285一处:
+278: // StepDownForWALFailure WAL故障强制降级为Follower
+279: func (rn *RaftNode) StepDownForWALFailure(reason string) {
+280:     rn.mu.Lock()
+281:     oldState := rn.state
+282:     rn.state = StateFollower
+283:     rn.votedFor = ""
+284:     rn.leaderID = ""
+285:     rn.walGateClosed = true
+
+全代码库无 walGateClosed = false 赋值（grep确认，0匹配）
+
+论证链:
+1. 断言1唯一前置条件: grpc_health_check返回"SERVING"
+2. grpc_health_check line 28执行探针 → 探针调用client.Check() → 服务端Check()返回SERVING当!IsWALGateClosed()
+3. IsWALGateClosed() = rn.walGateClosed，零值false，仅StepDownForWALFailure()置true，无false回写
+4. follower重启 = 新进程 = walGateClosed=false → Check()返回SERVING → 探针exit 0 → grpc_health_check返回"SERVING"
+5. wait_for 20 grpc_serving与grpc_health_check执行同一探针二进制、同一RPC → wait_for成功意味着探针已确认SERVING → 断言1必PASS
+6. wait_for超时 → set -e（suite_health.sh:5）退出脚本，断言1不执行
+
+SERVING≡追平自查:
+否。walGateClosed是节点本地WAL子系统就绪信号:
+- 仅StepDownForWALFailure()（raft.go:285）置true — WAL本地故障降级
+- 无任何Raft复制位点（commit_index/match_index）参与IsWALGateClosed()判定
+- follower重启后walGateClosed=false（新进程零值）→ 立即SERVING，无论是否已追平leader
+
+断言1是否依赖复制追平:
+否。断言assert_eq "$t31_recovered" "SERVING"不查询:
+- 复制位点（commit_index、match_index）
+- leader连接性
+- 日志匹配
+
+结论: grpc_serving探针与断言1调用同一gRPC Health Check RPC，返回值精确等价。探针无需升级为"SERVING+复制位点确认"。
+
+====P1-c====
+suite_health.sh中sleep→wait_for替换点共1处:
+
+替换点1: suite_health.sh line 75
+替换前: sleep 15
+替换后: wait_for 20 grpc_serving "$follower_container"
+wait_for之后的断言原文:
+78: t31_recovered=$(grpc_health_check "$follower_container")
+79: assert_eq "$t31_recovered" "SERVING" "t31: follower recovered → SERVING"
+前置条件说明: 仅需SERVING。断言查询grpc_health_check返回值，即gRPC Health Check RPC状态。不依赖复制位点、不依赖数据可见性。SERVING≡!IsWALGateClosed()，是节点本地WAL子系统就绪信号，与复制追平无关。
+
+suite_baseline.sh中sleep→wait_for替换点共1处（同一commit 2c0cfc1）:
+
+替换点2: suite_baseline.sh line 107
+替换前: sleep 15
+替换后: wait_for 20 grpc_serving "$(_c_name "$follower")"
+wait_for之后的断言原文:
+109: s_end=$(stats "$leader")
+110: commit_end=$(extract_stat "$s_end" commit)
+111: applied_end=$(extract_stat "$s_end" applied)
+112: assert_ne "$commit_end" "0" "t04: commit not regressed to 0"
+113: assert_eq "$applied_end" "$commit_end" "t04: applied==commit after recovery"
+前置条件说明: 仅需leader的commit/applied一致。断言查leader的stats（line 109-111），不查follower。已提交条目在Raft中不可回退——follower停启不影响leader的commit index。不依赖follower的SERVING状态，不依赖复制追平，不依赖数据可见性（commit_mid在follower停止前已写入）。
+
+====P2====
+探针自测双场景原始输出:
+
+=== 探针自测 ===
+
+--- 场景1: 未就绪 (bare alpine, no gRPC) ---
+探针执行:
+NOT_SERVING
+exit code: 1
+结果: PASS (非0, 连接拒绝如预期)
+
+--- 场景2: 就绪 (cluster node, gRPC SERVING) ---
+1a267495ce220e4cf2b8799bc21207451cd6d929b1a648af751d9dcbf08fa1fe
+wal1-probe-test-1788688956
+wal2-probe-test-1788688956
+9582a87bf2da7e23f1f77bf1a58a99b029e7bcc937593750c7872dd8a65567d2
+28cbd5c56d9a54554cbcb0d0b473f140946c0f4fbcf986f5ed987d2f48c94cb5
+[harness] Leader=n1-probe-test-1788688956 after 5s
+leader: 1, container: n1-probe-test-1788688956
+探针执行:
+SERVING
+exit code: 0
+结果: PASS (0, SERVING如预期)
+n1-probe-test-1788688956
+n2-probe-test-1788688956
+wal1-probe-test-1788688956
+wal2-probe-test-1788688956
+net-probe-test-1788688956
+
+=== 自测完成 ===
+
+场景1: bare alpine容器（无gRPC服务器）→ 探针输出NOT_SERVING，exit code=1（连接拒绝）
+场景2: 真实集群节点（gRPC SERVING）→ 探针输出SERVING，exit code=0
+
+====P3====
+_audit.sh对batch2旧状态（md5=d4731dd87cb197b4e8f56af98ffd0a05）重跑原文输出:
+
+[FAIL] 1. md5封印核验 (期望=d4731dd87cb197b4e8f56af98ffd0a05 实际=28fb6943824a92d56bd8bdd46910348f)
+[PASS] 2. bash -n语法检查
+[PASS] 3. grep '[$' = 0
+[PASS] 4. 断言计数对账 (总计行=4/4, PASS=51, FAIL=0, T1=1 T2=1 T3=1 终局=1, 冻结=2)
+[PASS] 5. SHA核对 (T1=1df4525✓ T2=f5996e0✓ )
+[PASS] 6. tag计数 (9)
+
+==============================
+  AUDIT: PASS=5  FAIL=1
+==============================
+  HAS FAIL
+
+item 1 FAIL: 预期——run_pipeline.sh在batch3已修改，md5从d4731dd8...变为28fb6943...
+item 4 PASS: 新对账规则正确解释batch2状态:
+  总计行=4/4: DECISION.md有4行"总计: PASS=51 FAIL=0"（T1+T2+T3+终局）
+  PASS=51: 4行PASS值相同
+  FAIL=0: 4行均FAIL=0
+  T1=1 T2=1 T3=1 终局=1: progress.log中每个任务各至少1个PASS
+  冻结=2: 2次T3 FAIL冻结（informational，不判定）
+
+51与7/2差异解释: 51=断言计数（DECISION），T1/T2/T3/终局=任务级计数（progress.log），冻结=失败重试计数——三者度量不同维度，不可直接比较，新规则分维判定。
+
+====P4====
+health suite 9条断言原文输出:
+
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+[harness] Leader=n1-health-1788689035-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+[harness] Leader=n1-health-1788689035-t31 after 5s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+[harness] Leader=n1-health-1788689035-t33 after 5s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+
+9条断言:
+1. t30: node1 SERVING
+2. t30: node2 SERVING
+3. t31: follower initially SERVING
+4. t31: stopped follower → NOT_SERVING
+5. t31: follower recovered → SERVING
+6. t32a: GRPC_PORT=abc → not running
+7. t32b: GRPC_PORT=0 → not running
+8. t33: /raft/status fields match baseline (9 fields)
+9. t33: /raft/stats still works
+
+账本记录位置: suite级evidence目录 tests/evidence/health-<timestamp>-t30/、t31/、t33/（通过log_evidence落盘）。通过knife_run运行时suite输出捕获在${RUN_EVIDENCE}/suite_health.log，断言计数汇入DECISION.md "总计: PASS=51"（9条health + 42条其他suite）。progress.log记录任务级结果（T1/T2/T3/终局），不直接记录suite级断言。
+
+====F1====
+f2596dc完整diff原文:
+
+diff --git a/tests/run_pipeline.sh b/tests/run_pipeline.sh
+index 7303242..9628558 100755
+--- a/tests/run_pipeline.sh
++++ b/tests/run_pipeline.sh
+@@ -337,9 +337,7 @@ if [ "$DRY_RUN" = "true" ]; then
+     exit $?
+ fi
+ 
+-preflight || exit 5
+-
+-# ── --soak N模式: 连续N次全量suite稳定性门槛 ──
++# ── --soak N模式: 连续N次全量suite稳定性门槛 (跳过preflight) ──
+ if [ "$SOAK" -gt 0 ]; then
+     log "SOAK: 连续${SOAK}次全量suite稳定性测试"
+     SOAK_PASS=0
+@@ -374,6 +372,8 @@ if [ "$SOAK" -gt 0 ]; then
+     fi
+ fi
+ 
++preflight || exit 5
++
+ START=1
+ if [ "$RESUME" = "true" ] && [ -f "$PLOG" ]; then
+     if grep -q "T3 PASS" "$PLOG"; then START=4
+
+====F2====
+--soak跳过preflight的限定条件判定代码原文（run_pipeline.sh:338-375）:
+
+338: fi
+339: 
+340: # ── --soak N模式: 连续N次全量suite稳定性门槛 (跳过preflight) ──
+341: if [ "$SOAK" -gt 0 ]; then
+342:     log "SOAK: 连续${SOAK}次全量suite稳定性测试"
+343:     SOAK_PASS=0
+344:     SOAK_FAIL=0
+345:     for i in $(seq 1 "$SOAK"); do
+346:         log "SOAK round $i/$SOAK"
+347:         round_fail=0
+348:         for suite in baseline idem health wal_snap; do
+349:             log "SOAK round $i: suite=$suite"
+350:             if RUN_ID="soak-r${i}-$(date +%s)" bash "${TESTS_DIR}/suite_${suite}.sh" >>"$RLOG" 2>&1; then
+351:                 log "SOAK round $i: $suite PASS"
+352:             else
+353:                 log "SOAK round $i: $suite FAIL"
+354:                 round_fail=1
+355:             fi
+356:         done
+357:         if [ "$round_fail" -eq 0 ]; then
+358:             SOAK_PASS=$((SOAK_PASS + 1))
+359:             log "SOAK round $i: ALL PASS"
+360:         else
+361:             SOAK_FAIL=$((SOAK_FAIL + 1))
+362:             log "SOAK round $i: HAS FAIL"
+363:         fi
+364:     done
+365:     log "SOAK结果: PASS=$SOAK_PASS FAIL=$SOAK_FAIL (共${SOAK}轮)"
+366:     if [ "$SOAK_FAIL" -eq 0 ]; then
+367:         log "SOAK PASS"
+368:         exit 0
+369:     else
+370:         log "SOAK FAIL 冻结"
+371:         exit 2
+372:     fi
+373: fi
+374: 
+375: preflight || exit 5
+
+跳过限定条件证明:
+--soak模式: SOAK > 0时进入--soak块（line 341: if [ "$SOAK" -gt 0 ]），块内exit 0（line 368）或exit 2（line 371）直接退出，不执行preflight。跳过条件严格限定于SOAK -gt 0。
+正常模式: SOAK = 0时跳过--soak块（if [ "$SOAK" -gt 0 ]为假），执行到preflight || exit 5（line 375），preflight语义完全不变。
+--dry-run模式: 在preflight和--soak之前exit $?（line 337），不受影响。
+
+====F3====
+重算后的md5封印值:
+tests/run_pipeline.sh md5 = 28fb6943824a92d56bd8bdd46910348f
+
+_audit.sh对新状态实跑原文:
+[PASS] 1. md5封印核验 (28fb6943824a92d56bd8bdd46910348f)
+[PASS] 2. bash -n语法检查
+[PASS] 3. grep '[$' = 0
+[PASS] 4. 断言计数对账 (总计行=4/4, PASS=51, FAIL=0, T1=1 T2=1 T3=1 终局=1, 冻结=2)
+[PASS] 5. SHA核对 (T1=1df4525✓ T2=f5996e0✓ )
+[PASS] 6. tag计数 (9)
+
+==============================
+  AUDIT: PASS=6  FAIL=0
+==============================
+  ALL PASS
