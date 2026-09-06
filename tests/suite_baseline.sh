@@ -104,7 +104,7 @@ echo "commit before follower stop: $commit_mid"
 stop_node "$follower"
 sleep 10
 start_node "$follower"
-sleep 15
+wait_for 20 grpc_serving "$(_c_name "$follower")"
 
 s_end=$(stats "$leader")
 commit_end=$(extract_stat "$s_end" commit)

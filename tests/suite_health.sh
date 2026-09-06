@@ -72,7 +72,7 @@ assert_eq "$t31_stopped" "NOT_SERVING" "t31: stopped follower → NOT_SERVING"
 
 # 重启Follower
 start_node "$follower"
-sleep 15
+wait_for 20 grpc_serving "$follower_container"
 
 # 恢复后应SERVING
 t31_recovered=$(grpc_health_check "$follower_container")
