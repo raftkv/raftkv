@@ -209,7 +209,7 @@ task_t3() {
     log "T3: sleep→wait_for统一"
     log "方案: A路线——仅保留带明确容器变量的wait_for替换, 回退裸数字is_running替换"
     log "原因: 裸数字is_running 1引入运行态验证, 改变原始sleep盲等语义, 导致T3冻结"
-    log "保留替换点: baseline(sleep15→wait_for 15 is_running \"$follower\"), health(sleep15→wait_for 15 is_running \"$follower\")"
+    log '保留替换点: baseline(sleep15→wait_for 15 is_running "$follower"), health(sleep15→wait_for 15 is_running "$follower")'
     log "回退替换点: baseline(sleep10×2), idem(sleep15×1), wal_snap(sleep8/10/15×3)——均裸数字"
 
     # R1: 锚定模式全局替换（禁止行号sed）
