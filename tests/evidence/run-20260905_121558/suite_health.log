@@ -1,0 +1,79 @@
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+066843eccc8f15df89c0c12be70b884c1245ce2521fb724187bf21278c2d1442
+wal1-health-1788610924-t30
+wal2-health-1788610924-t30
+d31b264bb9b273931cb43c57c916892c83d7e99c20c0384852579541e0453a54
+14598eddde3057e3ca11ec43d54581cb801985b5af0955b2e397ec9d5516dfe1
+[harness] Leader=n1-health-1788610924-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788610924-t30
+n2-health-1788610924-t30
+wal1-health-1788610924-t30
+wal2-health-1788610924-t30
+net-health-1788610924-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+012dad4dc132aa8667b3a8cfd5384934a1900b65d7d5ce048c95953169e7100a
+wal1-health-1788610924-t31
+wal2-health-1788610924-t31
+252f59c5d074ffbd52eac26bf565d618b30e81c21012439403b1ffb0bb0698fa
+10b7af9bd6defe966eb593223cba9e14ef15a1660c7347a7732d708964329907
+[harness] Leader=n1-health-1788610924-t31 after 5s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n2-health-1788610924-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n2-health-1788610924-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788610924-t31
+n2-health-1788610924-t31
+wal1-health-1788610924-t31
+wal2-health-1788610924-t31
+net-health-1788610924-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+2173255623f594a4b9205f9451dc854dbd8290d3b1cb9e49a6a15ab7d33e4d10
+t32a-health-1788610924
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+5224e7a75358bfd108544848acaecdde1a44aa223e9fef27e9d4bd61845ab28e
+t32b-health-1788610924
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+ee624f8ebacad890a2e5cff0f0d91e19958af9a2545a3daeee00af6a446a3c25
+wal1-health-1788610924-t33
+wal2-health-1788610924-t33
+f023ee34e63fefcf422ee0520cbc100aae16f9ab64c71546420b0b91bdbf7a55
+75411855de0f0b30ae35c127456fa48de20ef0e6bd268d4532f1f83f424116fd
+[harness] Leader=n1-health-1788610924-t33 after 6s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788610924-t33
+n2-health-1788610924-t33
+wal1-health-1788610924-t33
+wal2-health-1788610924-t33
+net-health-1788610924-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────

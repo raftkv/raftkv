@@ -1,0 +1,89 @@
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+dbd0e667fd51da89749abe6e23a88199ee658d535c9ae03a42f7d27a0269f43b
+wal1-idem-1788668781-t10
+wal2-idem-1788668781-t10
+eade3c8eb9c9f4ff2ab3294ef952c901fa008678627dd62baabd6632770012d0
+ff5432a138f2b921979025ff0914965a53a40860790238d3620ef0c6efddd645
+[harness] Leader=n1-idem-1788668781-t10 after 5s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788668781-t10
+n2-idem-1788668781-t10
+wal1-idem-1788668781-t10
+wal2-idem-1788668781-t10
+net-idem-1788668781-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+c764e9b7975f1a304df68eaeef3025b77e2c746cc7c70c5e87fd928149856431
+wal1-idem-1788668781-t11
+wal2-idem-1788668781-t11
+9199967ecfbc032e29c18a919b4bdb759857ad990b395fa16ab0e03896abe3f0
+3de7ec7500b574b28643deafccdf2bd1d4a9fc30a2389431b80b4742ba62756e
+[harness] Leader=n1-idem-1788668781-t11 after 5s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788668781-t11
+n2-idem-1788668781-t11
+wal1-idem-1788668781-t11
+wal2-idem-1788668781-t11
+net-idem-1788668781-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+cebc51c26e83d9c0a234cd7dd8eb5d374980628edef3d437212475f33a6eb2f0
+wal1-idem-1788668781-t12
+wal2-idem-1788668781-t12
+517ae4754e77f1e601f4f0c1dde4c685ee6bdc62ed60831e60abc11329b7d681
+f3123a6993802ad2ebd14e54dd52184430571ab5b33c31b9f9d769de7a27161a
+[harness] Leader=n1-idem-1788668781-t12 after 6s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788668781-t12
+n2-idem-1788668781-t12
+wal1-idem-1788668781-t12
+wal2-idem-1788668781-t12
+net-idem-1788668781-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+703f85ee2ec79e6db5e5a90e49e5b52098ee07be733860262c64f2024ac21a4a
+wal1-idem-1788668781-t13
+wal2-idem-1788668781-t13
+25aa5c6a57dfe9f3537346497d00ee0f8959def8a5611fd0d8df7bb3a34c6150
+ef39f61902c5b37db9a16fc752cc7cbeee3879a212dac6d40753f7ac2cc4b153
+[harness] Leader=n1-idem-1788668781-t13 after 6s
+n2-idem-1788668781-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788668781-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788668781-t13
+n2-idem-1788668781-t13
+wal1-idem-1788668781-t13
+wal2-idem-1788668781-t13
+net-idem-1788668781-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+bc4802af26bc813b884b9d288951277aec2f5b58d611b2f0aa253206d4654386
+wal1-idem-1788668781-t14
+wal2-idem-1788668781-t14
+993413a9a13b92ca8604be48f8def7f2209b520d481ab9e7d62c976a07845c69
+2b096ee4e1ae0acb24579337601febafed6dcb7fcd76dd57450ad1a94517db12
+[harness] Leader=n1-idem-1788668781-t14 after 5s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788668781-t14
+n2-idem-1788668781-t14
+wal1-idem-1788668781-t14
+wal2-idem-1788668781-t14
+net-idem-1788668781-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────

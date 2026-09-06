@@ -1,0 +1,2 @@
+3bfaffce209be66c4e62fe3a49b45b8bfc95fb2d8ef1b499d72d9216f39d0739
+rollback smoke stats: id=node-1 state=Follower term=0 leader= commit=0 applied=0 logs=0 peers=0 voted=

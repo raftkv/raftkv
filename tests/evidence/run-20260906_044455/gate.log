@@ -1,0 +1,22 @@
+Switched to branch 'v1.0-dev'
+Merge made by the 'ort' strategy.
+ .gitignore            |   3 +-
+ tests/harness.sh      |   2 +-
+ tests/knife_run.sh    |  42 ++-----
+ tests/run_pipeline.sh | 342 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 357 insertions(+), 32 deletions(-)
+ create mode 100755 tests/run_pipeline.sh
+5d47cba Merge fix/d1-batch2: knife_run PASS (v1.0.0-d2)
+107cc3c fix(ci): T3 A2 no-op mode + generate_decision empty sha guard
+adafb1d fix(ci): escape \ in T3 log line (set -u safe)
+f649bed fix(ci): git commit skip when no staged changes (resume safe)
+9b627ce fix(ci): T3 A-route revert bare-number is_running, keep follower-var only
+v1.0.0-d1
+v1.0.0-d2
+v1.0.0-dev1
+v1.0.0-dev2
+v1.0.0-dev3
+v1.0.0-dev4
+v1.0.0-dev5
+v1.0.0-dev6
+v1.0.0-dev7

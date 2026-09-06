@@ -1,0 +1,2283 @@
+╔═══════════════════════════════════════════════════════════╗
+║  knife_run CI门禁                                          ║
+║  branch=fix/d1-batch2  tag=v1.0.0-d2-t1  suites=baseline,idem,wal_snap,health                  ║
+║  run_id=run-20260905_174313                                            ║
+║  last_green=v1.0.0-dev7  no_tag=true                ║
+╚═══════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════
+  Phase 1: BUILD
+═══════════════════════════════════════════════════
+M	tests/harness.sh
+Already on 'fix/d1-batch2'
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  56.83MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Using cache
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Using cache
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Using cache
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> def536f564aa
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in 8bf9de42c367
+ ---> Removed intermediate container 8bf9de42c367
+ ---> ef2ae875e477
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Using cache
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Using cache
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Using cache
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Using cache
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Using cache
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> Using cache
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Using cache
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Using cache
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...
+key leak hits: 0
+[build] PASS: build + key leak scan clean
+
+═══════════════════════════════════════════════════
+  Phase 2: SMOKE
+═══════════════════════════════════════════════════
+44f0ce9221867c11607f1e0ce8f4084ed24ccc52bc3fbac841b05e7942cbecb6
+wal1-smoke-run-20260905_174313
+wal2-smoke-run-20260905_174313
+852efa64853a746159d8e266f784168e592b986b9a8781266a6823899df88e56
+b764ee46cc1a6881739d96ce93dd5058316cc9df6a86822ffd8186eb6971d84a
+[harness] Leader=n1-smoke-run-20260905_174313 after 5s
+[smoke] PASS: Leader elected
+
+═══════════════════════════════════════════════════
+  Phase 3: VERIFY
+═══════════════════════════════════════════════════
+
+▶ 套件: baseline
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+baeeb326c66a2c836a5bae4da06f611b80f72390bb1074f50b4fa08b94c271d2
+t01a-base-1788630280
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+3f473310a4f4f7fab91f0bdf70497b12a85edf66a9d88bff5d155715746f6ca9
+t01b-base-1788630280
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+c1d8a773fd650737199a05381fa0841f0cbcbf962f5d52c2692258d53d5e810d
+wal1-base-1788630280-t02
+wal2-base-1788630280-t02
+a06d094ef33c08401876094f1f280dbf377771ba90613671fc7892ddc8ccc5e4
+8b69529ea08b8cd01c2e5de364d5f01e268c6f78a02caa6136229f4051b66ea7
+[harness] Leader=n1-base-1788630280-t02 after 5s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788630280-t02
+n2-base-1788630280-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788630280-t02
+n2-base-1788630280-t02
+wal1-base-1788630280-t02
+wal2-base-1788630280-t02
+net-base-1788630280-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+5876d739d7aa841413f12f4155e076557f3c7522c5465bf32dca5c5a6f12478e
+wal1-base-1788630280-t03
+wal2-base-1788630280-t03
+9e290304e657097341f50644d43a468697d5fe5e4102a42e60d77a0cd6d88b37
+2c487c3111b697252544793d5dca611056fa36d42f1779c443cad7a07931d449
+[harness] Leader=n1-base-1788630280-t03 after 6s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788630280-t03
+n2-base-1788630280-t03
+wal1-base-1788630280-t03
+wal2-base-1788630280-t03
+net-base-1788630280-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+aa311ab86ae8c3a117fedd0687188a275f45411f786724909a2884d3d81c0b1e
+wal1-base-1788630280-t04
+wal2-base-1788630280-t04
+6df9fb1193c69a728131c92206c347cc20983b66390f746305be8c86108c9bcc
+dab3c7782722bc75a8836a593fba9678f612d0d50723c0b69c75aefd363da23d
+[harness] Leader=n1-base-1788630280-t04 after 5s
+commit before follower stop: 31
+n2-base-1788630280-t04
+n2-base-1788630280-t04
+  [PASS] t04: commit not regressed to 0: 32 != 0
+  [PASS] t04: applied==commit after recovery: 32 == 32
+n1-base-1788630280-t04
+n2-base-1788630280-t04
+wal1-base-1788630280-t04
+wal2-base-1788630280-t04
+net-base-1788630280-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+46df02199627d91d0603412d7ac64884b99652f2be629e5d259f8d71ccd3bb28
+wal1-base-1788630280-t05
+wal2-base-1788630280-t05
+f83907bf5bb363500743e06be37b8a8021c16d13f22bf555d5a201c34ea32c00
+28ef0b18080c0d4830e00b1aee981a0aeffd9b5803ec1b642f51804c6e955429
+[harness] Leader=n1-base-1788630280-t05 after 7s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788630280-t05
+n2-base-1788630280-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788630280-t05
+n2-base-1788630280-t05
+wal1-base-1788630280-t05
+wal2-base-1788630280-t05
+net-base-1788630280-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+64bc66bf59c849996d0ac4c45342d802a3531b2556356977d8a1bbc046d53d16
+t06a-base-1788630280
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+677ab5b5a31ad038a9aa941b0d7cf0f027783bfa25c180f7e1150ca7409d3bf8
+t06b-base-1788630280
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+
+▶ 套件: idem
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+30ccabf046e22db18aef3aedc82bf45e83eea6233ea2eb357ad10d6cb6b98f2a
+wal1-idem-1788630407-t10
+wal2-idem-1788630407-t10
+424471fc735437dc6d1198292363e05122486030400d951d5af606c56ae6f68a
+59bf442f48ccbd3a8be3e0636fe833430f1fbf540bfae0c0c652816a12639b86
+[harness] Leader=n1-idem-1788630407-t10 after 6s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788630407-t10
+n2-idem-1788630407-t10
+wal1-idem-1788630407-t10
+wal2-idem-1788630407-t10
+net-idem-1788630407-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+56f029eb627392359dec1be4df6b71afd862d35dd1b1a8ef08a05e826f236f8e
+wal1-idem-1788630407-t11
+wal2-idem-1788630407-t11
+59ec9d079f85b33324c111f42de250386d9dcc13da1e980292cd57b8e071ccd3
+7a61d59b51796d2dbb518579587355739b75888a6f3c3ba241c14e7c6993e6bc
+[harness] Leader=n1-idem-1788630407-t11 after 6s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788630407-t11
+n2-idem-1788630407-t11
+wal1-idem-1788630407-t11
+wal2-idem-1788630407-t11
+net-idem-1788630407-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+dab670acedc8fe9d45da1366ca3ff49a665e4f8da800bd5c1c586a3173b67203
+wal1-idem-1788630407-t12
+wal2-idem-1788630407-t12
+d718af82338727bc90f9115157d4e0ce57b376e6ddea5d33daea7ac04f17ac82
+d4378faad60cfac56d57f18698bd11fc6e0df78e879bea11b67bdb989a0cdb03
+[harness] Leader=n1-idem-1788630407-t12 after 5s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788630407-t12
+n2-idem-1788630407-t12
+wal1-idem-1788630407-t12
+wal2-idem-1788630407-t12
+net-idem-1788630407-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+54b3dc7c4eacaba9842be0004b635d86a1056489f66ac14a4223e5fd6a6d4477
+wal1-idem-1788630407-t13
+wal2-idem-1788630407-t13
+64459d40209a986c4532afc058eaffc1d073d15797b521356c6289b6d6a1f993
+66f32ee98632b211533767cdbed2687b28029035c91b3b15a09650e655ef7972
+[harness] Leader=n1-idem-1788630407-t13 after 5s
+n2-idem-1788630407-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788630407-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788630407-t13
+n2-idem-1788630407-t13
+wal1-idem-1788630407-t13
+wal2-idem-1788630407-t13
+net-idem-1788630407-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+df2065659ddb4a83e806214f50eef08e5a280e6706a04c756f2fc2b3fdf302f7
+wal1-idem-1788630407-t14
+wal2-idem-1788630407-t14
+2364651d720ec93268767c78c2790135c2bcf902c324ccfdb263760a3c310196
+20e49c82f7f83774a2612a91e4cd32ee639f69051b8d97e9bc9cfaf11fa5daaf
+[harness] Leader=n2-idem-1788630407-t14 after 6s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788630407-t14
+n2-idem-1788630407-t14
+wal1-idem-1788630407-t14
+wal2-idem-1788630407-t14
+net-idem-1788630407-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+
+▶ 套件: wal_snap
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+f0d6889583f959bf2d837e1da2189bf9f249bec6c74bbcf0cb3c8cda7d51fe99
+wal1-snap-1788630475-t20
+wal2-snap-1788630475-t20
+ad131f5e5eaaf032d931496eb131917272570a16826492b5af2cf9d8f33f8d91
+b3726429cef779ab7ab6988ae67ab15c8d9db03b35e2a53e9f828486aa1278f9
+[harness] Leader=n1-snap-1788630475-t20 after 5s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788630475-t20
+n2-snap-1788630475-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788630475-t20
+n2-snap-1788630475-t20
+wal1-snap-1788630475-t20
+wal2-snap-1788630475-t20
+net-snap-1788630475-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+e9f7ab35072882c6504115397bbe23a98c400a4013e423bcb5231bc36992e398
+wal1-snap-1788630475-t21
+wal2-snap-1788630475-t21
+eafee7854f572dac3c2ff7a431c43ba6a5367f6a397044ef183ed1d34177caca
+af2b73512deb58156e5c9ba1ef69bbec9105fd1a40c1682c338a04fd0fd7b7b0
+[harness] Leader=n1-snap-1788630475-t21 after 5s
+n1-snap-1788630475-t21
+  [PASS] t21: term advanced after election: 6 != 1
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 6 == 6
+n1-snap-1788630475-t21
+n2-snap-1788630475-t21
+wal1-snap-1788630475-t21
+wal2-snap-1788630475-t21
+net-snap-1788630475-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+c5ff0570b6a411983078d1f1b303370f5b5ad2c32ede4f96e8e0f0c07030048a
+vol-snap-1788630475-t22
+6f405c13d7701393fbc305a3ae0396889274fbc1b1112344c3263a4a2539b1a6
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788630475-t22
+vol-snap-1788630475-t22
+net-snap-1788630475-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+dfc64faeb57178c9c5abc871fa217a7b798ce3eef91a872ff752dfea4daf0525
+wal1-snap-1788630475-t23
+wal2-snap-1788630475-t23
+35b2c3a154db74f59de890b88faff85e75e98047329facc2926499442079173a
+938e503e29fe360c96c5da80935d1e1290ad133652d9f173ac1e412c48eda111
+[harness] Leader=n1-snap-1788630475-t23 after 5s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788630475-t23
+n2-snap-1788630475-t23
+wal1-snap-1788630475-t23
+wal2-snap-1788630475-t23
+net-snap-1788630475-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+
+▶ 套件: health
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /workspace/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+19545e5e31cd1deb7f78b074d12204dde3fb1ec62d4e8eb426aae56a94c472d1
+wal1-health-1788630558-t30
+wal2-health-1788630558-t30
+9c0b48a4d78d8ad6a149c816020fc811a8903ddc8d1f5d11bdaecd501174fa32
+c7c79a555cffe8fd5fee166e7ba6c6324b8bec5d47d968d1350d2b8d6af5d556
+[harness] Leader=n1-health-1788630558-t30 after 5s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788630558-t30
+n2-health-1788630558-t30
+wal1-health-1788630558-t30
+wal2-health-1788630558-t30
+net-health-1788630558-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+7978884292fe2edfed1fd2badd286760a40a5eab2c04589942314f32ad74767d
+wal1-health-1788630558-t31
+wal2-health-1788630558-t31
+3ff971df3460afa4cdc85c735c34d33c831842b07aee18fb179a1c155d311561
+7bf24fbaccfc64b7890033bb7551b87509c01216e8916c9362d4312c05bdbbe2
+[harness] Leader=n1-health-1788630558-t31 after 6s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n2-health-1788630558-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n2-health-1788630558-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788630558-t31
+n2-health-1788630558-t31
+wal1-health-1788630558-t31
+wal2-health-1788630558-t31
+net-health-1788630558-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+5820c686ccb116fc29dea7fa9a2c1954f89737aae26f6cc00d8b9a31f017351c
+t32a-health-1788630558
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+07fc51d0a035f5b19950a60d24646ca6aa203d896c190a287fe2e79bf9a62038
+t32b-health-1788630558
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+6aa8d8793e9f238e18c5245cb49e20adfbaff81826c726f7e1cddcfdec40b076
+wal1-health-1788630558-t33
+wal2-health-1788630558-t33
+b960d380d9fda1bda984090bb6e353eae121a6e4be496a3048e16bf4ec658584
+c86c583e362a3ee3e1c3549e1bfaecbd8699098e032c4c389376e1548935383f
+[harness] Leader=n1-health-1788630558-t33 after 7s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788630558-t33
+n2-health-1788630558-t33
+wal1-health-1788630558-t33
+wal2-health-1788630558-t33
+net-health-1788630558-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+
+  总计: PASS=51 FAIL=0
+
+═══════════════════════════════════════════════════
+  Phase 4: GATE
+═══════════════════════════════════════════════════
+
+╔═══════════════════════════════════════════════════════════╗
+║  PASS REPORT                                               ║
+║  run_id: run-20260905_174313                                           ║
+║  suites: baseline,idem,wal_snap,health                                           ║
+║  assertions: PASS=51 FAIL=0             ║
+╚═══════════════════════════════════════════════════════════╝
+[gate] --no-tag 模式, 跳过 tag+merge
+
+[knife_run] 完成. evidence: /workspace/tests/evidence/run-20260905_174313/
+╔═══════════════════════════════════════════════════════════╗
+║  knife_run CI门禁                                          ║
+║  branch=fix/d1-batch2  tag=v1.0.0-d2-t2  suites=baseline,idem,wal_snap,health                  ║
+║  run_id=run-20260905_175022                                            ║
+║  last_green=v1.0.0-dev7  no_tag=true                ║
+╚═══════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════
+  Phase 1: BUILD
+═══════════════════════════════════════════════════
+M	tests/knife_run.sh
+Already on 'fix/d1-batch2'
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  56.91MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Using cache
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Using cache
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Using cache
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> 4f39dc5e254a
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in 3f34a6e669ad
+ ---> Removed intermediate container 3f34a6e669ad
+ ---> 5dbd2ed16909
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Using cache
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Using cache
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Using cache
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Using cache
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Using cache
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> Using cache
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Using cache
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Using cache
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...
+key leak hits: 0
+[build] PASS: build + key leak scan clean
+
+═══════════════════════════════════════════════════
+  Phase 2: SMOKE
+═══════════════════════════════════════════════════
+5fc6b747bc2b79b6e4193e8842b79cb35b163949957ffaee3a5d78ce19cd8e3f
+wal1-smoke-run-20260905_175022
+wal2-smoke-run-20260905_175022
+f4035a0cb8c6daeb5473841a9c54e3d988e428bc743746dc0851e473c27b17a6
+9db2f971a1382e3bc4be32a712d5d9ee52a1c3013524a280c7d4ec2edaad4a81
+[harness] Leader=n1-smoke-run-20260905_175022 after 6s
+[smoke] PASS: Leader elected
+
+═══════════════════════════════════════════════════
+  Phase 3: VERIFY
+═══════════════════════════════════════════════════
+
+▶ 套件: baseline
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+15057f2689047bb128221a240e353da31e3d6a4e7f6b79c9e86e9d1eab4faacd
+t01a-base-1788630702
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+e571c8aec8f53a0d930cf39df98ae6c065a3377d58f1ac723794ff90756f1cd2
+t01b-base-1788630702
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+fd45698d4bfe5e43a4715919ad281eb9444fc256ad729da4fd9647828acb3d36
+wal1-base-1788630702-t02
+wal2-base-1788630702-t02
+80ab25edd6fbb0a2c9434ec97fee6df5cae4c937e4059b7d3f16fd1bad6fe3d2
+981a9023b7c54714210631331586111f74cb231ca42aef1abceb52d45a0f06ee
+[harness] Leader=n1-base-1788630702-t02 after 5s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788630702-t02
+n2-base-1788630702-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788630702-t02
+n2-base-1788630702-t02
+wal1-base-1788630702-t02
+wal2-base-1788630702-t02
+net-base-1788630702-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+93d9bdd2cb9027da8beec1bcfabf8f13ef3ba2e76742292a0c2f01c9cc53c2cf
+wal1-base-1788630702-t03
+wal2-base-1788630702-t03
+c732369eca0f44761ef496273561f6d739c8ebc63e215a932699abcaa43355c8
+a0f150eff72a0425a48839c1a83ee144c95fe5e164e17dd45e25cb19a0108281
+[harness] Leader=n1-base-1788630702-t03 after 5s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788630702-t03
+n2-base-1788630702-t03
+wal1-base-1788630702-t03
+wal2-base-1788630702-t03
+net-base-1788630702-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+a0fdefea0509ff5262f482fe088981aa995278d4d5db8f103b28b9100f894a31
+wal1-base-1788630702-t04
+wal2-base-1788630702-t04
+9beff564466ef02579aff7b96fec606097c95555c516c677b76872b5b824489b
+c381fb8146345d14385b1a4487ef16d1444b70fb78a5ef813f801b07cc9112d0
+[harness] Leader=n1-base-1788630702-t04 after 5s
+commit before follower stop: 31
+n2-base-1788630702-t04
+n2-base-1788630702-t04
+  [PASS] t04: commit not regressed to 0: 32 != 0
+  [PASS] t04: applied==commit after recovery: 32 == 32
+n1-base-1788630702-t04
+n2-base-1788630702-t04
+wal1-base-1788630702-t04
+wal2-base-1788630702-t04
+net-base-1788630702-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+1ba0d7588d331c3ec8cc0df32e3ee4916f39877eb22b514f2f79927c6b7d8488
+wal1-base-1788630702-t05
+wal2-base-1788630702-t05
+b6c38e7521beba399f7721b3ed40b9deb1c84532c954a28f37f003a3bd3dd561
+126bc0e9255ccd22f8052a341483f2018eb03700494523c1331354042f99f056
+[harness] Leader=n1-base-1788630702-t05 after 7s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788630702-t05
+n2-base-1788630702-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788630702-t05
+n2-base-1788630702-t05
+wal1-base-1788630702-t05
+wal2-base-1788630702-t05
+net-base-1788630702-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+8b2ee8bef4b8ba123ae87923960da8c5d994073d432fd6d2bc448678c7f9aa68
+t06a-base-1788630702
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+7ff315e424d6efc91356301521a68e4326edc197b6e523ff6b6995cc6d86c223
+t06b-base-1788630702
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+
+▶ 套件: idem
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+f685076caf3fe459d72498850be889310e0096d153a0ab3be19312aaf5080a9c
+wal1-idem-1788630831-t10
+wal2-idem-1788630831-t10
+8d9844d5d47fd611808e31cc57f13b47cb9063f7e1695d1dce02a1a20a5fefa7
+73bad34e8ad193e82bf4afd7d073be6d52a4b907f82adb16ec08911a9d97ef60
+[harness] Leader=n1-idem-1788630831-t10 after 6s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788630831-t10
+n2-idem-1788630831-t10
+wal1-idem-1788630831-t10
+wal2-idem-1788630831-t10
+net-idem-1788630831-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+44996f2d204014da512fffb962891c9d96b32be80287431a97c82d304f1a2a13
+wal1-idem-1788630831-t11
+wal2-idem-1788630831-t11
+8125c6db54685110faf0fdc24477941527f84be71b89698a1472572a577c99a3
+8e5899cfc013b91a58e0cc3db849ec699bdad9e5bf6e1820b52ad822d3bf84a3
+[harness] Leader=n1-idem-1788630831-t11 after 5s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788630831-t11
+n2-idem-1788630831-t11
+wal1-idem-1788630831-t11
+wal2-idem-1788630831-t11
+net-idem-1788630831-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+9d6a83dd17b3388db75dde6a352f48e5f63d51109587e138be14cc73cea3e4d9
+wal1-idem-1788630831-t12
+wal2-idem-1788630831-t12
+9d7423092cb22f46b187d894f0f88e8205f56a852161ce75636c0c6d82faf972
+40f9cb00b53377178190270b1bb512ff4128dbff802f99d7fa2148c251411749
+[harness] Leader=n1-idem-1788630831-t12 after 6s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788630831-t12
+n2-idem-1788630831-t12
+wal1-idem-1788630831-t12
+wal2-idem-1788630831-t12
+net-idem-1788630831-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+a72a96a52702f1684e684f600ceb8772569ac3901df6059229f213a8a10c6e9a
+wal1-idem-1788630831-t13
+wal2-idem-1788630831-t13
+06d5b87b31673c9ce34f5fc50b7d88d3f8f0ca0a026f0e3829355ca5b0100315
+bfa74276c2303023becba2776bcf3fc04148ccf4a89363fec3ecd65fc8cb4d14
+[harness] Leader=n1-idem-1788630831-t13 after 6s
+n2-idem-1788630831-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788630831-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788630831-t13
+n2-idem-1788630831-t13
+wal1-idem-1788630831-t13
+wal2-idem-1788630831-t13
+net-idem-1788630831-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+316c5d2ec9f26cb420bb24c791919abc820add6b8b13b415308e22fecc2b7cc3
+wal1-idem-1788630831-t14
+wal2-idem-1788630831-t14
+0bebc93b02870759e92e0b17e453028a3375209ab9435e5fde2af2c8f8752405
+a1a6cead5858fdcf8ce5b3f5fe866b6269ebd9b69e536bb04ff8f14aa267f287
+[harness] Leader=n1-idem-1788630831-t14 after 6s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788630831-t14
+n2-idem-1788630831-t14
+wal1-idem-1788630831-t14
+wal2-idem-1788630831-t14
+net-idem-1788630831-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+
+▶ 套件: wal_snap
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+6024e9b64cd7827ebfa27f2631952c174bf3c7c305d4d987432cf06554861c6f
+wal1-snap-1788630900-t20
+wal2-snap-1788630900-t20
+23fc520be1ad6b63fe0bcf494083b0da435cbdcb15fbaf5592b20f34a4b6e0e7
+5891781d1c067bf4733c111e8daae210db81e124b0a75594cca2e6501ff58a4f
+[harness] Leader=n1-snap-1788630900-t20 after 6s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788630900-t20
+n2-snap-1788630900-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788630900-t20
+n2-snap-1788630900-t20
+wal1-snap-1788630900-t20
+wal2-snap-1788630900-t20
+net-snap-1788630900-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+63be071b3480bfdb5e6ee1b9f9a5378b63970df78a27db932fe7263561a97b00
+wal1-snap-1788630900-t21
+wal2-snap-1788630900-t21
+dc82a5c6a0268c60d50a09a8ddfd7d844c2be9aa275de28735fb5279dd9fa515
+7245f65989ee0774d85e05ed03fc1d9bb9706a9d4b7cf32f75ad2e120f95f7c1
+[harness] Leader=n1-snap-1788630900-t21 after 5s
+n1-snap-1788630900-t21
+  [PASS] t21: term advanced after election: 5 != 1
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 5 == 5
+n1-snap-1788630900-t21
+n2-snap-1788630900-t21
+wal1-snap-1788630900-t21
+wal2-snap-1788630900-t21
+net-snap-1788630900-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+e1b37aa4b8601d7a6fd3f14c475c59fed543113093603ed2159eb921615a425a
+vol-snap-1788630900-t22
+fc7bd264932e70ba350fd3bbbe4438541f79a5f80e95ee3c57e77661dc106c22
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788630900-t22
+vol-snap-1788630900-t22
+net-snap-1788630900-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+e618d31b00e564b8fea9abeff49dd6cd6700fbe412808b770412e677b3abf9a9
+wal1-snap-1788630900-t23
+wal2-snap-1788630900-t23
+074b0742a7834ac74e8372319e9a4576d36a213183d0256534af5a5a7d88673b
+d1a2ad89fc7b520e7b4b90d19788fff7150af899c7b17eb3eacc6d8ee17e9516
+[harness] Leader=n1-snap-1788630900-t23 after 5s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788630900-t23
+n2-snap-1788630900-t23
+wal1-snap-1788630900-t23
+wal2-snap-1788630900-t23
+net-snap-1788630900-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+
+▶ 套件: health
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /workspace/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+68d844243023b22ad58b3b954bda3cb749ab719249c5af879171ec71ba731c14
+wal1-health-1788630986-t30
+wal2-health-1788630986-t30
+86e6d4a1e91d71dbe2bd003cf44ffde0b58ec5af68a222ddce1d5e7741b63629
+1b1b45e0c156f5f68ef4d2baf4e8ffaeb2af9492e5f0dcec99f1de985d15d04b
+[harness] Leader=n1-health-1788630986-t30 after 5s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788630986-t30
+n2-health-1788630986-t30
+wal1-health-1788630986-t30
+wal2-health-1788630986-t30
+net-health-1788630986-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+5fefef45875d5970241f68ff9dae8aa959ccc3c25331dbdc8cc8dc11acf2bba0
+wal1-health-1788630986-t31
+wal2-health-1788630986-t31
+9d0aa72869afe5f191c8d189832d72ef463c59eee889b32d41fe1843493d05d8
+234a82984bf0175ab3c7ccd6d4ae59a2a2f73c6279da8893a061a1b9dac56f48
+[harness] Leader=n1-health-1788630986-t31 after 6s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n2-health-1788630986-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n2-health-1788630986-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788630986-t31
+n2-health-1788630986-t31
+wal1-health-1788630986-t31
+wal2-health-1788630986-t31
+net-health-1788630986-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+4125d031752aae38bf41b255aa0f49fb35f2bd3b8b4bc399d25ea16eeaf9cbcf
+t32a-health-1788630986
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+f85af2ec559f668a656c19c44af08d78b10708c2e0964231efc33b23a27a7760
+t32b-health-1788630986
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+3e5fc89fe96a49189531922c751a34f89e65ba2cf4996b80f7639aadfb45d9f5
+wal1-health-1788630986-t33
+wal2-health-1788630986-t33
+d7d370f3385844f1eb00ba96f63743f9f70ae127c36e265eb0332dcb21b3d648
+230df375656331bda98610d1d8eb234e8d6d23ddc3f15bcd21910340e399f37a
+[harness] Leader=n2-health-1788630986-t33 after 7s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788630986-t33
+n2-health-1788630986-t33
+wal1-health-1788630986-t33
+wal2-health-1788630986-t33
+net-health-1788630986-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+
+  总计: PASS=51 FAIL=0
+
+═══════════════════════════════════════════════════
+  Phase 4: GATE
+═══════════════════════════════════════════════════
+
+╔═══════════════════════════════════════════════════════════╗
+║  PASS REPORT                                               ║
+║  run_id: run-20260905_175022                                           ║
+║  suites: baseline,idem,wal_snap,health                                           ║
+║  assertions: PASS=51 FAIL=0             ║
+╚═══════════════════════════════════════════════════════════╝
+[gate] --no-tag 模式, 跳过 tag+merge
+
+[knife_run] 完成. evidence: /workspace/tests/evidence/run-20260905_175022/
+╔═══════════════════════════════════════════════════════════╗
+║  knife_run CI门禁                                          ║
+║  branch=fix/d1-batch2  tag=v1.0.0-d2-t3  suites=baseline,idem,wal_snap,health                  ║
+║  run_id=run-20260905_175731                                            ║
+║  last_green=v1.0.0-dev7  no_tag=true                ║
+╚═══════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════
+  Phase 1: BUILD
+═══════════════════════════════════════════════════
+M	tests/suite_baseline.sh
+Already on 'fix/d1-batch2'
+M	tests/suite_health.sh
+M	tests/suite_idem.sh
+M	tests/suite_wal_snap.sh
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  56.98MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Using cache
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Using cache
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Using cache
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> 92d1688a07cc
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in 2c8dddf26f53
+ ---> Removed intermediate container 2c8dddf26f53
+ ---> 6f283b29f26a
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Using cache
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Using cache
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Using cache
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Using cache
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Using cache
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> Using cache
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Using cache
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Using cache
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...
+key leak hits: 0
+[build] PASS: build + key leak scan clean
+
+═══════════════════════════════════════════════════
+  Phase 2: SMOKE
+═══════════════════════════════════════════════════
+85d9b50f2a69c2605cc431491db8d63b13d7c361e385443db5f0a67791d8f613
+wal1-smoke-run-20260905_175731
+wal2-smoke-run-20260905_175731
+d7e7e72f46fd16af02c81e7fa966fd33bdeef576c80dba1303f227c633016244
+2504c6fc383354702b9133d09feda4d3095773d9e2b87166decd4786434be904
+[harness] Leader=n2-smoke-run-20260905_175731 after 7s
+[smoke] PASS: Leader elected
+
+═══════════════════════════════════════════════════
+  Phase 3: VERIFY
+═══════════════════════════════════════════════════
+
+▶ 套件: baseline
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+d8d127326d996ce2a7a49422a3af80359ba177d35bda94765f2d871aa1fc8ace
+t01a-base-1788631131
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+b42a1f1adaa2b036c4d4fda55ae8af6bd962994279931a2f8414b2988b83d36c
+t01b-base-1788631131
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+8b6e25a7f5e6e4b69e18e29c31fde15d2b9a9d0f928264d2df07477dbbca3ff4
+wal1-base-1788631131-t02
+wal2-base-1788631131-t02
+e6604225af788b4b378829a9382a7168e8f69d1cde096e18fb0e6d5d32c1a6d4
+6485fea8c238d8dd0ffab74f397eb3ed72c0a1843b28db6dda809d060953162c
+[harness] Leader=n1-base-1788631131-t02 after 6s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788631131-t02
+n2-base-1788631131-t02
+╔═══════════════════════════════════════════════════════════╗
+║  knife_run CI门禁                                          ║
+║  branch=fix/d1-batch2  tag=v1.0.0-d2-t3  suites=baseline,idem,wal_snap,health                  ║
+║  run_id=run-20260906_040029                                            ║
+║  last_green=v1.0.0-dev7  no_tag=true                ║
+╚═══════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════
+  Phase 1: BUILD
+═══════════════════════════════════════════════════
+M	tests/suite_baseline.sh
+Already on 'fix/d1-batch2'
+M	tests/suite_health.sh
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  57.05MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Using cache
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Using cache
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Using cache
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> 23fb45e4df0e
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in 0bc6c096a1ad
+ ---> Removed intermediate container 0bc6c096a1ad
+ ---> 6841109183e4
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Using cache
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Using cache
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Using cache
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Using cache
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Using cache
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> Using cache
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Using cache
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Using cache
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...
+key leak hits: 0
+[build] PASS: build + key leak scan clean
+
+═══════════════════════════════════════════════════
+  Phase 2: SMOKE
+═══════════════════════════════════════════════════
+1cfcbd47bc307133a570188eaf77359577c1583a05855baa0a8324cd418bdf71
+wal1-smoke-run-20260906_040029
+wal2-smoke-run-20260906_040029
+e3d0d966982abf88ac30966364b95a5fcfddd462293c617c041934eac4c25617
+2bb51124044176345dcb6f8e16e509f59a2e0f78c96784b28b8e40e1b8d1c291
+[harness] Leader=n1-smoke-run-20260906_040029 after 7s
+[smoke] PASS: Leader elected
+
+═══════════════════════════════════════════════════
+  Phase 3: VERIFY
+═══════════════════════════════════════════════════
+
+▶ 套件: baseline
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+91a300e7d9b817e0ae8838ed83ed87d88818be4cead962453f4c8cacd2dd86c1
+t01a-base-1788667323
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+f34382a09b982df937ccd33cdf67bef5ca51a0676752614dc984b6da371a4fd9
+t01b-base-1788667323
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+bffcc4f342c7e54a8a00a0e17d4d75687f723c1adbb7f207d0b482eae707356c
+wal1-base-1788667323-t02
+wal2-base-1788667323-t02
+7c336f3468b85118788e2c39b23f09926432011fb6357ab9b43f848993f55016
+144faa3c050d89645cc799afe0b7426a3b6d16bf0f3bd040d0fd7473036167c2
+[harness] Leader=n1-base-1788667323-t02 after 6s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788667323-t02
+n2-base-1788667323-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788667323-t02
+n2-base-1788667323-t02
+wal1-base-1788667323-t02
+wal2-base-1788667323-t02
+net-base-1788667323-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+036da1e959f1ce063342f2880fb7a3983dee9a0805a944dab1b62bcb0a61c918
+wal1-base-1788667323-t03
+wal2-base-1788667323-t03
+854be5b501010d4317d0abea60e944518aeec5c3aa5296d442a2e82dab099561
+91f1d9648ef15ab98d64ccf1110963456fcb7f47e2b3419d9a70ef493bd5bc27
+[harness] Leader=n1-base-1788667323-t03 after 6s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788667323-t03
+n2-base-1788667323-t03
+wal1-base-1788667323-t03
+wal2-base-1788667323-t03
+net-base-1788667323-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+a514db7eb042eacf80b3b0be7990ea9c48b8c54371889dc3f7458c5ccfad7b49
+wal1-base-1788667323-t04
+wal2-base-1788667323-t04
+3db60a487467e95f254a7ed718f7ce972f821b6dc051d79368217d2e41f8c8f8
+aff2246ac23ed66daeed72acbf1ce46cd3a1bf2ebf136e7bd79d0665b13253eb
+[harness] Leader=n1-base-1788667323-t04 after 6s
+commit before follower stop: 31
+n2-base-1788667323-t04
+n2-base-1788667323-t04
+  [PASS] t04: commit not regressed to 0: 31 != 0
+  [PASS] t04: applied==commit after recovery: 31 == 31
+n1-base-1788667323-t04
+n2-base-1788667323-t04
+wal1-base-1788667323-t04
+wal2-base-1788667323-t04
+net-base-1788667323-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+926c8e0ebe85907bda2c94cafc22febed84be93f826a53cf423da509503e3d18
+wal1-base-1788667323-t05
+wal2-base-1788667323-t05
+693519c52db34772a56b73beb6faff61514affaaef38ed6bad14c9f78ae4f186
+03414ecf55b2fc781c7512d1c10f3198e3ad305d6600eaea1298f1cfb46156e0
+[harness] Leader=n1-base-1788667323-t05 after 6s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788667323-t05
+n2-base-1788667323-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788667323-t05
+n2-base-1788667323-t05
+wal1-base-1788667323-t05
+wal2-base-1788667323-t05
+net-base-1788667323-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+5c072a235d59dd6439f5004fcb76bff8f2d0d5d8774c1402385bf38507409cd3
+t06a-base-1788667323
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+87f8eb3316c31233fe12b383ac55e4d8c00b4adf3f3408a62504d6160f74e0ad
+t06b-base-1788667323
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+
+▶ 套件: idem
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+729d82e24d3d54b5f3ea9fb33ffd86f7eb22449819fcaf4c8c1dc4ee0a4c5bb2
+wal1-idem-1788667427-t10
+wal2-idem-1788667427-t10
+948cfe9188cc3431128ba3108fd3eb12cbf383867d5f7d8404feb42f9e827c61
+38f465c152fae0647d78ce052941c0418f0cafb6150da9c4f4262911aa126860
+[harness] Leader=n1-idem-1788667427-t10 after 6s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788667427-t10
+n2-idem-1788667427-t10
+wal1-idem-1788667427-t10
+wal2-idem-1788667427-t10
+net-idem-1788667427-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+dafc937b24c234d4325de72a6fdd4df5bd9a392cdbab99ff91bb33cd1ddfaaf5
+wal1-idem-1788667427-t11
+wal2-idem-1788667427-t11
+2c4ee28efe5409e8285ed1b981aad83d6b710c2c16fc48137676b59e83e094ab
+3658cd5facffcf93e78e2156823537cb644e095daba6f25f3b27ca2dc325b7aa
+[harness] Leader=n1-idem-1788667427-t11 after 6s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788667427-t11
+n2-idem-1788667427-t11
+wal1-idem-1788667427-t11
+wal2-idem-1788667427-t11
+net-idem-1788667427-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+f4354c52ea8a668a390f9e3a8462eb891ffe2f473a008c83bd606764945b7839
+wal1-idem-1788667427-t12
+wal2-idem-1788667427-t12
+223a448875d66014a34dff437ad2153448e2a076475e28a9bd42c436aa06afe9
+c59b4b16343b2fb30ece4373522cc48810a872dc2040f3c22a809bb175d7fb64
+[harness] Leader=n1-idem-1788667427-t12 after 7s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788667427-t12
+n2-idem-1788667427-t12
+wal1-idem-1788667427-t12
+wal2-idem-1788667427-t12
+net-idem-1788667427-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+df10c5021ef3eda08967067046fb64983e8956d767a1a80f3b09dacaca284220
+wal1-idem-1788667427-t13
+wal2-idem-1788667427-t13
+34f78f52ee7e0c4b3b773646828b8b514d80d0020817d05b8060b5527d9e7457
+75afd244e68acb23764f4f815e6c8be0975840528af5f83c05aa66a1a32715a5
+[harness] Leader=n1-idem-1788667427-t13 after 7s
+n2-idem-1788667427-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788667427-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788667427-t13
+n2-idem-1788667427-t13
+wal1-idem-1788667427-t13
+wal2-idem-1788667427-t13
+net-idem-1788667427-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+714f5f4d910c646a6cc1792095c8eaec5d9e27d272503bf268933e57bdb8142b
+wal1-idem-1788667427-t14
+wal2-idem-1788667427-t14
+99c9498d5287ee8f786c9879ab69f777b64cf5257e5538c71ea2e54679b46845
+1b76d338837cf634a72aba07348e5ffa5a5a02b4fd76ee1347e5e5ac576eabb5
+[harness] Leader=n1-idem-1788667427-t14 after 6s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788667427-t14
+n2-idem-1788667427-t14
+wal1-idem-1788667427-t14
+wal2-idem-1788667427-t14
+net-idem-1788667427-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+
+▶ 套件: wal_snap
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+486886ba7637d7de9868efb07f47a4202a69e2c89c9e45fc5b9f0738e41557ee
+wal1-snap-1788667495-t20
+wal2-snap-1788667495-t20
+80cea975eb96b18a97c6f92bff2b9bc1c280e695cd86007adeedeee633665f50
+3d7da80224f756f200128d425b5ca3687904a84ddfa87b814859add01c5fdcfc
+[harness] Leader=n1-snap-1788667495-t20 after 6s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788667495-t20
+n2-snap-1788667495-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788667495-t20
+n2-snap-1788667495-t20
+wal1-snap-1788667495-t20
+wal2-snap-1788667495-t20
+net-snap-1788667495-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+aacfd9b2efaa3264ab8c9ebbb716a6dc60e130fa1abb0fcbaaac39103ebc3a2d
+wal1-snap-1788667495-t21
+wal2-snap-1788667495-t21
+f613b22713863dd4a9bfb1865e776e9a155485d842f05c6c310b1337d4289b6f
+ac8d0f5afced360b962e17c26d3c22d5dd0b34b97c00b2aedfd16712bbd335d2
+[harness] Leader=n1-snap-1788667495-t21 after 5s
+n1-snap-1788667495-t21
+  [PASS] t21: term advanced after election: 6 != 1
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 6 == 6
+n1-snap-1788667495-t21
+n2-snap-1788667495-t21
+wal1-snap-1788667495-t21
+wal2-snap-1788667495-t21
+net-snap-1788667495-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+ad2879cd5de1c9a146df5a6c9afb939dc3fefd9e8ae3ea9e5a723436919301e8
+vol-snap-1788667495-t22
+29159aa7160648187dc9cfdb6969cdb0d447b6c8fa7e4122d27745e0a6f2ad75
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788667495-t22
+vol-snap-1788667495-t22
+net-snap-1788667495-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+5f33fd1a1a2141a261b680f53439dd99880fd6bb5e25c10f5cfc49eaf2f84737
+wal1-snap-1788667495-t23
+wal2-snap-1788667495-t23
+64c995a01025239e26500382bf42bcd797ed75e7c4123373f2b9d58b24a6f0e9
+67686a7a7e7f8d4c76947a04dee867920f97a7fb672c557aa64c201a4c9c3750
+[harness] Leader=n2-snap-1788667495-t23 after 6s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788667495-t23
+n2-snap-1788667495-t23
+wal1-snap-1788667495-t23
+wal2-snap-1788667495-t23
+net-snap-1788667495-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+
+▶ 套件: health
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+f90a7e77d7ade3e1b293b64a09bf58d1fe17a145a26ad00be5eb75300f294a00
+wal1-health-1788667576-t30
+wal2-health-1788667576-t30
+7e06a7fd66237c6a46d694fc0fe6fcae42ed937cfad5213251ffa6783b5ea70e
+8aaaf2eec086da678b6b9dbbbb00c52c546dbbdf33d9b92495b2de4221e906d8
+[harness] Leader=n1-health-1788667576-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788667576-t30
+n2-health-1788667576-t30
+wal1-health-1788667576-t30
+wal2-health-1788667576-t30
+net-health-1788667576-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+b68c3486bce40c402db83d17652c62d15366a4cbb24b3231d85b9895c9b176da
+wal1-health-1788667576-t31
+wal2-health-1788667576-t31
+d5597ea10b5f5ce7af8d7594d86d93361adbfda00cb61e933fd3de57ca417b29
+0ea27de3c2d464f920c742bc087b4beaffccd8c0aa5c4989060e321815801a72
+[harness] Leader=n2-health-1788667576-t31 after 7s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n1-health-1788667576-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n1-health-1788667576-t31
+  [FAIL] t31: follower recovered → SERVING: actual=NOT_SERVING expected=SERVING
+╔═══════════════════════════════════════════════════════════╗
+║  knife_run CI门禁                                          ║
+║  branch=fix/d1-batch2  tag=v1.0.0-d2-t3  suites=baseline,idem,wal_snap,health                  ║
+║  run_id=run-20260906_043820                                            ║
+║  last_green=v1.0.0-dev7  no_tag=true                ║
+╚═══════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════
+  Phase 1: BUILD
+═══════════════════════════════════════════════════
+Already on 'fix/d1-batch2'
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  57.21MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Using cache
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Using cache
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Using cache
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> 836b962b364c
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in cdceb269c6d9
+ ---> Removed intermediate container cdceb269c6d9
+ ---> 53d864bed203
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Using cache
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Using cache
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Using cache
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Using cache
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Using cache
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> Using cache
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Using cache
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Using cache
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...
+key leak hits: 0
+[build] PASS: build + key leak scan clean
+
+═══════════════════════════════════════════════════
+  Phase 2: SMOKE
+═══════════════════════════════════════════════════
+3f1defa4afbb1b33ac349dea551c4667dd43b4dbb76279009a7835349362fb7b
+wal1-smoke-run-20260906_043820
+wal2-smoke-run-20260906_043820
+2309873d7eb9ee19d8aec2e44c7602e44729c0f471a004fe091c5e11d818df9e
+ced059522579b92905fc6fb2a69e8eeed85119eb192610344a70f65495224113
+[harness] Leader=n1-smoke-run-20260906_043820 after 6s
+[smoke] PASS: Leader elected
+
+═══════════════════════════════════════════════════
+  Phase 3: VERIFY
+═══════════════════════════════════════════════════
+
+▶ 套件: baseline
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+ab92d46d178c8935c269b166dd69081d9bd0f55237784b41b9a7c60d9b98cfca
+t01a-base-1788669566
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+949ac2794d9b2f30947256d32995a96b967fe97b1ee58a20f1a86bb2b5718fd1
+t01b-base-1788669566
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+ba0fab757d1dca83d84511e5f53cb8f5f4b42535fbe95714ed6026456f012e70
+wal1-base-1788669566-t02
+wal2-base-1788669566-t02
+fa60e585f62b0117626e5d16a95ef515a66cf6d251f5f6620eb2cba944824a90
+5fe8ce2b178587ff4229e5485b96c5fbf7c28e1011cbc8c98337df6346e88d9c
+[harness] Leader=n1-base-1788669566-t02 after 5s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788669566-t02
+n2-base-1788669566-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788669566-t02
+n2-base-1788669566-t02
+wal1-base-1788669566-t02
+wal2-base-1788669566-t02
+net-base-1788669566-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+b4d6b3089c336c25c85f6b532df5fa8d957103d4a64e9492ef776e585eed2250
+wal1-base-1788669566-t03
+wal2-base-1788669566-t03
+c718cce3ad3559075702a5fc37acc2a411631152513465f0564781b50e2e88fd
+667485a0d722418e76ead60009cbc263c1bff67d455c1b409101a7207f480a62
+[harness] Leader=n1-base-1788669566-t03 after 6s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788669566-t03
+n2-base-1788669566-t03
+wal1-base-1788669566-t03
+wal2-base-1788669566-t03
+net-base-1788669566-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+ec794b20c5e38cab1aa3a6337222ec6001983d42b35dcc69f4ab8efd3fa72fa4
+wal1-base-1788669566-t04
+wal2-base-1788669566-t04
+09ed358b861386c2d8ed965a200cc58c38106cb041cac595778f60190ebd3a70
+142b0af5db37c657aef9c70b355aaeb1adc2a67053f7e1b4151995e66e108baa
+[harness] Leader=n2-base-1788669566-t04 after 7s
+commit before follower stop: 31
+n1-base-1788669566-t04
+n1-base-1788669566-t04
+  [PASS] t04: commit not regressed to 0: 32 != 0
+  [PASS] t04: applied==commit after recovery: 32 == 32
+n1-base-1788669566-t04
+n2-base-1788669566-t04
+wal1-base-1788669566-t04
+wal2-base-1788669566-t04
+net-base-1788669566-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+7b7bdc8be45b1798e433b4dcd78a6caa7899cfaec61ca8f22218e5ee260e39d2
+wal1-base-1788669566-t05
+wal2-base-1788669566-t05
+9ae689c3e2e4d2566a4a1bbe3f456b080334a03d2086831d26c4fe03b309da94
+06b2d5b7d1b4355f7df0673a1c4a3204843e569aba54e346e242c5d17d72fd70
+[harness] Leader=n1-base-1788669566-t05 after 6s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788669566-t05
+n2-base-1788669566-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788669566-t05
+n2-base-1788669566-t05
+wal1-base-1788669566-t05
+wal2-base-1788669566-t05
+net-base-1788669566-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+3172e9d5fc0de61d929e5d940e6b7208efcf7411c0b9d804289e3113e83108f0
+t06a-base-1788669566
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+6a93195a9aab86dc9d501826dcd917566dcc32c9ed10bf9f015a1731a1c084ec
+t06b-base-1788669566
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+
+▶ 套件: idem
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+bb20387ea2c50e65c6ca72f7c221afa845a7ae2bd406a9dcd798358bf23dca89
+wal1-idem-1788669691-t10
+wal2-idem-1788669691-t10
+b4df34de02e69aa9e8448026d3426bc0923ca75ab60d0dc3bf49e40252a1f25f
+c10a85f1fba7bd60ddba4111d0e8a1672f322f058c61c054ccc069b015aa116f
+[harness] Leader=n1-idem-1788669691-t10 after 6s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788669691-t10
+n2-idem-1788669691-t10
+wal1-idem-1788669691-t10
+wal2-idem-1788669691-t10
+net-idem-1788669691-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+f707e7f9a7b40411196321c54ea81aeb9323e3bf92000977dc751d29a5eef4a4
+wal1-idem-1788669691-t11
+wal2-idem-1788669691-t11
+4c03fcce4804d60a9e6d762dfc45e4d2a3230ac0849b18c4526ed9ddce4f78c9
+20ec2462e9aaffa71f9ea15d63f03fd0470e896de51bcb80cdb691dadeadb4cd
+[harness] Leader=n1-idem-1788669691-t11 after 5s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788669691-t11
+n2-idem-1788669691-t11
+wal1-idem-1788669691-t11
+wal2-idem-1788669691-t11
+net-idem-1788669691-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+5898ab2de3ec8109e400e7d481a664e7aea1e1b6d23dec5d3c70c8b26994bb57
+wal1-idem-1788669691-t12
+wal2-idem-1788669691-t12
+7d90c91b4716f95a2047cd58709922fc7c9804239f51881d3cfcbc54dd23fe77
+b8cdaa1634bc5ad8bf28a35595e79dcfd57ee96a5c04f6fad7349ef66cfecb54
+[harness] Leader=n2-idem-1788669691-t12 after 7s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788669691-t12
+n2-idem-1788669691-t12
+wal1-idem-1788669691-t12
+wal2-idem-1788669691-t12
+net-idem-1788669691-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+56bdbaa1c3948295db95dd09aaca830590a1f51d575c735310cd8babb20fa37b
+wal1-idem-1788669691-t13
+wal2-idem-1788669691-t13
+82c271e7e27d00ee9f65133c68e4b05675fec002cd1036915c55ca9151bb8963
+e1ccaa74bed4f496323fc5f750979f0d88de361002336404172169f40dec0036
+[harness] Leader=n1-idem-1788669691-t13 after 6s
+n2-idem-1788669691-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788669691-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788669691-t13
+n2-idem-1788669691-t13
+wal1-idem-1788669691-t13
+wal2-idem-1788669691-t13
+net-idem-1788669691-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+39dddc9433445f3d82b8abd2e28962b70facf7ead92e137e7b0f48fab8c44617
+wal1-idem-1788669691-t14
+wal2-idem-1788669691-t14
+9d07a79680108c53a03328f88ea8c22e31678623617430f3bfc95156169b4b77
+87d44418af9a131b16769ef97e3544774b391d99fe08ee27c4e51fab9c3293c8
+[harness] Leader=n1-idem-1788669691-t14 after 6s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788669691-t14
+n2-idem-1788669691-t14
+wal1-idem-1788669691-t14
+wal2-idem-1788669691-t14
+net-idem-1788669691-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+
+▶ 套件: wal_snap
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+e09e27f1456b16d9bddf53ca106b2070a76194458f37ebd8c63e290ef12488bc
+wal1-snap-1788669759-t20
+wal2-snap-1788669759-t20
+21339a928b0ba36771ddea3fc31e5981c1f9aeb605e2c1a27815ced8c64ddaf0
+1048e843e1a9435e84370c075f6724fcfc5773b2ea991e7eee226d34c74d72fd
+[harness] Leader=n1-snap-1788669759-t20 after 6s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788669759-t20
+n2-snap-1788669759-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788669759-t20
+n2-snap-1788669759-t20
+wal1-snap-1788669759-t20
+wal2-snap-1788669759-t20
+net-snap-1788669759-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+781711721f9b776595595859e4d56d47bdecff896ca0e881aa4241c30d5a5f96
+wal1-snap-1788669759-t21
+wal2-snap-1788669759-t21
+dc8a3d9fbf00a8664c4f554ae4ea1241e733bca7e823c13bb06b1427beadf705
+39e1d8d546ee84c7b36e3eb8c8631ad11c61c67332c3f7f826f856db509544c5
+[harness] Leader=n1-snap-1788669759-t21 after 7s
+n1-snap-1788669759-t21
+  [PASS] t21: term advanced after election: 7 != 2
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 7 == 7
+n1-snap-1788669759-t21
+n2-snap-1788669759-t21
+wal1-snap-1788669759-t21
+wal2-snap-1788669759-t21
+net-snap-1788669759-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+3ef9efe215c20eef53ef7a83890ba487576056a81da1ba08480ac1cc07aa1bec
+vol-snap-1788669759-t22
+6d63bdf9c60b769ed8a6505375c3d3b9432cc225c1c4ab2cf15847851f817817
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788669759-t22
+vol-snap-1788669759-t22
+net-snap-1788669759-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+9dee0aadd76d671ab38cb6d59868a1de587769c30d70164802d26e6d8025ce5e
+wal1-snap-1788669759-t23
+wal2-snap-1788669759-t23
+64b2718cb108b25c5fb01b9168a99bd8534ae08093cf30ee997ce160dd01ce92
+7508d2d425d8b517f4954892c643e70adf41d945d12ee8fdb136186e0d4ce3e0
+[harness] Leader=n1-snap-1788669759-t23 after 5s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788669759-t23
+n2-snap-1788669759-t23
+wal1-snap-1788669759-t23
+wal2-snap-1788669759-t23
+net-snap-1788669759-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+
+▶ 套件: health
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+28c5e0436c96a1106986561be976c2fffe6fb27b9b9d979d2722d815c42a49ac
+wal1-health-1788669843-t30
+wal2-health-1788669843-t30
+626e03bf2a1223fd352be86c8d118c672f76b25967b44463c5f8b4bb8106213c
+b3e44d5427d194932dbb0e8621f4596d74b7ca37194283cb6ecc65e3f0aace87
+[harness] Leader=n1-health-1788669843-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788669843-t30
+n2-health-1788669843-t30
+wal1-health-1788669843-t30
+wal2-health-1788669843-t30
+net-health-1788669843-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+3dc96d3eacee7f26194c15c05158bf7a4d70e4cfaaf311c2343feaebf9a761ad
+wal1-health-1788669843-t31
+wal2-health-1788669843-t31
+4c50f58a807c5eda14776eaa4d7a6e607a097c9a4d4714c33c184e3193f45f8d
+9e890e77c8e939250cdd18e3b3bf25725a46e6f80856ee57e8c3ffa2e65de47e
+[harness] Leader=n1-health-1788669843-t31 after 6s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n2-health-1788669843-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n2-health-1788669843-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788669843-t31
+n2-health-1788669843-t31
+wal1-health-1788669843-t31
+wal2-health-1788669843-t31
+net-health-1788669843-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+7c5c9da7ec929c9ed19c15cff99917192f8adbf2b7a96e21b0a71b01d938e469
+t32a-health-1788669843
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+5a01b0dc10005b90559542258e1f5c6509c7e2bae8ae66190ef0f97695edc5d3
+t32b-health-1788669843
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+26d7ff7c2d3153d083041b33a869d0e0a36c76d036c8a5111b135dc8a7aaef8c
+wal1-health-1788669843-t33
+wal2-health-1788669843-t33
+8dfbaa6a6d09e558ce7e902a38f57f3199ad7ac9ef09b871597aa83546028f7e
+dca204908b2981c962bb447e4ef754b2bb3c6b6c120cfda0455014edd0267cc7
+[harness] Leader=n1-health-1788669843-t33 after 6s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788669843-t33
+n2-health-1788669843-t33
+wal1-health-1788669843-t33
+wal2-health-1788669843-t33
+net-health-1788669843-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+
+  总计: PASS=51 FAIL=0
+
+═══════════════════════════════════════════════════
+  Phase 4: GATE
+═══════════════════════════════════════════════════
+
+╔═══════════════════════════════════════════════════════════╗
+║  PASS REPORT                                               ║
+║  run_id: run-20260906_043820                                           ║
+║  suites: baseline,idem,wal_snap,health                                           ║
+║  assertions: PASS=51 FAIL=0             ║
+╚═══════════════════════════════════════════════════════════╝
+[gate] --no-tag 模式, 跳过 tag+merge
+
+[knife_run] 完成. evidence: /repo/tests/evidence/run-20260906_043820/
+╔═══════════════════════════════════════════════════════════╗
+║  knife_run CI门禁                                          ║
+║  branch=fix/d1-batch2  tag=v1.0.0-d2  suites=baseline,idem,wal_snap,health                  ║
+║  run_id=run-20260906_044455                                            ║
+║  last_green=v1.0.0-dev7  no_tag=false                ║
+╚═══════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════
+  Phase 1: BUILD
+═══════════════════════════════════════════════════
+Already on 'fix/d1-batch2'
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  57.28MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Using cache
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Using cache
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Using cache
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> e6d2ec8e0dfe
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in b034e5c332ab
+ ---> Removed intermediate container b034e5c332ab
+ ---> ef416b064f4c
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Using cache
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Using cache
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Using cache
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Using cache
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Using cache
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> Using cache
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Using cache
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Using cache
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...
+key leak hits: 0
+[build] PASS: build + key leak scan clean
+
+═══════════════════════════════════════════════════
+  Phase 2: SMOKE
+═══════════════════════════════════════════════════
+25496aa8c45375646c1be465e1239d9498cb473fff5e820fe727cf4ab99a1080
+wal1-smoke-run-20260906_044455
+wal2-smoke-run-20260906_044455
+89540d7c98345bde0854a6c25758afcce5810cd2e73d1c4993382c2d8d3b67c4
+031ce3e75c72c924661bbcc07fb0e9d571f95f95ade3810dc5e32bc31d86c32a
+[harness] Leader=n1-smoke-run-20260906_044455 after 6s
+[smoke] PASS: Leader elected
+
+═══════════════════════════════════════════════════
+  Phase 3: VERIFY
+═══════════════════════════════════════════════════
+
+▶ 套件: baseline
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+32093d277dce763f2c14ba99c34c866ac1dc9f3e2e9b8e5c26f4fa266b1429cc
+t01a-base-1788669966
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+5df7fac2bf21445980aac2db1c56b88082f40ee3b981d4b4a463590fbeba0b28
+t01b-base-1788669966
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+f78a3f6509350ba3205c4ae1854a933338a0ae7d7c1f5876d9507dabc07e0233
+wal1-base-1788669966-t02
+wal2-base-1788669966-t02
+f7d9752b1fb292f70c62344dda3a2089c935d727dc43672b975586d54ed15c22
+0d6e2c4eddde0322bae5413f318e147cfe6c4254045a007684e307444dcf07df
+[harness] Leader=n1-base-1788669966-t02 after 6s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788669966-t02
+n2-base-1788669966-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788669966-t02
+n2-base-1788669966-t02
+wal1-base-1788669966-t02
+wal2-base-1788669966-t02
+net-base-1788669966-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+e7acadfed9f80e89ddefbb9ae97a23db6bcbb5a97f4e28b79413c024250304ab
+wal1-base-1788669966-t03
+wal2-base-1788669966-t03
+5cfd34ce03a08700cf6e395b64cbb6c3428c518ba0b5d8c52a1d37cecc5580c9
+1bbc7f0c89b108878686251978ac36465cfac986ba42a9f07bc96c580550eed3
+[harness] Leader=n2-base-1788669966-t03 after 7s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788669966-t03
+n2-base-1788669966-t03
+wal1-base-1788669966-t03
+wal2-base-1788669966-t03
+net-base-1788669966-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+d053ededc0f060bfeeae3fafc0848296ec951ee98e9f2092b827907564134a72
+wal1-base-1788669966-t04
+wal2-base-1788669966-t04
+1bb5ded70d45004bf4151094d7bf58f5963655fe4e2e5cabe95409fd3b03f308
+edcb27bc44e51e3c5b924807cb35cc2b3a2c780876eeb59fcf2bcdab855d7bfa
+[harness] Leader=n1-base-1788669966-t04 after 5s
+commit before follower stop: 31
+n2-base-1788669966-t04
+n2-base-1788669966-t04
+  [PASS] t04: commit not regressed to 0: 32 != 0
+  [PASS] t04: applied==commit after recovery: 32 == 32
+n1-base-1788669966-t04
+n2-base-1788669966-t04
+wal1-base-1788669966-t04
+wal2-base-1788669966-t04
+net-base-1788669966-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+16d0717baece75612acb6d9528c1960ce7ec834bd600354ded79c8c2050bf450
+wal1-base-1788669966-t05
+wal2-base-1788669966-t05
+fa5134acf4221746c17bb261aca16b504328e4cea0385fb809ab5bba1f3b5e7f
+9cb2c1305fdbd4d8ed589e0bd480d599133302e4481add534554283de571a30d
+[harness] Leader=n1-base-1788669966-t05 after 6s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788669966-t05
+n2-base-1788669966-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788669966-t05
+n2-base-1788669966-t05
+wal1-base-1788669966-t05
+wal2-base-1788669966-t05
+net-base-1788669966-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+9fcf5c062cdb4df1d9c431041cd0f27971d3246dc07ed323b1fbfd3dbb3200bd
+t06a-base-1788669966
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+4e2c650fdcf29467c9b258d813b1d6b96a3901b0bfb1977dfb4ae1e43d04c280
+t06b-base-1788669966
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+
+▶ 套件: idem
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+11d6d5c3ac878b993200ad26f6ca907139e7f09b0c2d0d48fbc358fb5118aba2
+wal1-idem-1788670084-t10
+wal2-idem-1788670084-t10
+867b447c92de5cbba1699dcf586de042a19313756846f41a905e7091633412b7
+8a9c1a8d4e3deb76d0578c7dae17c120be6c2f8995259f711ae2100e99fd0900
+[harness] Leader=n1-idem-1788670084-t10 after 6s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788670084-t10
+n2-idem-1788670084-t10
+wal1-idem-1788670084-t10
+wal2-idem-1788670084-t10
+net-idem-1788670084-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+98570b754635f82764bd00a2dae7fff72a9cfe1c2cf9c3c759ab0af3c8195c31
+wal1-idem-1788670084-t11
+wal2-idem-1788670084-t11
+0698a7e8d0f98027b198063710ca128b1d6afbcc047d2af77e776f7a4cb9f364
+357f1fb8e0a189181058ac04f957facc13fd542a79bf0284ba149ab86f5c28bb
+[harness] Leader=n1-idem-1788670084-t11 after 6s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788670084-t11
+n2-idem-1788670084-t11
+wal1-idem-1788670084-t11
+wal2-idem-1788670084-t11
+net-idem-1788670084-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+5b4edba3e3ae98cd339c199f8d87100cb1c778a278fff32329196f295fff6659
+wal1-idem-1788670084-t12
+wal2-idem-1788670084-t12
+cda9b4fc568069418bd9f70a586a5e148da9d4172250a4bf6c10cc4023f2d29c
+0c5ff61db49ebf55d322ef898ed97a2a4400744ffc0e765f37b3ee08ab10b65e
+[harness] Leader=n1-idem-1788670084-t12 after 6s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788670084-t12
+n2-idem-1788670084-t12
+wal1-idem-1788670084-t12
+wal2-idem-1788670084-t12
+net-idem-1788670084-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+1908b6346788d23782d099c5292c46879ab28a613517e4990337519b1489fbac
+wal1-idem-1788670084-t13
+wal2-idem-1788670084-t13
+12ac8d08e8f34437eec0cddcd483db253d137b731837a0d247d80c28b14679be
+16502aa3e54bd6899563fcca695df4efec8addcb96ec6518299be47cc3a7a7c1
+[harness] Leader=n2-idem-1788670084-t13 after 7s
+n1-idem-1788670084-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n1-idem-1788670084-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788670084-t13
+n2-idem-1788670084-t13
+wal1-idem-1788670084-t13
+wal2-idem-1788670084-t13
+net-idem-1788670084-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+3c5fd24d9d65902b6886a0234f9f263bf0ba85d998e53139b0db2b4226c5c5c4
+wal1-idem-1788670084-t14
+wal2-idem-1788670084-t14
+bae46a21c111923c55a6d13a065a648d83e8110b7348a287fbe7859dffbd5a7f
+ba9cd66a51e03a28978479a1f6724c99792b089005d71cff63f837cc1300bd87
+[harness] Leader=n1-idem-1788670084-t14 after 6s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788670084-t14
+n2-idem-1788670084-t14
+wal1-idem-1788670084-t14
+wal2-idem-1788670084-t14
+net-idem-1788670084-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+
+▶ 套件: wal_snap
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+952641c5a51bc029b28de3c9c725cc78cc8730ae50e748afae446f85b9ad4411
+wal1-snap-1788670151-t20
+wal2-snap-1788670151-t20
+08ca08b99dbb801c98a204993d652c74f83e5e7ddb4bc802ccbd8f7ae39decb7
+0903db688a3f2a5b496c4f487d85ac54a1e35fcdbeee91259dc8149cf0c8ff7d
+[harness] Leader=n2-snap-1788670151-t20 after 8s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788670151-t20
+n2-snap-1788670151-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788670151-t20
+n2-snap-1788670151-t20
+wal1-snap-1788670151-t20
+wal2-snap-1788670151-t20
+net-snap-1788670151-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+c24e147f01c58cd764b68d236be77231c0c29a835cfa5a5300c983b235a036c1
+wal1-snap-1788670151-t21
+wal2-snap-1788670151-t21
+dd59520d3422c231b121b604f1e4bf68db55b1bfe4a4be5e66320e2665464f58
+49a0e82d29889b5462e72dd27b8b08c3b87f248e12d8a3f2211a37688b6b25d9
+[harness] Leader=n1-snap-1788670151-t21 after 6s
+n1-snap-1788670151-t21
+  [PASS] t21: term advanced after election: 4 != 1
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 4 == 4
+n1-snap-1788670151-t21
+n2-snap-1788670151-t21
+wal1-snap-1788670151-t21
+wal2-snap-1788670151-t21
+net-snap-1788670151-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+8694faf036c1a7f4bdb41b6b4f428950b8d8df790fd2304ccc06db2430076f07
+vol-snap-1788670151-t22
+e83c2b6afe41fd69a93567d0acfecef3131de577578afaef6ab8bdbe27c34017
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788670151-t22
+vol-snap-1788670151-t22
+net-snap-1788670151-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+d4f6a00e792e2d0e5397dd82bb944526dccef3af05aa050d3c83568e952479bd
+wal1-snap-1788670151-t23
+wal2-snap-1788670151-t23
+b9d89690bf23a8fbe22ea3764ce4ae3e569c6d361c8f79716b7481cb80b89442
+c234ccea5b50db471e394ebf30b6663936cdd13c2b54c9e4c041c42b6166a2da
+[harness] Leader=n1-snap-1788670151-t23 after 6s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788670151-t23
+n2-snap-1788670151-t23
+wal1-snap-1788670151-t23
+wal2-snap-1788670151-t23
+net-snap-1788670151-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+
+▶ 套件: health
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+ebbf90ba5d61de4b66bf0034e653a81a0677f572a83a14e517e37b03a0053f91
+wal1-health-1788670233-t30
+wal2-health-1788670233-t30
+c274eb206cfc7a34b4f52107e6138c96413cadac2467ae78d1951b2b341b36aa
+dbb0e255832c97668cf95439d8006775adfce310d62362c30ec5bfb1543c13f3
+[harness] Leader=n1-health-1788670233-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788670233-t30
+n2-health-1788670233-t30
+wal1-health-1788670233-t30
+wal2-health-1788670233-t30
+net-health-1788670233-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+7354491c6f22104ed1c7ac533c3e686558f2b8aa2fe1346fee53b0811057a1ab
+wal1-health-1788670233-t31
+wal2-health-1788670233-t31
+f1aac45b08b10683fb1dfffde01972d45fc3352fc14e4101900535810976934c
+219285edbff7b1cd2d897d272ab8eebe81d7a72295ef229a0770aed012035c2d
+[harness] Leader=n1-health-1788670233-t31 after 6s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n2-health-1788670233-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n2-health-1788670233-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788670233-t31
+n2-health-1788670233-t31
+wal1-health-1788670233-t31
+wal2-health-1788670233-t31
+net-health-1788670233-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+819c6042aa7746035704c05a683d47e370d52527ceb107690813a8512320550e
+t32a-health-1788670233
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+18b8856a433310505084051c5814d4a30d5033eb6df52975a3e77ccb215f5cf5
+t32b-health-1788670233
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+9faeaf94a26587dd952f288073df8b65b008977e22867cc0da0c8fa8153a91af
+wal1-health-1788670233-t33
+wal2-health-1788670233-t33
+9f108fa62500cdec1ecd639e7daa04911498c65659d38543737ff1cdbccf63f0
+8012d60d1d9671ac089be49170f7791f997e4e680206d6a121211e5bc29d12ed
+[harness] Leader=n1-health-1788670233-t33 after 7s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788670233-t33
+n2-health-1788670233-t33
+wal1-health-1788670233-t33
+wal2-health-1788670233-t33
+net-health-1788670233-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+
+  总计: PASS=51 FAIL=0
+
+═══════════════════════════════════════════════════
+  Phase 4: GATE
+═══════════════════════════════════════════════════
+
+╔═══════════════════════════════════════════════════════════╗
+║  PASS REPORT                                               ║
+║  run_id: run-20260906_044455                                           ║
+║  suites: baseline,idem,wal_snap,health                                           ║
+║  assertions: PASS=51 FAIL=0             ║
+╚═══════════════════════════════════════════════════════════╝
+[gate] 创建tag v1.0.0-d2...
+[gate] merge --no-ff 回 v1.0-dev...
+Switched to branch 'v1.0-dev'
+Merge made by the 'ort' strategy.
+ .gitignore            |   3 +-
+ tests/harness.sh      |   2 +-
+ tests/knife_run.sh    |  42 ++-----
+ tests/run_pipeline.sh | 342 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 357 insertions(+), 32 deletions(-)
+ create mode 100755 tests/run_pipeline.sh
+[gate] tag + merge 完成
+5d47cba Merge fix/d1-batch2: knife_run PASS (v1.0.0-d2)
+107cc3c fix(ci): T3 A2 no-op mode + generate_decision empty sha guard
+adafb1d fix(ci): escape \ in T3 log line (set -u safe)
+f649bed fix(ci): git commit skip when no staged changes (resume safe)
+9b627ce fix(ci): T3 A-route revert bare-number is_running, keep follower-var only
+v1.0.0-d1
+v1.0.0-d2
+v1.0.0-dev1
+v1.0.0-dev2
+v1.0.0-dev3
+v1.0.0-dev4
+v1.0.0-dev5
+v1.0.0-dev6
+v1.0.0-dev7
+
+[knife_run] 完成. evidence: /repo/tests/evidence/run-20260906_044455/

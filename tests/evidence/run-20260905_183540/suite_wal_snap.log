@@ -1,0 +1,68 @@
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+2667d9e34c9ca94951b06044bd84eb96512e52f8f03dfdcc45937fad663a94d6
+wal1-snap-1788633597-t20
+wal2-snap-1788633597-t20
+96a457e549c31c432da6ef4da5ec6cce6c0417d04b756817e3acaedbc9089efd
+14d6dbdca59c718df6ec8f8b082a2c4cf1e3d785adbaa8df1fa9a333ed066cde
+[harness] Leader=n1-snap-1788633597-t20 after 6s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788633597-t20
+n2-snap-1788633597-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788633597-t20
+n2-snap-1788633597-t20
+wal1-snap-1788633597-t20
+wal2-snap-1788633597-t20
+net-snap-1788633597-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+6008a6b6f3f3775c0b6963fa00ac8a9fef60429c850a9596658b4c7b3cf3200a
+wal1-snap-1788633597-t21
+wal2-snap-1788633597-t21
+5725fa719117d1db1098cf3c0fc9bc276517983ce7cc853d9b1579884064d59f
+831add9d5ed236fff4793975880be5dfe30a7764b437f7c8ee83511035079543
+[harness] Leader=n1-snap-1788633597-t21 after 5s
+n1-snap-1788633597-t21
+  [PASS] t21: term advanced after election: 6 != 1
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 6 == 6
+n1-snap-1788633597-t21
+n2-snap-1788633597-t21
+wal1-snap-1788633597-t21
+wal2-snap-1788633597-t21
+net-snap-1788633597-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+c4348d1592bcdd4b3eeef9bd2f25a1f76b039f00c027caf6421caf8c2c77a23d
+vol-snap-1788633597-t22
+03f82c97b956f2f7c77fb0b8ef7e956eb7c1f8d447560022d3caf958f679d05b
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788633597-t22
+vol-snap-1788633597-t22
+net-snap-1788633597-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+b2ab055f0f50d6906b4ea521cfa04f2907019f480c4c49cf7cebbcf552d4aba4
+wal1-snap-1788633597-t23
+wal2-snap-1788633597-t23
+dd65b9c9976bcb18093aa16af4ea30e718e437f6d857b6181553021f00dcf241
+c43c46daf9e90ce28250d54641f2e197cae5e0aac346819f3acec23492cc2b96
+[harness] Leader=n1-snap-1788633597-t23 after 6s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788633597-t23
+n2-snap-1788633597-t23
+wal1-snap-1788633597-t23
+wal2-snap-1788633597-t23
+net-snap-1788633597-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────

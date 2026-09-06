@@ -1,0 +1,981 @@
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+e089d5f7d43f1d86e29e08a244d5f7a5f42a148eeed2eb9f5236124c61d9dac5
+t01a-base-1788689303
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+28ea5f9785f0b49d831102e007ad74e533353697e9c346e059b13edee00e5a96
+t01b-base-1788689303
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+46dcaed1453a38d03257a880ee0505a7aaad0b496bf1798ba361866974f3b586
+wal1-base-1788689303-t02
+wal2-base-1788689303-t02
+b344d57353bc0b1ea05704c625794619df5bc679332c691c18cbff73490291c4
+903e909abea683093ce46fdb189e0b67c628d34c8cae27cc62d8411d314b0ea3
+[harness] Leader=n2-base-1788689303-t02 after 7s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788689303-t02
+n2-base-1788689303-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788689303-t02
+n2-base-1788689303-t02
+wal1-base-1788689303-t02
+wal2-base-1788689303-t02
+net-base-1788689303-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+b2b9eaa703becef53aef32dbef39de9282aee8ac3fe3bd92cf7f3a96560060c0
+wal1-base-1788689303-t03
+wal2-base-1788689303-t03
+86f4b501a7fabf66f031130eb13c862fb16a8afb3a60ce0224c8d846ca2d26a9
+f6fe97d75cd167aecf3ec3c4eaecb7ef5f67f08addef83135100e4594c6bf773
+[harness] Leader=n1-base-1788689303-t03 after 5s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788689303-t03
+n2-base-1788689303-t03
+wal1-base-1788689303-t03
+wal2-base-1788689303-t03
+net-base-1788689303-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+f12494470c9b61cac0dd291fd12ba85ff57b038117690f9d9be1cba5ee6409ee
+wal1-base-1788689303-t04
+wal2-base-1788689303-t04
+3f30a9605bd43392368f33e0b618da6ba0ccef69b82662cb9aeac1d6807e4e82
+d5109b85c26ab3192370e4f21620a696361a9eac3dff2d83f7f0f18fa370fd4c
+[harness] Leader=n2-base-1788689303-t04 after 7s
+commit before follower stop: 31
+n1-base-1788689303-t04
+n1-base-1788689303-t04
+  [PASS] t04: commit not regressed to 0: 31 != 0
+  [PASS] t04: applied==commit after recovery: 31 == 31
+n1-base-1788689303-t04
+n2-base-1788689303-t04
+wal1-base-1788689303-t04
+wal2-base-1788689303-t04
+net-base-1788689303-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+1c3bb1d7a9134f7aff5833b9dc8f2a60755a62ce3c740d789e4a6f0552d25420
+wal1-base-1788689303-t05
+wal2-base-1788689303-t05
+2d7fbfbb941a43e54eb1fb2f31e63bb757dc3b031136eb9920285d85daf18db4
+4598a171b53ac4245ff4608c0fda9299fce75cc2ebc7977d21d79815984b4f40
+[harness] Leader=n1-base-1788689303-t05 after 6s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788689303-t05
+n2-base-1788689303-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788689303-t05
+n2-base-1788689303-t05
+wal1-base-1788689303-t05
+wal2-base-1788689303-t05
+net-base-1788689303-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+50f0a02a74a381d50f2c4780ee214a8c996009c930ce6133b3ae64572bc67412
+t06a-base-1788689303
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+be29092bc5489176883181a705963a8d18f5a24031b6934d6dbb902c62e24dce
+t06b-base-1788689303
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+b6da398d2a893100dcbafeb95ddc31a5afd66a37129fa2cd522612faf83596b2
+wal1-idem-1788689422-t10
+wal2-idem-1788689422-t10
+e593291a6c4a46c2af0e6e3ebde79fe217023f1d1f0e7d438365666e09a919b4
+36f36d893ec83686b40846893a0d92781af5ee489ca4f8a57fad2bd583a32925
+[harness] Leader=n1-idem-1788689422-t10 after 7s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788689422-t10
+n2-idem-1788689422-t10
+wal1-idem-1788689422-t10
+wal2-idem-1788689422-t10
+net-idem-1788689422-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+3b7f474aec4178c66393e7c98e800a1dc960436425d553bffd9174e4d6806a7e
+wal1-idem-1788689422-t11
+wal2-idem-1788689422-t11
+bd30aac342d49c17bf22911351954b453151821b949583c6a747f9d561da8a76
+f062d8d61f513998498f5c0375129f0214a52f282b5b673530346c56683112f9
+[harness] Leader=n1-idem-1788689422-t11 after 6s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788689422-t11
+n2-idem-1788689422-t11
+wal1-idem-1788689422-t11
+wal2-idem-1788689422-t11
+net-idem-1788689422-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+bea33c266bf262cc423fb70d93ff216fbd2b18864e89b19d7820cf8a518e0351
+wal1-idem-1788689422-t12
+wal2-idem-1788689422-t12
+6c5d416430931a54e18adf0e17bc57793e08cb15db502df77cd3692dc1296261
+102bf675876e482693cd9c25dfaa92e3e6a62d76e6c13afda3d0e861b975dc32
+[harness] Leader=n1-idem-1788689422-t12 after 6s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788689422-t12
+n2-idem-1788689422-t12
+wal1-idem-1788689422-t12
+wal2-idem-1788689422-t12
+net-idem-1788689422-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+ccb7e3bd305eef4432d7f29ead00359b6a251edd5c48eee9ebf51e3fb0b8c0e2
+wal1-idem-1788689422-t13
+wal2-idem-1788689422-t13
+2d3b8695d243323e391b93d5e4b77a712319e30cc205bdf9a94911fbafbfeb6d
+906dce3247567ec586e4b34a8c12ca84154ab017a701d7a413523ef9d1b89c31
+[harness] Leader=n1-idem-1788689422-t13 after 6s
+n2-idem-1788689422-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788689422-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788689422-t13
+n2-idem-1788689422-t13
+wal1-idem-1788689422-t13
+wal2-idem-1788689422-t13
+net-idem-1788689422-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+b3661ffbdb4b9d1f92a4e768e285f3f6434c6ff86ea99ddac12135cfc93f4580
+wal1-idem-1788689422-t14
+wal2-idem-1788689422-t14
+8448e69c45c096b3d8894b1572f9868fb7de9eee7f84966cc042ea9dc840909d
+a7c7925a574c7de04dbfd821c1c2586d614e4a3ebfb7abca6260ced2b97ff03c
+[harness] Leader=n1-idem-1788689422-t14 after 5s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788689422-t14
+n2-idem-1788689422-t14
+wal1-idem-1788689422-t14
+wal2-idem-1788689422-t14
+net-idem-1788689422-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+b5bfc5cc0fb29350927d8aa8299685a5c6ecc8c6db8785cbd275692b6ade385e
+wal1-health-1788689490-t30
+wal2-health-1788689490-t30
+2818ba8426a40146c16fbe21d7c1f2dea2e195a7e86240cdf2c05d86f763e4fa
+6645c6a531da361a17fecd980a77ab49d0a04766aecbf3f4d9c8a51842b1d482
+[harness] Leader=n1-health-1788689490-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788689490-t30
+n2-health-1788689490-t30
+wal1-health-1788689490-t30
+wal2-health-1788689490-t30
+net-health-1788689490-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+97997b8bf3dad809383734a3ebd2459791ea3a6bebb14e46d024ffce50e407a9
+wal1-health-1788689490-t31
+wal2-health-1788689490-t31
+e0bf50f3021a19959b24589cd36887b6d2d0fd0305130682e0779a477edefb38
+a5a24e09d2c557060a96d0d8094a31274597f16c9c0846e607e0575d2fa3c7aa
+[harness] Leader=n1-health-1788689490-t31 after 7s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n2-health-1788689490-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n2-health-1788689490-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788689490-t31
+n2-health-1788689490-t31
+wal1-health-1788689490-t31
+wal2-health-1788689490-t31
+net-health-1788689490-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+20056483d289a2f281478f393e4c150791e5adab1d1e13e3881e91bc1db0c4bb
+t32a-health-1788689490
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+4a6d712854b2e6e33df0d91f216776d47fab74f3e8de9421898cc3b4462e9360
+t32b-health-1788689490
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+83bff32c5501fd89043a966a64372f1895325495565fee7664203c04fc2706e7
+wal1-health-1788689490-t33
+wal2-health-1788689490-t33
+2690f1ae7769902612653ec41cebb09ac0f63e6abf0bc2545a4961ef5c7814a7
+fae6a8b692b863789734b3757b152ee2196dbe156ea9134a05fc3eccf901d1d9
+[harness] Leader=n1-health-1788689490-t33 after 5s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788689490-t33
+n2-health-1788689490-t33
+wal1-health-1788689490-t33
+wal2-health-1788689490-t33
+net-health-1788689490-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+07882f891fb045cede9631023808106a19216b3a4c3df26f4d947ef2115c5784
+wal1-snap-1788689532-t20
+wal2-snap-1788689532-t20
+2e9c9b2a1fc0a50a83af90b981725baf9905193f089a82c4d8e3314e78b91885
+cbaf68c1bfcc4050433b1be31a7b4125f2956905d428bc2392acaf747d0f30cb
+[harness] Leader=n1-snap-1788689532-t20 after 6s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788689532-t20
+n2-snap-1788689532-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788689532-t20
+n2-snap-1788689532-t20
+wal1-snap-1788689532-t20
+wal2-snap-1788689532-t20
+net-snap-1788689532-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+37feddfd8b9043d2bfbd4bb1c98f231a589dd37ac608523ab506d13f2cd87f96
+wal1-snap-1788689532-t21
+wal2-snap-1788689532-t21
+ebb9095a419c8758e33f5db6fdd901974dbec540c2bdac0160d9e1c642501866
+cd70e1c009d5c65155ad8df2e8d00da01baeed14cabd343df5b8aaab0addda47
+[harness] Leader=n2-snap-1788689532-t21 after 7s
+n2-snap-1788689532-t21
+  [PASS] t21: term advanced after election: 7 != 2
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 7 == 7
+n1-snap-1788689532-t21
+n2-snap-1788689532-t21
+wal1-snap-1788689532-t21
+wal2-snap-1788689532-t21
+net-snap-1788689532-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+4413896d73cfb909c59645e10b2842f5cf2a516546e36daa5ec2412cf815862d
+vol-snap-1788689532-t22
+d4b0f2a221ef713382618f4a16ecdec663089249cdcc00b8e238cd09533fc705
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788689532-t22
+vol-snap-1788689532-t22
+net-snap-1788689532-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+3a177e3e3fc9a4d5c36250305c0ad85878df2db698ec87f7ef7dbe5da5e869c6
+wal1-snap-1788689532-t23
+wal2-snap-1788689532-t23
+c3334c899452e983af0a3adfff3b27103e2c612fe50ce8072c02aaea49624b2c
+2b75d0c826b7e0cb0c62b4cddce3da4ccb08dccebe53fd6aa6928a71e40fb7d2
+[harness] Leader=n1-snap-1788689532-t23 after 5s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788689532-t23
+n2-snap-1788689532-t23
+wal1-snap-1788689532-t23
+wal2-snap-1788689532-t23
+net-snap-1788689532-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+0b513221496f7ca1cb4cadd552b22e2dcb281ee4f908e0cf6c5a51e92be6844f
+t01a-base-1788689620
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+2beca9d5e46145a79f5dce03d2ba3866701fccc9612750a3c51b70e16c04aa27
+t01b-base-1788689620
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+917ab6c22b479a5a6a05080a37f31f46b1f7a7867c28232a1a9e842f418d7d7a
+wal1-base-1788689620-t02
+wal2-base-1788689620-t02
+21d08d31182bd0620f8bcbde367f7fab33eeaabf35820da0013365207b62705e
+179bac6e0d4b70222e5176956cb71ba236df7d77cb55146842eb4029d57ecf75
+[harness] Leader=n2-base-1788689620-t02 after 7s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788689620-t02
+n2-base-1788689620-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788689620-t02
+n2-base-1788689620-t02
+wal1-base-1788689620-t02
+wal2-base-1788689620-t02
+net-base-1788689620-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+e195aa3af4e164fa5dcdf8444180a03e22bf218f91f936f71369bf6015625763
+wal1-base-1788689620-t03
+wal2-base-1788689620-t03
+514a744a48124cfb2026ca9c7c050b5ff4d19c313b43732d5e971c73aa22c1fc
+d798f31a1d5fba23bdf6081829404c9df2176004cb46e91372bc02d1baf98dba
+[harness] Leader=n1-base-1788689620-t03 after 5s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788689620-t03
+n2-base-1788689620-t03
+wal1-base-1788689620-t03
+wal2-base-1788689620-t03
+net-base-1788689620-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+814020e0b8fc5e73ac5d03d4a589206402c71076134017d29108f272f8d070a2
+wal1-base-1788689620-t04
+wal2-base-1788689620-t04
+a80599fb9b4b3af950f4717bc3da6e35f13aa8696468dfec7017eed231d71ab1
+c4e1d88a51dfa7fd745d3a52cca7141e73f95cce61f86b4e8ad577a332d18b50
+[harness] Leader=n1-base-1788689620-t04 after 7s
+commit before follower stop: 31
+n2-base-1788689620-t04
+n2-base-1788689620-t04
+  [PASS] t04: commit not regressed to 0: 31 != 0
+  [PASS] t04: applied==commit after recovery: 31 == 31
+n1-base-1788689620-t04
+n2-base-1788689620-t04
+wal1-base-1788689620-t04
+wal2-base-1788689620-t04
+net-base-1788689620-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+1633b9e5591d8b54d7671ac00a12a57a5d0b9afac3b9ee095aa3236613a7458e
+wal1-base-1788689620-t05
+wal2-base-1788689620-t05
+7d371aff455f3554572e96b2dda960f5ae9d7a9bd99e0e1e185f0eaaa11ed5fd
+e860bda951e2b2a14dc932723fbe25d3407557cca9da39636db7bab2f20a9f81
+[harness] Leader=n1-base-1788689620-t05 after 5s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788689620-t05
+n2-base-1788689620-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788689620-t05
+n2-base-1788689620-t05
+wal1-base-1788689620-t05
+wal2-base-1788689620-t05
+net-base-1788689620-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+6c0800aa50098f8720ec41b501e0c12f2abca9dfb2a62be720d68c2c00262d28
+t06a-base-1788689620
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+87dbfea14a5ae76b6688bbe57bc5c28cd8c94380137899d05f9ef75631606255
+t06b-base-1788689620
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+a55fef615a26e9d8fe934d6afa0039bc27404b96eb753373df091ebae53f86e7
+wal1-idem-1788689739-t10
+wal2-idem-1788689739-t10
+1a18600299818e301dbb10cf2bf25c606e7d31d583feeec19c721e4861a45709
+c395d430393bcbe273b1afb7439fc95e2f1f2f4dde6c2d7e4c17ce55555b32d5
+[harness] Leader=n1-idem-1788689739-t10 after 5s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788689739-t10
+n2-idem-1788689739-t10
+wal1-idem-1788689739-t10
+wal2-idem-1788689739-t10
+net-idem-1788689739-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+81b5fe5f496eb0094e517effcb998340ccfe1c20128692c67d8a02b636b90ff5
+wal1-idem-1788689739-t11
+wal2-idem-1788689739-t11
+dc5842cac24b4724286e376d5a500b37438dc53d5b1237b54b5523c1ab8d23c1
+e3f9e06ca3962ffa282bf318ef73b24d4e5c4207f6b4e20adc7e6007835d59e9
+[harness] Leader=n2-idem-1788689739-t11 after 7s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788689739-t11
+n2-idem-1788689739-t11
+wal1-idem-1788689739-t11
+wal2-idem-1788689739-t11
+net-idem-1788689739-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+3a07445adc7cf983fa6eb255523cab96715b65c07f036cd4f9e7472878b3019b
+wal1-idem-1788689739-t12
+wal2-idem-1788689739-t12
+9931634bea50ef9d48c95b7e314d1e0ffd16c551832a463b64640379c41f13a9
+62dd63f08e6360a97088076bd6ca5fcaf0ac0cd060f6891bfb966a9937866fc7
+[harness] Leader=n1-idem-1788689739-t12 after 6s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788689739-t12
+n2-idem-1788689739-t12
+wal1-idem-1788689739-t12
+wal2-idem-1788689739-t12
+net-idem-1788689739-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+77992b1f2f11a1ed127fc0ae022f0fce9511012d41005a6681ce3893c83b8b9a
+wal1-idem-1788689739-t13
+wal2-idem-1788689739-t13
+abdcd9804f39e36e78e08381526ceeec63099bcd19c7498180aeafb06f7cbcba
+90cf561033b5ca11b9c7fd684581e700a8c4c4997d1adc6e1ea26aaa91e0872f
+[harness] Leader=n1-idem-1788689739-t13 after 6s
+n2-idem-1788689739-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788689739-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788689739-t13
+n2-idem-1788689739-t13
+wal1-idem-1788689739-t13
+wal2-idem-1788689739-t13
+net-idem-1788689739-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+a56eccf404831708a6891078b93bb7f03ec04f1d5d52850a486f0cb0431786ec
+wal1-idem-1788689739-t14
+wal2-idem-1788689739-t14
+27ecd2ec6608d8b2e8e70af33a308da908e103ac3fe858098e549670d376c121
+85814e76fa412da322bf53300f771c91ffc1853409d9992286fa9ec681490f6a
+[harness] Leader=n1-idem-1788689739-t14 after 5s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788689739-t14
+n2-idem-1788689739-t14
+wal1-idem-1788689739-t14
+wal2-idem-1788689739-t14
+net-idem-1788689739-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+1255812ad6913ba8b9989d92ccde4afd607478235130c3db2a8a2b1146df6947
+wal1-health-1788689809-t30
+wal2-health-1788689809-t30
+1d13a3746a7cb4aa9e48865bf7647103f49d12fc66beca523192dc8fea816732
+7aea7ab26de8013b3bb4ce43c60499b0c795b7b107c323f45320feceab088bf5
+[harness] Leader=n1-health-1788689809-t30 after 5s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788689809-t30
+n2-health-1788689809-t30
+wal1-health-1788689809-t30
+wal2-health-1788689809-t30
+net-health-1788689809-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+4140f2043a1b7e8410ad2f14b6027373ef667a20a90957257affb14743b43db4
+wal1-health-1788689809-t31
+wal2-health-1788689809-t31
+c0cf8fd3c78edf62af3e4dd7125c6172cb90b48db48b3add569d0eb8ec770ef8
+479d6c9604ffbb90d709768c073b19ede5827576a965e480acd273156cbb2edb
+[harness] Leader=n1-health-1788689809-t31 after 5s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n2-health-1788689809-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n2-health-1788689809-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788689809-t31
+n2-health-1788689809-t31
+wal1-health-1788689809-t31
+wal2-health-1788689809-t31
+net-health-1788689809-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+07a7f699e2f731f3c3924c5b8d8585a4dc5a458b9479ed240782efa151e5f28e
+t32a-health-1788689809
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+8840fc9d128cbbb03fb2bbfdffa9965c21f6215c59820ad67a615dfe320e5b51
+t32b-health-1788689809
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+75900cdbf3f95ed594f3fe9fd9310a5512f5e84751916357c25d07f7acc64f8d
+wal1-health-1788689809-t33
+wal2-health-1788689809-t33
+be91864b1117720b40bcd1e2a5a98757b9a42b81be4cb50d870076b984deb382
+83ae50a291aef5bec5ec1548a22d262e96ce25faca465ecf7a5fecf5c6536017
+[harness] Leader=n1-health-1788689809-t33 after 6s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788689809-t33
+n2-health-1788689809-t33
+wal1-health-1788689809-t33
+wal2-health-1788689809-t33
+net-health-1788689809-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+5dcee9665a072b3660bfc48a5cf551ea6ba938161af01ae0e5f2766c1b46cdc7
+wal1-snap-1788689850-t20
+wal2-snap-1788689850-t20
+82b45815a79d30b476b07ad34a382f8b08769d0c13adf205abce52aedbca1b5a
+d4a83f0f7f5256155b66b67fe7298ff884bc75c6d4c310c07648ad8d4493c924
+[harness] Leader=n1-snap-1788689850-t20 after 6s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788689850-t20
+n2-snap-1788689850-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788689850-t20
+n2-snap-1788689850-t20
+wal1-snap-1788689850-t20
+wal2-snap-1788689850-t20
+net-snap-1788689850-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+7e1f2c8dcf942450cd54eb558be0c661021feedd3b90f19e844c908cf3b07b16
+wal1-snap-1788689850-t21
+wal2-snap-1788689850-t21
+067816f621f67ef43dc33cdb61e6d2ce97bff991a17097916f80e36bac4c166a
+25458736473fb9528679cd134a97919c98ab99ede5c8937e9f242454dcce8b01
+[harness] Leader=n2-snap-1788689850-t21 after 6s
+n2-snap-1788689850-t21
+  [PASS] t21: term advanced after election: 5 != 1
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 5 == 5
+n1-snap-1788689850-t21
+n2-snap-1788689850-t21
+wal1-snap-1788689850-t21
+wal2-snap-1788689850-t21
+net-snap-1788689850-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+02c37ac6bee92a2f74cb7a4a66baad0201820174f0b6665e67872048d4094e9f
+vol-snap-1788689850-t22
+af8e90cf51d1ce554e5ca2f740c90a9b80908a6dfe68f32279ec37709073dc3b
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788689850-t22
+vol-snap-1788689850-t22
+net-snap-1788689850-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+da23368970f1011d86ae46c343c555d68cc47f099280d574c2dba4e9cd40f06d
+wal1-snap-1788689850-t23
+wal2-snap-1788689850-t23
+9f8b178c9ce5fcfc3d87eb8667d2be945040bad867dd48cd751aade772b16d09
+0d381fbad14b619dfeddafad97462b7db61b19d43bdea1371d0b4ff48816c5c9
+[harness] Leader=n1-snap-1788689850-t23 after 6s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788689850-t23
+n2-snap-1788689850-t23
+wal1-snap-1788689850-t23
+wal2-snap-1788689850-t23
+net-snap-1788689850-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+b4a661885e3f1889bd242eef7e6a37a515949f2298c2808383417cfa6ae177b1
+t01a-base-1788689936
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+fa75e068b57c093d07fcd5c2598b45d2b3a8ed5885c305500432e25154aae52c
+t01b-base-1788689936
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+fb42dd556ecd6cca8073a66d6cfec50bed5be0e6726c01d83dfd7c8ec2f3714f
+wal1-base-1788689936-t02
+wal2-base-1788689936-t02
+9f3bdd7cc8c966e8e9d5bc68295332b4ad6355fa98d67120a17274238c13f3f8
+61779066e623d9c15b90be7ff90bfa3c28052d37bb1320ecbe1692f74111334e
+[harness] Leader=n1-base-1788689936-t02 after 6s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788689936-t02
+n2-base-1788689936-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788689936-t02
+n2-base-1788689936-t02
+wal1-base-1788689936-t02
+wal2-base-1788689936-t02
+net-base-1788689936-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+89533427ef7a12d6ebbe8e4ea64daa27fe09e94df9969d4b74bdb5ea9c81ff03
+wal1-base-1788689936-t03
+wal2-base-1788689936-t03
+fa3a5d25190436e6c648b289aaffb5ef26ea80522d165ecdbe2a094579ea2174
+4b8a1afc9c34b0389bf3ecae6cded97feb353b3f100361763873b767a9a1425e
+[harness] Leader=n1-base-1788689936-t03 after 5s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788689936-t03
+n2-base-1788689936-t03
+wal1-base-1788689936-t03
+wal2-base-1788689936-t03
+net-base-1788689936-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+0df083e36345a5b18724df1a9f6ed8fca699c94172e24d276dc6404112c32558
+wal1-base-1788689936-t04
+wal2-base-1788689936-t04
+d468970e3e4b129d7eeb1ab640cef95eb412d06666cdb12465343c3c4c801a17
+f656fee96bb013694b0a4f3b2da19ae459c38744d5b5cf93090232cb96428660
+[harness] Leader=n1-base-1788689936-t04 after 6s
+commit before follower stop: 31
+n2-base-1788689936-t04
+n2-base-1788689936-t04
+  [PASS] t04: commit not regressed to 0: 31 != 0
+  [PASS] t04: applied==commit after recovery: 31 == 31
+n1-base-1788689936-t04
+n2-base-1788689936-t04
+wal1-base-1788689936-t04
+wal2-base-1788689936-t04
+net-base-1788689936-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+4a0ff31c4f5ed07675eea6824f505cc434c996a2fb8c06c36d1b7872c5732f7d
+wal1-base-1788689936-t05
+wal2-base-1788689936-t05
+404a916920e1570600f56b890b7c5c3b8e6525b64e618dcc0ba302e551d52557
+838e35185cbeaa1a65f3faa0f15c3fe7259c09656144309138a2774d56fca693
+[harness] Leader=n1-base-1788689936-t05 after 5s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788689936-t05
+n2-base-1788689936-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788689936-t05
+n2-base-1788689936-t05
+wal1-base-1788689936-t05
+wal2-base-1788689936-t05
+net-base-1788689936-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+4cb0e947d41203745070889719190fd6fc07c1f57a26039545af42abb0c5870c
+t06a-base-1788689936
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+9bdee03cb0ccce3660635df9260a4912b39f9167de41f57ec0a3122567a38476
+t06b-base-1788689936
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: idem
+═══════════════════════════════════════════════════
+
+▶ t10: serial_dedup: same token x3 serial → increment=1, duplicate=true
+a7aa3f5148eed373f9eb2fc0bb2bc600148101c5b2b5fb48ffdefffd96e65bff
+wal1-idem-1788690048-t10
+wal2-idem-1788690048-t10
+8c358a35f20200337c7c870b15004ce1a994d3f4c4213cfbf7871a93ef8d213e
+32bf7d6b1aa9028a02118f670918b80c5790c2337539b6158abdc2db083b65ca
+[harness] Leader=n2-idem-1788690048-t10 after 7s
+  [PASS] t10: logs increment=1: 1 == 1
+  [PASS] t10: r1.index==r2.index: 2 == 2
+  [PASS] t10: r2.index==r3.index: 2 == 2
+  [PASS] t10: r2 duplicate=true: true == true
+  [PASS] t10: r3 duplicate=true: true == true
+n1-idem-1788690048-t10
+n2-idem-1788690048-t10
+wal1-idem-1788690048-t10
+wal2-idem-1788690048-t10
+net-idem-1788690048-t10
+
+▶ t11: concurrent_dedup: same token x10 concurrent → increment=1
+52e44bcb8d556e1b48245056b5591f9a8c66a75670dbe45ce0da32493c7f7110
+wal1-idem-1788690048-t11
+wal2-idem-1788690048-t11
+1904439380c8d725ac092f5f58990b5bf770a83f1a8370b26c177f3cf5fc3ab7
+4eed0c87507b3f7cc41a521b59257023e99c82614cc5f0ee7de53e557ff09f47
+[harness] Leader=n1-idem-1788690048-t11 after 6s
+  [PASS] t11: concurrent logs increment=1: 1 == 1
+  [PASS] t11: all 10 responses same index=2: 1 == 1
+n1-idem-1788690048-t11
+n2-idem-1788690048-t11
+wal1-idem-1788690048-t11
+wal2-idem-1788690048-t11
+net-idem-1788690048-t11
+
+▶ t12: lru_evict: CAPACITY=5, 7 tokens → size=5, evicted retry → new entry
+ae8159c7c88c54096f60dff9fad5c2cca823dc0fc0dd5c1b2878c22cc4a97886
+wal1-idem-1788690048-t12
+wal2-idem-1788690048-t12
+f011cbb3003d51bf348ba3673d5539a0ffd9dda1b519f1000f4d4f9f54b72912
+ec17eb3fb24909abe591c9e1032ffbff4a71808bfc077fe501d82bb391eef343
+[harness] Leader=n2-idem-1788690048-t12 after 7s
+  [PASS] t12: idem size==5 after 7 tokens: 5 == 5
+  [PASS] t12: evicted token retry → new entry (increment=1): 1 == 1
+  [PASS] t12: evicted token retry → not duplicate:  != true
+n1-idem-1788690048-t12
+n2-idem-1788690048-t12
+wal1-idem-1788690048-t12
+wal2-idem-1788690048-t12
+net-idem-1788690048-t12
+
+▶ t13: fail_retry: propose fails → entry removed → restore → same token succeeds
+7f6676ee419a084b17fdc53c1106b27335920bb7390c37b8895b75d95d91422b
+wal1-idem-1788690048-t13
+wal2-idem-1788690048-t13
+1c3c80ed5da56f7a2e712df820c1793377edd74c1e74de3c26364a34f4dbb3e7
+f9aa6de69c1923671895a5b6a31f8a37ffb19628c1948a5f4b7e362fcabd9fde
+[harness] Leader=n1-idem-1788690048-t13 after 5s
+n2-idem-1788690048-t13
+  [PASS] t13: idem size==0 after failure (entry removed): 0 == 0
+n2-idem-1788690048-t13
+  [PASS] t13: retry → new entry (increment=1): 1 == 1
+  [PASS] t13: retry success=true: true == true
+n1-idem-1788690048-t13
+n2-idem-1788690048-t13
+wal1-idem-1788690048-t13
+wal2-idem-1788690048-t13
+net-idem-1788690048-t13
+
+▶ t14: no_token: no token → normal append, no duplicate field
+3ca331ce21656bae421cc96bc1c4851925802c8df9d8f3cc2bb640aa775f9690
+wal1-idem-1788690048-t14
+wal2-idem-1788690048-t14
+b63919aa69f198618ec50972d317bed0b1860347b143c38f66d727994521ba8b
+5a1cf8405d13c6b00031ad4da30ef3ff4a2bb1bbda9f98866cc4dc68550f8f61
+[harness] Leader=n1-idem-1788690048-t14 after 5s
+  [PASS] t14: no-token increment=1: 1 == 1
+  [PASS] t14: no-token success=true: true == true
+  [PASS] t14: no duplicate field in response: 0 == 0
+n1-idem-1788690048-t14
+n2-idem-1788690048-t14
+wal1-idem-1788690048-t14
+wal2-idem-1788690048-t14
+net-idem-1788690048-t14
+──────────────────────────────────────────────────
+  idem: PASS=16 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+a4073e1ddcebdf37323e1e6576a5a5890a8dbe5705bc59d7d7cc4e83bfd35495
+wal1-health-1788690116-t30
+wal2-health-1788690116-t30
+450e750d6468c429056cb63e0d8535c0425b6326f15e42479d6b5f0a9f035af1
+c744efd72f65b438ac05bc010215a6af2e1b7846e93c355ce6496018b930ab89
+[harness] Leader=n1-health-1788690116-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788690116-t30
+n2-health-1788690116-t30
+wal1-health-1788690116-t30
+wal2-health-1788690116-t30
+net-health-1788690116-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+d9ba96dcc7ca37b75826cb57c054e4e8c47f3d01500c2c7533bdc3b72cd5088a
+wal1-health-1788690116-t31
+wal2-health-1788690116-t31
+94778fa47ab414d3ad5c3e9039f25666eb580e94a8f658b461745d2a08d4163f
+7f378d829790b190dfe3d675e5d0eae74e7f9419b140b4ee784c31a2d73f76c5
+[harness] Leader=n2-health-1788690116-t31 after 7s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n1-health-1788690116-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n1-health-1788690116-t31
+  [PASS] t31: follower recovered → SERVING: SERVING == SERVING
+n1-health-1788690116-t31
+n2-health-1788690116-t31
+wal1-health-1788690116-t31
+wal2-health-1788690116-t31
+net-health-1788690116-t31
+
+▶ t32: grpc_port_fail_closed: GRPC_PORT=abc/0 → reject (F5 fail-closed)
+8bfe18a988fdfc2377850da8439f74ab1d260a10c8c423251fda1caf7949b70e
+t32a-health-1788690116
+  [PASS] t32a: GRPC_PORT=abc → not running: exited != running
+54b662ca30d1875adb444c4608742e7d54d1da5f8e241296d1944b44fe29d075
+t32b-health-1788690116
+  [PASS] t32b: GRPC_PORT=0 → not running: exited != running
+
+▶ t33: http_untouched: /raft/status fields match dev6 baseline
+3e7b94a3cfc83c280d7a785c378a63a94fbb0836ce30602203b9ebd25a38a302
+wal1-health-1788690116-t33
+wal2-health-1788690116-t33
+478c798825984c8aca12404920c182edfcb009ba52061723722e9a3ecc0fbdad
+45c2a5a642fe5f848b213461e04dac5699db2161645a697ff87f472b2dc75a3e
+[harness] Leader=n1-health-1788690116-t33 after 6s
+  [PASS] t33: /raft/status fields match baseline (9 fields): commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for == commit_index
+id
+last_applied
+leader_id
+log_count
+peer_count
+state
+term
+voted_for
+  [PASS] t33: /raft/stats still works
+n1-health-1788690116-t33
+n2-health-1788690116-t33
+wal1-health-1788690116-t33
+wal2-health-1788690116-t33
+net-health-1788690116-t33
+──────────────────────────────────────────────────
+  health: PASS=9 FAIL=0
+──────────────────────────────────────────────────
+═══════════════════════════════════════════════════
+  SUITE: wal_snap
+═══════════════════════════════════════════════════
+
+▶ t20: snapshot_trigger: THRESHOLD=50, write 60 → snapshot → restart replay
+8706c1af3ccf262af4724596581ddab0a5b805434355a2338a6a70c0375351d6
+wal1-snap-1788690160-t20
+wal2-snap-1788690160-t20
+3daf1b744768580971bc192d9175212744a1c5559ac7d8fd6bc6e469b76e5121
+82bd22b75e121b987c8fe759b2d150560c73a0de665f1f19996862b7590c0f09
+[harness] Leader=n1-snap-1788690160-t20 after 7s
+  [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
+  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+n1-snap-1788690160-t20
+n2-snap-1788690160-t20
+  [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
+  [PASS] t20: logs after restart: 62 == 62
+n1-snap-1788690160-t20
+n2-snap-1788690160-t20
+wal1-snap-1788690160-t20
+wal2-snap-1788690160-t20
+net-snap-1788690160-t20
+
+▶ t21: noop_term: trigger election → new term → Command=nil entry
+3e8f920e9673d905dfe8abcfde97818874df3ccaceb72e292f38bb67a9c31dd7
+wal1-snap-1788690160-t21
+wal2-snap-1788690160-t21
+b2041835a72a1cd029073fe8bd89cb24fe3a1df1bc3cc1e4941651c294d03281
+1178affddb22755a6a78114f2d96e204e4bcb807a91d2aabd8f11545ec0c170c
+[harness] Leader=n1-snap-1788690160-t21 after 6s
+n1-snap-1788690160-t21
+  [PASS] t21: term advanced after election: 6 != 1
+  [PASS] t21: applied==commit after new term: 12 == 12
+  [PASS] t21: new term entry has Command=null (no-op): null == null
+  [PASS] t21: no-op entry term matches current term: 6 == 6
+n1-snap-1788690160-t21
+n2-snap-1788690160-t21
+wal1-snap-1788690160-t21
+wal2-snap-1788690160-t21
+net-snap-1788690160-t21
+
+▶ t22: old_volume_compat: old-format WAL → current code replay → recover 20
+589ca4e3beeb7eece0c4fa8383c501b39f24ae16883c39e1d61a0d1aa553e66a
+vol-snap-1788690160-t22
+5b366589f59e5777007edcd358e4b0d8ce08708daa718ca28dfe6e675d8076ff
+  [PASS] t22: recovered 20 entries from old-format WAL: 20 == 20
+  [PASS] t22: commit=20 after old-format replay: 20 == 20
+c-snap-1788690160-t22
+vol-snap-1788690160-t22
+net-snap-1788690160-t22
+
+▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+e9dc6f08d708720663fdfa9f5d49960b3428634efc99ed6d7609013803b7ef3c
+wal1-snap-1788690160-t23
+wal2-snap-1788690160-t23
+7dcefe9db07e8b8a245d2d106467e1d9cc7aa9cb448d47dcefcb9daea2a9bf8c
+edaa85456e5889aabfa0da5ef40c09b5e46cd2cdc3fc8e0287f691a38d86acd3
+[harness] Leader=n1-snap-1788690160-t23 after 5s
+  [PASS] t23: no hardcoded key in binary: 0 == 0
+  [PASS] t23: no hardcoded key in env: 0 == 0
+n1-snap-1788690160-t23
+n2-snap-1788690160-t23
+wal1-snap-1788690160-t23
+wal2-snap-1788690160-t23
+net-snap-1788690160-t23
+──────────────────────────────────────────────────
+  wal_snap: PASS=12 FAIL=0
+──────────────────────────────────────────────────
