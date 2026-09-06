@@ -12,10 +12,13 @@ MERGE_COMMIT="ca84148"
 
 DRY_RUN=false
 RESUME=false
+SOAK=0
 for a in "$@"; do
     case "$a" in
         --dry-run) DRY_RUN=true ;;
         --resume)  RESUME=true ;;
+        --soak)    SOAK=3 ;;
+        --soak=*)  SOAK="${a#--soak=}" ;;
     esac
 done
 
@@ -334,6 +337,41 @@ if [ "$DRY_RUN" = "true" ]; then
 fi
 
 preflight || exit 5
+
+# ── --soak N模式: 连续N次全量suite稳定性门槛 ──
+if [ "$SOAK" -gt 0 ]; then
+    log "SOAK: 连续${SOAK}次全量suite稳定性测试"
+    SOAK_PASS=0
+    SOAK_FAIL=0
+    for i in $(seq 1 "$SOAK"); do
+        log "SOAK round $i/$SOAK"
+        round_fail=0
+        for suite in baseline idem health wal_snap; do
+            log "SOAK round $i: suite=$suite"
+            if RUN_ID="soak-r${i}-$(date +%s)" bash "${TESTS_DIR}/suite_${suite}.sh" >>"$RLOG" 2>&1; then
+                log "SOAK round $i: $suite PASS"
+            else
+                log "SOAK round $i: $suite FAIL"
+                round_fail=1
+            fi
+        done
+        if [ "$round_fail" -eq 0 ]; then
+            SOAK_PASS=$((SOAK_PASS + 1))
+            log "SOAK round $i: ALL PASS"
+        else
+            SOAK_FAIL=$((SOAK_FAIL + 1))
+            log "SOAK round $i: HAS FAIL"
+        fi
+    done
+    log "SOAK结果: PASS=$SOAK_PASS FAIL=$SOAK_FAIL (共${SOAK}轮)"
+    if [ "$SOAK_FAIL" -eq 0 ]; then
+        log "SOAK PASS"
+        exit 0
+    else
+        log "SOAK FAIL 冻结"
+        exit 2
+    fi
+fi
 
 START=1
 if [ "$RESUME" = "true" ] && [ -f "$PLOG" ]; then
