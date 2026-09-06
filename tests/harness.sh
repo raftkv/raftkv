@@ -327,6 +327,22 @@ is_running() {
     docker inspect -f '{{.State.Running}}' "$(_c_name "$1")" 2>/dev/null | grep -q true
 }
 
+# ── gRPC serving readiness probe ──
+# 用法: grpc_serving <container_name>
+# 返回0=SERVING, 非0=NOT_SERVING/不可达
+# R2: 复用 $PROBE_BIN (tests/health-probe-bin), 无新建构建路径
+# R4: 首次调用拷贝探针二进制, 后续仅 docker exec (docker cp 移出轮询循环)
+# R1: 探针超时2s, wait_for 20轮 → 最坏60s墙钟/20次尝试
+grpc_serving() {
+    local container="$1"
+    local probe_bin="${TESTS_DIR}/health-probe-bin"
+    if ! docker exec "$container" test -x /tmp/health-probe 2>/dev/null; then
+        docker cp "$probe_bin" "${container}:/tmp/health-probe" 2>/dev/null || true
+        docker exec "$container" chmod +x /tmp/health-probe 2>/dev/null || true
+    fi
+    docker exec "$container" /tmp/health-probe localhost:9500 >/dev/null 2>&1
+}
+
 # ── 检查容器是否已退出 ──
 is_exited() {
     local state
