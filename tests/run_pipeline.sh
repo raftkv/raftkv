@@ -204,20 +204,35 @@ RUN_ID="$_knife_run_id"' "$KR"
     fi
 }
 
-# ── T3: sleep→wait_for统一 (A2 no-op) ──
+# ── T3: sleep→wait_for grpc_serving统一 ──
 task_t3() {
-    log "T3: sleep→wait_for统一"
-    log "方案: A2——回退所有wait_for替换, T3为空操作验证模式"
-    log "原因: wait_for is_running语义≠sleep盲等(running≠SERVING), 下批实现grpc_serving readiness探针"
-    log "T3: 空操作验证模式"
+    log "T3: sleep→wait_for grpc_serving统一"
+    log "方案: D1-batch3 grpc_serving readiness探针替换sleep盲等"
+    log "R1: 探针超时2s, wait_for 20轮, 最坏60s墙钟/20次尝试"
+    log "R2: 复用tests/health-probe-bin"
+    log "R4: docker cp移出轮询循环"
 
     check_flags "T3" || return $?
-    if run_knife "v1.0.0-d2-t3" "true" | tee -a "$RLOG"; then
-        local rid; rid=$(get_run_id)
-        log "T3 PASS (no-op) commit=unchanged run_id=$rid"
+
+    # 语义验证: suite脚本已替换
+    local health_ok baseline_ok
+    health_ok=$(grep -c 'wait_for 20 grpc_serving' "$TESTS_DIR/suite_health.sh" 2>/dev/null || true)
+    baseline_ok=$(grep -c 'wait_for 20 grpc_serving' "$TESTS_DIR/suite_baseline.sh" 2>/dev/null || true)
+    log "R1验证: suite_health.sh wait_for grpc_serving替换数=$health_ok"
+    log "R1验证: suite_baseline.sh wait_for grpc_serving替换数=$baseline_ok"
+    if [ "${health_ok:-0}" -lt 1 ] || [ "${baseline_ok:-0}" -lt 1 ]; then
+        log "T3 FAIL 冻结: suite脚本未替换"; return 2
+    fi
+
+    # 健康套件实跑验证
+    local health_result
+    health_result=$(RUN_ID="t3-verify-$(date +%s)" bash "$TESTS_DIR/suite_health.sh" 2>&1 | tee -a "$RLOG")
+    if echo "$health_result" | grep -q "health: PASS=.* FAIL=0"; then
+        local rid; rid="t3-verify-$(date +%s)"
+        log "T3 PASS commit=unchanged run_id=$rid"
         return 0
     else
-        log "T3 FAIL 冻结"; return 2
+        log "T3 FAIL 冻结: health suite未通过"; return 2
     fi
 }
 
