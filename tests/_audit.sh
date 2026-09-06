@@ -12,7 +12,7 @@ if [ -z "$SEAL_MD5" ] && [ -f "${TESTS_DIR}/.seal_md5" ]; then
     SEAL_MD5=$(cat "${TESTS_DIR}/.seal_md5" | tr -d '[:space:]')
 fi
 if [ -z "$SEAL_MD5" ]; then
-    SEAL_MD5="3bb4694f853287c21094ff7bcda0f4d8"
+    SEAL_MD5="28fb6943824a92d56bd8bdd46910348f"
 fi
 
 # 找最新pipeline目录
