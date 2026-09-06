@@ -1,0 +1,83 @@
+Already on 'fix/d1-knife-echo-bug'
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  56.68MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Running in 90706c3e253b
+ ---> Removed intermediate container 90706c3e253b
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Running in bad430b78eed
+ ---> Removed intermediate container bad430b78eed
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Running in 210a1f6e7a54
+ ---> Removed intermediate container 210a1f6e7a54
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> c0c7701ee7fb
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in 70cf7c2506b5
+ ---> Removed intermediate container 70cf7c2506b5
+ ---> 5fdabfe9486c
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Running in c46417c2ca6d
+ ---> Removed intermediate container c46417c2ca6d
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Running in 74fac6d4a7ce
+fetch https://mirrors.aliyun.com/alpine/v3.21/main/x86_64/APKINDEX.tar.gz
+fetch https://mirrors.aliyun.com/alpine/v3.21/community/x86_64/APKINDEX.tar.gz
+(1/11) Installing ca-certificates (20260413-r0)
+(2/11) Installing brotli-libs (1.1.0-r2)
+(3/11) Installing c-ares (1.34.8-r0)
+(4/11) Installing libunistring (1.2-r0)
+(5/11) Installing libidn2 (2.3.7-r0)
+(6/11) Installing nghttp2-libs (1.69.0-r0)
+(7/11) Installing libpsl (0.21.5-r3)
+(8/11) Installing zstd-libs (1.5.6-r2)
+(9/11) Installing libcurl (8.14.1-r2)
+(10/11) Installing curl (8.14.1-r2)
+(11/11) Installing tzdata (2026c-r0)
+Executing busybox-1.37.0-r14.trigger
+Executing ca-certificates-20260413-r0.trigger
+OK: 12 MiB in 26 packages
+ ---> Removed intermediate container 74fac6d4a7ce
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Running in ac38267c7391
+ ---> Removed intermediate container ac38267c7391
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Running in 8b41f92264b3
+ ---> Removed intermediate container 8b41f92264b3
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Running in a06585c558f4
+ ---> Removed intermediate container a06585c558f4
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Running in c5d1707e463d
+ ---> Removed intermediate container c5d1707e463d
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Running in 024fb484d0f3
+ ---> Removed intermediate container 024fb484d0f3
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...

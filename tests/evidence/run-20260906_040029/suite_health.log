@@ -1,0 +1,32 @@
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+f90a7e77d7ade3e1b293b64a09bf58d1fe17a145a26ad00be5eb75300f294a00
+wal1-health-1788667576-t30
+wal2-health-1788667576-t30
+7e06a7fd66237c6a46d694fc0fe6fcae42ed937cfad5213251ffa6783b5ea70e
+8aaaf2eec086da678b6b9dbbbb00c52c546dbbdf33d9b92495b2de4221e906d8
+[harness] Leader=n1-health-1788667576-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [PASS] t30: node2 SERVING: SERVING == SERVING
+n1-health-1788667576-t30
+n2-health-1788667576-t30
+wal1-health-1788667576-t30
+wal2-health-1788667576-t30
+net-health-1788667576-t30
+
+▶ t31: grpc_not_serving: stop follower → probe fails → restart → SERVING
+b68c3486bce40c402db83d17652c62d15366a4cbb24b3231d85b9895c9b176da
+wal1-health-1788667576-t31
+wal2-health-1788667576-t31
+d5597ea10b5f5ce7af8d7594d86d93361adbfda00cb61e933fd3de57ca417b29
+0ea27de3c2d464f920c742bc087b4beaffccd8c0aa5c4989060e321815801a72
+[harness] Leader=n2-health-1788667576-t31 after 7s
+  [PASS] t31: follower initially SERVING: SERVING == SERVING
+n1-health-1788667576-t31
+  [PASS] t31: stopped follower → NOT_SERVING: NOT_SERVING == NOT_SERVING
+n1-health-1788667576-t31
+  [FAIL] t31: follower recovered → SERVING: actual=NOT_SERVING expected=SERVING

@@ -1,0 +1,15 @@
+═══════════════════════════════════════════════════
+  SUITE: health
+═══════════════════════════════════════════════════
+[health] health-probe-bin 就绪: /repo/tests/health-probe-bin
+
+▶ t30: grpc_serving: both nodes SERVING
+d8bea1812c5f38366a71eed33167f639807f4bf2067125a92d9f8751f3b204de
+wal1-health-1788669366-t30
+wal2-health-1788669366-t30
+d4e6241d87ba9841ba60b1dd0841be70c9212d3aef24aefe9d5043032efa6564
+fa996d6873562204dc4eec3fb26c424ffa66e09fa812642cd3c458f39e2a1e27
+[harness] Leader=n1-health-1788669366-t30 after 6s
+  [PASS] t30: node1 SERVING: SERVING == SERVING
+  [FAIL] t30: node2 SERVING: actual=cannot exec in a stopped state
+NOT_SERVING expected=SERVING

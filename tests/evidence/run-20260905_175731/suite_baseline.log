@@ -1,0 +1,22 @@
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+d8d127326d996ce2a7a49422a3af80359ba177d35bda94765f2d871aa1fc8ace
+t01a-base-1788631131
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+b42a1f1adaa2b036c4d4fda55ae8af6bd962994279931a2f8414b2988b83d36c
+t01b-base-1788631131
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+8b6e25a7f5e6e4b69e18e29c31fde15d2b9a9d0f928264d2df07477dbbca3ff4
+wal1-base-1788631131-t02
+wal2-base-1788631131-t02
+e6604225af788b4b378829a9382a7168e8f69d1cde096e18fb0e6d5d32c1a6d4
+6485fea8c238d8dd0ffab74f397eb3ed72c0a1843b28db6dda809d060953162c
+[harness] Leader=n1-base-1788631131-t02 after 6s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788631131-t02
+n2-base-1788631131-t02

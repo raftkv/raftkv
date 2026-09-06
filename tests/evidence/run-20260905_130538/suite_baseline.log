@@ -1,0 +1,91 @@
+═══════════════════════════════════════════════════
+  SUITE: baseline
+═══════════════════════════════════════════════════
+
+▶ t01: fail_closed: SM4_KEY missing/short → container exit non-zero
+c71cb8f56d2805870b1becd8c8ed273292f3b4b3b213793929eb9bfb02dddd2c
+t01a-base-1788613618
+  [PASS] t01a: no SM4_KEY → not running: exited != running
+e7d442c0fa13e910d3ae0c01ba8e4367ad7a7daf167004a9efa61bd78a2d839d
+t01b-base-1788613618
+  [PASS] t01b: short SM4_KEY → not running: exited != running
+
+▶ t02: restart_replay: write 100 → restart → recover 100
+c7864f98c7904811d377bbe0a5c2dae459035d77a9bf592eea4934c204737144
+wal1-base-1788613618-t02
+wal2-base-1788613618-t02
+02b654a1e97f4ab903b260b9ec6233dd9d196c2523c19969a775eee26866f9c6
+85adf33ba485824583228cc95745beb6e415d47929d1c3fd6025fa3f43b3f1e3
+[harness] Leader=n1-base-1788613618-t02 after 6s
+  [PASS] t02: commit before restart (100 data + 1 no-op): 101 == 101
+n1-base-1788613618-t02
+n2-base-1788613618-t02
+  [PASS] t02: commit after restart (100 data + 2 no-op): 102 == 102
+  [PASS] t02: logs after restart: 102 == 102
+  [PASS] t02: applied after restart: 102 == 102
+n1-base-1788613618-t02
+n2-base-1788613618-t02
+wal1-base-1788613618-t02
+wal2-base-1788613618-t02
+net-base-1788613618-t02
+
+▶ t03: applied_eq_commit: write 50 → commit==applied (Bug G)
+cd0cd7fe676d966cdbb0b5d549f65b6e069bb17a7da1098123846994d5be443c
+wal1-base-1788613618-t03
+wal2-base-1788613618-t03
+ed3b74dffde5054cbb8b7ed2d627718a417295f6d3096ce8750102e5d373e295
+0a86b41843a4e0c774bf1df28a4a62cdc825dfb2cd0342bbeae4f4aed4b0cec1
+[harness] Leader=n1-base-1788613618-t03 after 6s
+  [PASS] t03: node1 applied==commit: 51 == 51
+  [PASS] t03: node2 applied==commit: 51 == 51
+n1-base-1788613618-t03
+n2-base-1788613618-t03
+wal1-base-1788613618-t03
+wal2-base-1788613618-t03
+net-base-1788613618-t03
+
+▶ t04: follower_recovery: stop follower 10s → restart → recover (Bug D)
+a5d541977555fcf795efa922a1ddfb0ead8f61cade34ceae2da5dd41d40a7ef6
+wal1-base-1788613618-t04
+wal2-base-1788613618-t04
+c1119c2b60006a8d69c6b499232154df1a5285efc7922a24adf479e62c1fc470
+113469365b4e0ef9b131d8df9b2294d9cd211239cb8c717521723fa5a6ebdc9c
+[harness] Leader=n1-base-1788613618-t04 after 6s
+commit before follower stop: 31
+n2-base-1788613618-t04
+n2-base-1788613618-t04
+  [PASS] t04: commit not regressed to 0: 32 != 0
+  [PASS] t04: applied==commit after recovery: 32 == 32
+n1-base-1788613618-t04
+n2-base-1788613618-t04
+wal1-base-1788613618-t04
+wal2-base-1788613618-t04
+net-base-1788613618-t04
+
+▶ t05: default_config: no extra env → write 50 + replay
+80829562c25f11619e1677ec0fd3b67dcf38f0a9e3bf293807688a7aac74b969
+wal1-base-1788613618-t05
+wal2-base-1788613618-t05
+b8c530b70d10db3af222b8381367b4ce9ea0d28258270a0ab48ca9f8f8a25b2c
+a7e1149bbff73a748540e29a0ef9b9c8128fefc2aae4b9c949d624428e539df7
+[harness] Leader=n1-base-1788613618-t05 after 7s
+  [PASS] t05: commit=51 (50 data + 1 no-op): 51 == 51
+n1-base-1788613618-t05
+n2-base-1788613618-t05
+  [PASS] t05: commit after restart (50 data + 2 no-op): 52 == 52
+n1-base-1788613618-t05
+n2-base-1788613618-t05
+wal1-base-1788613618-t05
+wal2-base-1788613618-t05
+net-base-1788613618-t05
+
+▶ t06: illegal_env: WAL_FLUSH_INTERVAL_MS=abc/0 → reject (F3 fail-closed)
+885bf55d08ca950e5fb7ccac73a8c0c5ba7cd8462604430da48fde7e92292c56
+t06a-base-1788613618
+  [PASS] t06a: WAL_FLUSH_INTERVAL_MS=abc → not running: exited != running
+10247c27be4769402b4c4f160731332d9e014569bc69604f6417ca484838a422
+t06b-base-1788613618
+  [PASS] t06b: WAL_FLUSH_INTERVAL_MS=0 → not running: exited != running
+──────────────────────────────────────────────────
+  baseline: PASS=14 FAIL=0
+──────────────────────────────────────────────────

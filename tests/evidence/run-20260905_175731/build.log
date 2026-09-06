@@ -1,0 +1,64 @@
+M	tests/suite_baseline.sh
+Already on 'fix/d1-batch2'
+M	tests/suite_health.sh
+M	tests/suite_idem.sh
+M	tests/suite_wal_snap.sh
+[build] docker build...
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  56.98MB
+Step 1/17 : FROM golang:1.24-alpine AS builder
+ ---> 8bee1901f1e5
+Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
+ ---> Using cache
+ ---> d6f6d918c48d
+Step 3/17 : ENV GO111MODULE=on
+ ---> Using cache
+ ---> 9ee347db7046
+Step 4/17 : WORKDIR /build
+ ---> Using cache
+ ---> 4a08a6a31d41
+Step 5/17 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> fd3d991d5b20
+Step 6/17 : RUN go mod download
+ ---> Using cache
+ ---> d10912131c4e
+Step 7/17 : COPY . .
+ ---> 92d1688a07cc
+Step 8/17 : RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64     go build -ldflags="-s -w" -o /gateway .
+ ---> Running in 2c8dddf26f53
+ ---> Removed intermediate container 2c8dddf26f53
+ ---> 6f283b29f26a
+Step 9/17 : FROM alpine:3.21
+ ---> 48b0309ca019
+Step 10/17 : RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+ ---> Using cache
+ ---> 9c76208be00b
+Step 11/17 : RUN apk add --no-cache ca-certificates tzdata curl
+ ---> Using cache
+ ---> 4c275f53a379
+Step 12/17 : ENV TZ=Asia/Shanghai
+ ---> Using cache
+ ---> f7d2bf577ec0
+Step 13/17 : ENV LICENSE_FAIL_MODE=closed
+ ---> Using cache
+ ---> 9f38405573a7
+Step 14/17 : WORKDIR /app
+ ---> Using cache
+ ---> ffd30e79eba9
+Step 15/17 : COPY --from=builder /gateway .
+ ---> Using cache
+ ---> b131fa7b0e08
+Step 16/17 : EXPOSE 9500 9000
+ ---> Using cache
+ ---> 2a812fb5b87d
+Step 17/17 : ENTRYPOINT ["./gateway"]
+ ---> Using cache
+ ---> 8bb36e2b61e4
+Successfully built 8bb36e2b61e4
+Successfully tagged daijin235-v26:ci-knife
+[build] key leak scan...
+key leak hits: 0

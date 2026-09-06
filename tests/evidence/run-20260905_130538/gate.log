@@ -1,0 +1,18 @@
+Switched to branch 'v1.0-dev'
+Merge made by the 'ort' strategy.
+ tests/harness.sh   | 6 +++---
+ tests/knife_run.sh | 6 ++++--
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+ca84148 Merge fix/d1-knife-echo-bug: knife_run PASS (v1.0.0-d1)
+9d5c491 fix(ci): D1 down_cluster加||true防止set-e误杀清理函数
+8bcf75c fix(ci): D1 knife_run.sh三处bug修复: echo0改true, 加entrypoint-sh, RUN_ID保存恢复
+81bfb48 Merge fix/grpc-health: F5 gRPC健康检查 (v1.0.0-dev7)
+28b87de F5 测试修复: wait_for_exit + no-op期望值 + health probe二进制
+v1.0.0-d1
+v1.0.0-dev1
+v1.0.0-dev2
+v1.0.0-dev3
+v1.0.0-dev4
+v1.0.0-dev5
+v1.0.0-dev6
+v1.0.0-dev7

@@ -1,0 +1,7 @@
+88ab61c22a2ae3646b4db4002936e34b28e177548ec3a3f2f9dbf2580cecc024
+wal1-smoke-run-20260905_113502
+wal2-smoke-run-20260905_113502
+5ca54f806085fc9dbf5a3e73d449b556d894aa8a5f18b8b64b390cc1efafe2dd
+4d33f17ca8568230c5c243a0b6b383bbe0d491bae4a6726be5b701c1fde25a5f
+[harness] Leader=n1-smoke-run-20260905_113502 after 6s
+[smoke] PASS: Leader elected

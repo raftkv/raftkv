@@ -1,0 +1,33 @@
+[ 10:08:22] SOAK: 连续3次全量suite稳定性测试
+[ 10:08:22] SOAK round 1/3
+[ 10:08:22] SOAK round 1: suite=baseline
+[ 10:10:22] SOAK round 1: baseline PASS
+[ 10:10:22] SOAK round 1: suite=idem
+[ 10:11:30] SOAK round 1: idem PASS
+[ 10:11:30] SOAK round 1: suite=health
+[ 10:12:12] SOAK round 1: health PASS
+[ 10:12:12] SOAK round 1: suite=wal_snap
+[ 10:13:40] SOAK round 1: wal_snap PASS
+[ 10:13:40] SOAK round 1: ALL PASS
+[ 10:13:40] SOAK round 2/3
+[ 10:13:40] SOAK round 2: suite=baseline
+[ 10:15:39] SOAK round 2: baseline PASS
+[ 10:15:39] SOAK round 2: suite=idem
+[ 10:16:49] SOAK round 2: idem PASS
+[ 10:16:49] SOAK round 2: suite=health
+[ 10:17:30] SOAK round 2: health PASS
+[ 10:17:30] SOAK round 2: suite=wal_snap
+[ 10:18:56] SOAK round 2: wal_snap PASS
+[ 10:18:56] SOAK round 2: ALL PASS
+[ 10:18:56] SOAK round 3/3
+[ 10:18:56] SOAK round 3: suite=baseline
+[ 10:20:48] SOAK round 3: baseline PASS
+[ 10:20:48] SOAK round 3: suite=idem
+[ 10:21:56] SOAK round 3: idem PASS
+[ 10:21:56] SOAK round 3: suite=health
+[ 10:22:40] SOAK round 3: health PASS
+[ 10:22:40] SOAK round 3: suite=wal_snap
+[ 10:24:06] SOAK round 3: wal_snap PASS
+[ 10:24:06] SOAK round 3: ALL PASS
+[ 10:24:06] SOAK结果: PASS=3 FAIL=0 (共3轮)
+[ 10:24:06] SOAK PASS
