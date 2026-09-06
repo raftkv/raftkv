@@ -337,9 +337,7 @@ if [ "$DRY_RUN" = "true" ]; then
     exit $?
 fi
 
-preflight || exit 5
-
-# ── --soak N模式: 连续N次全量suite稳定性门槛 ──
+# ── --soak N模式: 连续N次全量suite稳定性门槛 (跳过preflight) ──
 if [ "$SOAK" -gt 0 ]; then
     log "SOAK: 连续${SOAK}次全量suite稳定性测试"
     SOAK_PASS=0
@@ -373,6 +371,8 @@ if [ "$SOAK" -gt 0 ]; then
         exit 2
     fi
 fi
+
+preflight || exit 5
 
 START=1
 if [ "$RESUME" = "true" ] && [ -f "$PLOG" ]; then
