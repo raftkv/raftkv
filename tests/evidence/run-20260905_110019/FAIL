@@ -1,0 +1,8 @@
+knife_run FAIL
+phase: SMOKE
+detail: cluster up failed or Leader not elected in 30s
+run_id: 
+branch: fix/d1-knife-echo-bug
+tag: v1.0.0-d1
+timestamp: 2026-09-05T11:02:16+00:00
+last_green: v1.0.0-dev6

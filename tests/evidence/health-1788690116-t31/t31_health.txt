@@ -1,0 +1,1 @@
+init=SERVING stopped=NOT_SERVING recovered=SERVING

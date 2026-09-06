@@ -1,0 +1,1 @@
+id=node-1 state=Leader term=2 leader=node-1 commit=1 applied=1 logs=1 peers=1 voted=node-1

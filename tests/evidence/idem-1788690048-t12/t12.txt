@@ -1,0 +1,1 @@
+idem_stats={"capacity":5,"size":5} retry={"index":9,"success":true} delta=1

@@ -1,0 +1,1 @@
+node1: commit=51 applied=51 | node2: commit=51 applied=51
