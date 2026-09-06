@@ -204,39 +204,17 @@ RUN_ID="$_knife_run_id"' "$KR"
     fi
 }
 
-# ── T3: sleep→wait_for统一 ──
+# ── T3: sleep→wait_for统一 (A2 no-op) ──
 task_t3() {
     log "T3: sleep→wait_for统一"
-    log "方案: A路线——仅保留带明确容器变量的wait_for替换, 回退裸数字is_running替换"
-    log "原因: 裸数字is_running 1引入运行态验证, 改变原始sleep盲等语义, 导致T3冻结"
-    log '保留替换点: baseline(sleep15→wait_for 15 is_running "$follower"), health(sleep15→wait_for 15 is_running "$follower")'
-    log "回退替换点: baseline(sleep10×2), idem(sleep15×1), wal_snap(sleep8/10/15×3)——均裸数字"
+    log "方案: A2——回退所有wait_for替换, T3为空操作验证模式"
+    log "原因: wait_for is_running语义≠sleep盲等(running≠SERVING), 下批实现grpc_serving readiness探针"
+    log "T3: 空操作验证模式"
 
-    # R1: 锚定模式全局替换（禁止行号sed）
-    # A路线: 仅保留带容器变量的替换
-
-    local SB="${TESTS_DIR}/suite_baseline.sh"
-    sed -i 's/sleep 15/wait_for 15 is_running "$follower"/g' "$SB"
-
-    local SH="${TESTS_DIR}/suite_health.sh"
-    sed -i 's/sleep 15/wait_for 15 is_running "$follower"/g' "$SH"
-
-    # R1验证: 仅检查实际修改的文件
-    for f in "$SB" "$SH"; do
-        if ! grep -q 'wait_for' "$f"; then
-            log "T3 FAIL(R1): $(basename "$f") 未替换, exit 6"; return 6
-        fi
-        bash -n "$f"
-    done
-    log "R1验证: baseline+health均已替换"
-    { git diff --stat || true; } | tee -a "$PLOG"
-
-    git add "$SB" "$SH"
     check_flags "T3" || return $?
     if run_knife "v1.0.0-d2-t3" "true" | tee -a "$RLOG"; then
         local rid; rid=$(get_run_id)
-        git diff --cached --quiet || git commit -m "fix(ci): T3 sleep→wait_for统一 (run_id=$rid)"
-        log "T3 PASS commit=$(git rev-parse --short HEAD) run_id=$rid"
+        log "T3 PASS (no-op) commit=unchanged run_id=$rid"
         return 0
     else
         log "T3 FAIL 冻结"; return 2
@@ -278,19 +256,31 @@ generate_decision() {
         echo "# D1-batch2 DECISION"
         echo ""
         echo "## T1: harness.sh RUN_ID守卫"
-        echo "commit: $t1_sha"
+        if [ -n "$t1_sha" ]; then
+            echo "commit: $t1_sha"
+            git show --stat "$t1_sha"
+        else
+            echo "commit: no-op(无提交)"
+        fi
         echo "run_id: $t1_rid"
-        git show --stat "$t1_sha" 2>/dev/null || echo "(无commit)"
         echo ""
         echo "## T2: do_rollback双节点冒烟"
-        echo "commit: $t2_sha"
+        if [ -n "$t2_sha" ]; then
+            echo "commit: $t2_sha"
+            git show --stat "$t2_sha"
+        else
+            echo "commit: no-op(无提交)"
+        fi
         echo "run_id: $t2_rid"
-        git show --stat "$t2_sha" 2>/dev/null || echo "(无commit)"
         echo ""
         echo "## T3: sleep→wait_for统一"
-        echo "commit: $t3_sha"
+        if [ -n "$t3_sha" ]; then
+            echo "commit: $t3_sha"
+            git show --stat "$t3_sha"
+        else
+            echo "commit: no-op(无提交)"
+        fi
         echo "run_id: $t3_rid"
-        git show --stat "$t3_sha" 2>/dev/null || echo "(无commit)"
         echo ""
         echo "## 终局"
         echo "tag: $FINAL_TAG"
