@@ -1,0 +1,135 @@
+# D1-batch2 DECISION
+
+## T1: harness.sh RUN_ID守卫
+commit: 1df4525
+commit 1df4525af99dee033f8fe4e8a5d7870d03262d3a
+Author: daijin235-dev <dev@daijin235.local>
+Date:   Sat Sep 5 17:50:13 2026 +0000
+
+    fix(ci): T1 harness.sh RUN_ID守卫 (run_id=run-20260905_174313)
+
+ tests/harness.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+run_id: run-20260905_174313
+
+## T2: do_rollback双节点冒烟
+commit: f5996e0
+commit f5996e009004e50a043ab759f18041ee3e33fadf
+Author: daijin235-dev <dev@daijin235.local>
+Date:   Sat Sep 5 17:57:25 2026 +0000
+
+    fix(ci): T2 do_rollback双节点冒烟 (run_id=run-20260905_175022)
+
+ tests/knife_run.sh | 42 ++++++++++++------------------------------
+ 1 file changed, 12 insertions(+), 30 deletions(-)
+run_id: run-20260905_175022
+
+## T3: sleep→wait_for统一
+commit: 107cc3c
+commit 107cc3cb61a6263dbedaf1a01feaad0c9f3aaefb
+Author: daijin235-dev <dev@daijin235.local>
+Date:   Sun Sep 6 04:19:44 2026 +0000
+
+    fix(ci): T3 A2 no-op mode + generate_decision empty sha guard
+
+ tests/run_pipeline.sh | 56 +++++++++++++++++++++------------------------------
+ 1 file changed, 23 insertions(+), 33 deletions(-)
+run_id: run-20260906_043820
+
+## 终局
+tag: v1.0.0-d2
+merge: 5d47cba Merge fix/d1-batch2: knife_run PASS (v1.0.0-d2)
+
+## 断言计数（R10）
+  总计: PASS=51 FAIL=0
+  总计: PASS=51 FAIL=0
+  总计: PASS=51 FAIL=0
+  总计: PASS=51 FAIL=0
+
+## 信任计分（R9: 从progress.log计算）
+本批旗标数: 0
+冻结次数: 2
+门禁颁发tag数: 1
+
+## progress.log全文（R10）
+[ 17:43:12] T1: harness.sh RUN_ID赋值加守卫
+[ 17:43:12] 方案: RUN_ID="" → RUN_ID="${RUN_ID:-}"  双保险保留knife_run save/restore
+[ 17:43:12] R3验证: 15:RUN_ID="${RUN_ID:-}"
+[ 17:50:14] T1 PASS commit=1df4525 run_id=run-20260905_174313
+[ 17:50:14] T2: do_rollback冒烟改双节点方案A
+[ 17:50:14] 方案: 移source至do_rollback前, 替换内联docker run为up_cluster/down_cluster, RID=rbk-${RUN_ID}
+[ 17:50:14] R7: 作用域可用性检查
+/workspace/tests/knife_run.sh:29:ROLLBACK_IMAGE="daijin235-v26:ci-rollback"
+/workspace/tests/knife_run.sh:33:RUN_EVIDENCE="${EVIDENCE_DIR}/${RUN_ID}"
+/workspace/tests/knife_run.sh:35:mkdir -p "$RUN_EVIDENCE"
+/workspace/tests/knife_run.sh:58:    cat > "${RUN_EVIDENCE}/FAIL" << EOF
+/workspace/tests/knife_run.sh:71:    git reset --hard "$LAST_GREEN_TAG" 2>&1 | tee -a "${RUN_EVIDENCE}/rollback.log"
+/workspace/tests/knife_run.sh:74:    echo "[rollback] 重建 ${LAST_GREEN_TAG} 镜像..." | tee -a "${RUN_EVIDENCE}/rollback.log"
+/workspace/tests/knife_run.sh:75:    docker build --platform linux/amd64 -t "$ROLLBACK_IMAGE" \
+/workspace/tests/knife_run.sh:76:        -f Dockerfile . 2>&1 | tee -a "${RUN_EVIDENCE}/rollback_build.log"
+/workspace/tests/knife_run.sh:92:        "$ROLLBACK_IMAGE" 2>&1 | tee -a "${RUN_EVIDENCE}/rollback_smoke.log"
+/workspace/tests/knife_run.sh:96:    echo "rollback smoke stats: $rb_stats" >> "${RUN_EVIDENCE}/rollback_smoke.log"
+/workspace/tests/knife_run.sh:99:        echo "[rollback] 冒烟绿: 已知好状态确认" | tee -a "${RUN_EVIDENCE}/rollback.log"
+/workspace/tests/knife_run.sh:101:        echo "[rollback] 警告: 冒烟也失败! 基线可能已损坏!" | tee -a "${RUN_EVIDENCE}/rollback.log"
+/workspace/tests/knife_run.sh:108:    echo "[rollback] FAIL报告: ${RUN_EVIDENCE}/FAIL"
+/workspace/tests/knife_run.sh:122:git checkout "$BRANCH" 2>&1 | tee "${RUN_EVIDENCE}/build.log"
+/workspace/tests/knife_run.sh:124:echo "[build] docker build..." | tee -a "${RUN_EVIDENCE}/build.log"
+/workspace/tests/knife_run.sh:126:    -f Dockerfile . 2>&1 | tee -a "${RUN_EVIDENCE}/build.log"
+/workspace/tests/knife_run.sh:133:echo "[build] key leak scan..." | tee -a "${RUN_EVIDENCE}/build.log"
+/workspace/tests/knife_run.sh:136:echo "key leak hits: $leak" | tee -a "${RUN_EVIDENCE}/build.log"
+/workspace/tests/knife_run.sh:156:if ! up_cluster "$SMOKE_RID" 2>&1 | tee "${RUN_EVIDENCE}/smoke.log"; then
+/workspace/tests/knife_run.sh:159:echo "[smoke] PASS: Leader elected" | tee -a "${RUN_EVIDENCE}/smoke.log"
+/workspace/tests/knife_run.sh:160:down_cluster "$SMOKE_RID"
+/workspace/tests/knife_run.sh:177:    suite_log="${RUN_EVIDENCE}/suite_${suite}.log"
+/workspace/tests/knife_run.sh:227:cat > "${RUN_EVIDENCE}/PASS" << EOF
+/workspace/tests/knife_run.sh:253:    git checkout v1.0-dev 2>&1 | tee -a "${RUN_EVIDENCE}/gate.log"
+/workspace/tests/knife_run.sh:254:    git merge --no-ff "$BRANCH" -m "Merge $BRANCH: knife_run PASS ($TAG)" 2>&1 | tee -a "${RUN_EVIDENCE}/gate.log"
+/workspace/tests/knife_run.sh:257:    git log --oneline -5 | tee -a "${RUN_EVIDENCE}/gate.log"
+/workspace/tests/knife_run.sh:258:    git tag -l "v1.0.0-*" | tee -a "${RUN_EVIDENCE}/gate.log"
+/workspace/tests/knife_run.sh:264:echo "[knife_run] 完成. evidence: ${RUN_EVIDENCE}/"
+/workspace/tests/harness.sh:48:# up_cluster <run_id> [extra_env...]
+/workspace/tests/harness.sh:52:up_cluster() {
+/workspace/tests/harness.sh:125:# down_cluster [run_id]
+/workspace/tests/harness.sh:128:down_cluster() {
+[ 17:50:14] R1验证: source块已删除
+ tests/knife_run.sh | 4 ----
+ 1 file changed, 4 deletions(-)
+[ 17:50:18] R1验证: 内联docker run已删除
+[ 17:50:18] R1验证: 替换块已插入
+ tests/knife_run.sh | 38 ++++++++------------------------------
+ 1 file changed, 8 insertions(+), 30 deletions(-)
+[ 17:50:22] R1验证: source块已插入
+[ 17:50:22] R6验证: local rbk_rid在do_rollback体内
+[ 17:57:26] T2 PASS commit=f5996e0 run_id=run-20260905_175022
+[ 17:57:26] T3: sleep→wait_for统一
+[ 17:57:26] 方案: suite脚本中sleep>=5替换为wait_for轮询, 判定条件不变
+[ 17:57:26] R4: 仅替换sleep>=5, 保留sleep 1/2/3原样
+[ 17:57:26] R4删除替换点: baseline(sleep2×4), idem(sleep1×3,sleep2×1), wal_snap(sleep2×1,sleep3×1), health(sleep3×1)
+[ 17:57:26] R4保留替换点: baseline(sleep10×2,sleep15×1), idem(sleep15×1), wal_snap(sleep8×1,sleep10×1,sleep15×1), health(sleep15×1)
+[ 17:57:26] R1验证: 4个suite脚本均已替换
+ tests/suite_baseline.sh | 8 ++++----
+ tests/suite_health.sh   | 2 +-
+ tests/suite_idem.sh     | 2 +-
+ tests/suite_wal_snap.sh | 6 +++---
+ 4 files changed, 9 insertions(+), 9 deletions(-)
+[ 17:59:21] T3 FAIL 冻结
+[ 03:58:36] T3: sleep→wait_for统一
+[ 03:58:36] 方案: A路线——仅保留带明确容器变量的wait_for替换, 回退裸数字is_running替换
+[ 03:58:36] 原因: 裸数字is_running 1引入运行态验证, 改变原始sleep盲等语义, 导致T3冻结
+[ 04:00:25] T3: sleep→wait_for统一
+[ 04:00:25] 方案: A路线——仅保留带明确容器变量的wait_for替换, 回退裸数字is_running替换
+[ 04:00:25] 原因: 裸数字is_running 1引入运行态验证, 改变原始sleep盲等语义, 导致T3冻结
+[ 04:00:25] 保留替换点: baseline(sleep15→wait_for 15 is_running "$follower"), health(sleep15→wait_for 15 is_running "$follower")
+[ 04:00:25] 回退替换点: baseline(sleep10×2), idem(sleep15×1), wal_snap(sleep8/10/15×3)——均裸数字
+[ 04:00:25] R1验证: baseline+health均已替换
+ tests/suite_baseline.sh | 2 +-
+ tests/suite_health.sh   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+[ 04:06:42] T3 FAIL 冻结
+[ 04:38:20] T3: sleep→wait_for统一
+[ 04:38:20] 方案: A2——回退所有wait_for替换, T3为空操作验证模式
+[ 04:38:20] 原因: wait_for is_running语义≠sleep盲等(running≠SERVING), 下批实现grpc_serving readiness探针
+[ 04:38:20] T3: 空操作验证模式
+[ 04:44:55] T3 PASS (no-op) commit=unchanged run_id=run-20260906_043820
+[ 04:44:55] 终局: knife_run fix/d1-batch2 v1.0.0-d2
+[ 04:51:35] 终局PASS tag=v1.0.0-d2

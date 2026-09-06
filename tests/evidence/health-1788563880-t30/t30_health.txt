@@ -1,0 +1,1 @@
+node1: SERVING | node2: SERVING

@@ -1,0 +1,1 @@
+snapshot: /app/wal-data/daijin235_raft.wal.snapshot.gz size=329B

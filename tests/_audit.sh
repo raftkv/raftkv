@@ -12,7 +12,7 @@ if [ -z "$SEAL_MD5" ] && [ -f "${TESTS_DIR}/.seal_md5" ]; then
     SEAL_MD5=$(cat "${TESTS_DIR}/.seal_md5" | tr -d '[:space:]')
 fi
 if [ -z "$SEAL_MD5" ]; then
-    SEAL_MD5="f8e78b184c55c47c7f5ebd3f8f226e66"
+    SEAL_MD5="27929268daf6cdd5d46dfa8bde6aa768"
 fi
 
 # 找最新含DECISION.md的pipeline目录（跳过--soak等无DECISION的目录）

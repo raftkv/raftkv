@@ -1,0 +1,8 @@
+knife_run PASS
+run_id: run-20260905_175022
+branch: fix/d1-batch2
+tag: v1.0.0-d2-t2
+timestamp: 2026-09-05T17:57:20+00:00
+suites: baseline,idem,wal_snap,health
+total_pass: 51
+total_fail: 0

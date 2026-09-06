@@ -13,6 +13,7 @@ MERGE_COMMIT="ca84148"
 DRY_RUN=false
 RESUME=false
 SOAK=0
+ALLOWED_REMOTE="${ALLOWED_REMOTE:-}"   # 白名单remote URL，空=禁止push
 for a in "$@"; do
     case "$a" in
         --dry-run) DRY_RUN=true ;;
@@ -57,6 +58,16 @@ check_flags() {
         fi
     done
     return 0
+}
+
+# safe_push: 白名单护栏（自觉性，非强制拦截）。真正push门禁是人工点火令授权。
+safe_push() {
+    local url="$1"
+    if [ -z "$ALLOWED_REMOTE" ] || [ "$url" != "$ALLOWED_REMOTE" ]; then
+        echo "BLOCK: git push to '$url' not in whitelist (ALLOWED_REMOTE='$ALLOWED_REMOTE')"
+        return 1
+    fi
+    git push "$url"
 }
 
 preflight() {
@@ -330,7 +341,7 @@ if [ "$DRY_RUN" = "true" ]; then
     echo ""
     echo "运行护栏:"
     echo "  - 写路径白名单: 仅仓库目录内"
-    echo "  - 黑名单: git push / docker system prune / 仓库外rm / git reset --hard"
+    echo "  - 黑名单: 非白名单remote的git push / docker system prune / 仓库外rm / git reset --hard"
     echo ""
     echo "pre-flight:"
     preflight

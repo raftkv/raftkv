@@ -1,0 +1,8 @@
+knife_run PASS
+run_id: run-20260905_130538
+branch: fix/d1-knife-echo-bug
+tag: v1.0.0-d1
+timestamp: 2026-09-05T13:12:30+00:00
+suites: baseline,idem,wal_snap,health
+total_pass: 51
+total_fail: 0
