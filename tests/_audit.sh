@@ -55,16 +55,29 @@ else
 fi
 
 # ── 4. 断言计数对账 ──
+# 对账规则:
+#   a) DECISION.md "总计: PASS=N FAIL=M" 行数 = 4 (T1+T2+T3+终局)
+#   b) 每行 FAIL=0
+#   c) 所有行 PASS值相同
+#   d) progress.log含T1/T2/T3/终局各至少一个PASS
+#   e) "FAIL 冻结"数仅报告, 不判定
 if [ -f "$DECISION" ]; then
-    last_total=$(grep '总计: PASS=' "$DECISION" | tail -1)
-    dec_pass=$(echo "$last_total" | grep -oE 'PASS=[0-9]+' | cut -d= -f2)
-    dec_fail=$(echo "$last_total" | grep -oE 'FAIL=[0-9]+' | cut -d= -f2)
-    task_pass=$(grep -c 'PASS' "$PLOG" 2>/dev/null || true)
-    task_fail=$(grep -c 'FAIL 冻结' "$PLOG" 2>/dev/null || true)
-    if [ "${dec_fail:-0}" = "0" ] && [ -n "${dec_pass:-}" ]; then
-        audit_pass "4. 断言计数对账 (DECISION PASS=$dec_pass FAIL=$dec_fail, progress PASS=$task_pass FAIL=$task_fail)"
+    dec_total_lines=$(grep -c '总计: PASS=' "$DECISION" 2>/dev/null || true)
+    dec_fail_nonzero=$(grep '总计: PASS=' "$DECISION" | grep -vE 'FAIL=0' | wc -l | tr -d ' ' || true)
+    dec_pass_unique=$(grep '总计: PASS=' "$DECISION" | grep -oE 'PASS=[0-9]+' | sort -u | wc -l | tr -d ' ' || true)
+    dec_pass=$(grep '总计: PASS=' "$DECISION" | head -1 | grep -oE 'PASS=[0-9]+' | cut -d= -f2 2>/dev/null || true)
+    t1_ok=$(grep -c 'T1 PASS' "$PLOG" 2>/dev/null || true)
+    t2_ok=$(grep -c 'T2 PASS' "$PLOG" 2>/dev/null || true)
+    t3_ok=$(grep -c 'T3 PASS' "$PLOG" 2>/dev/null || true)
+    final_ok=$(grep -c '终局PASS' "$PLOG" 2>/dev/null || true)
+    freeze_count=$(grep -c 'FAIL 冻结' "$PLOG" 2>/dev/null || true)
+    if [ "${dec_total_lines:-0}" = "4" ] && [ "${dec_fail_nonzero:-0}" = "0" ] \
+       && [ "${dec_pass_unique:-0}" = "1" ] && [ "${t1_ok:-0}" -ge 1 ] \
+       && [ "${t2_ok:-0}" -ge 1 ] && [ "${t3_ok:-0}" -ge 1 ] \
+       && [ "${final_ok:-0}" -ge 1 ]; then
+        audit_pass "4. 断言计数对账 (总计行=$dec_total_lines/4, PASS=$dec_pass, FAIL=0, T1=$t1_ok T2=$t2_ok T3=$t3_ok 终局=$final_ok, 冻结=$freeze_count)"
     else
-        audit_fail "4. 断言计数对账 (DECISION PASS=$dec_pass FAIL=$dec_fail)"
+        audit_fail "4. 断言计数对账 (总计行=${dec_total_lines:-0}/4, FAIL非0行=${dec_fail_nonzero:-0}, PASS唯一值=${dec_pass_unique:-0}/1, T1=${t1_ok:-0} T2=${t2_ok:-0} T3=${t3_ok:-0} 终局=${final_ok:-0}, 冻结=${freeze_count:-0})"
     fi
 else
     audit_fail "4. 断言计数对账 (DECISION.md不存在)"
