@@ -49,12 +49,13 @@ check_flags() {
     if echo "$d" | grep -q '^diff.*\.go'; then
         log "FLAG $task: 触碰.go文件"; return 3
     fi
-    # R5: 独立判定 — tests/下脚本新增||true即旗, 不要求assert_同现
-    if echo "$d" | grep -q '^+.*|| true'; then
-        if echo "$d" | grep -q '^diff --git.*tests/'; then
-            log "FLAG $task: 测试判定路径新增||true"; return 3
+    # R5: 精确路径关联 — 逐tests/文件检查||true新增
+    local staged_file
+    for staged_file in $(git diff --cached --name-only 2>/dev/null | grep '^tests/'); do
+        if git diff --cached -- "$staged_file" | grep -q '^+.*|| true'; then
+            log "FLAG $task: $staged_file 新增||true"; return 3
         fi
-    fi
+    done
     return 0
 }
 
