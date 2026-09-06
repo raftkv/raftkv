@@ -72,3 +72,7 @@ diag_report.pdf
 鲲鹏物理机最终撤离证据/
 main,go,
 tests/evidence/
+
+# --- D2-batch1 部署配置（修正B: 不入git）---
+tests/deploy/deploy.env
+tests/deploy/.sm4_key

@@ -1,0 +1,70 @@
+=== docker compose config 校验输出 ===
+校验时间: 2026-09-06 23:02
+工作目录: tests/deploy/
+环境变量: IMAGE_NAME=daijin235-v26:ci-knife FP_ANCHOR=tcx4-v25-test GRPC_PORT=9500 HTTP_PORT=9000
+
+校验命令: docker compose -f docker-compose.yml config
+退出码: 0
+
+校验输出:
+name: deploy
+services:
+  node-1:
+    container_name: daijin235-node-1
+    environment:
+      DAIJIN235_FP_ANCHOR: tcx4-v25-test
+      GRPC_PORT: "9500"
+      HTTP_BIND: 0.0.0.0
+      HTTP_PORT: "9000"
+      LICENSE_FAIL_MODE: closed
+      NODE_ID: node-1
+      PEERS: node-2=node-2:9500
+      SM4_KEY: (set)
+    image: daijin235-v26:ci-knife
+    networks:
+      daijin235-net: null
+    volumes:
+      - type: bind
+        source: .../licenses_v25/node-1.key
+        target: /app/license.key
+        read_only: true
+      - type: volume
+        source: wal-node-1
+        target: /app/wal-data
+  node-2:
+    container_name: daijin235-node-2
+    environment:
+      DAIJIN235_FP_ANCHOR: tcx4-v25-test
+      GRPC_PORT: "9500"
+      HTTP_BIND: 0.0.0.0
+      HTTP_PORT: "9000"
+      LICENSE_FAIL_MODE: closed
+      NODE_ID: node-2
+      PEERS: node-1=node-1:9500
+      SM4_KEY: (set)
+    image: daijin235-v26:ci-knife
+    networks:
+      daijin235-net: null
+    volumes:
+      - type: bind
+        source: .../licenses_v25/node-2.key
+        target: /app/license.key
+        read_only: true
+      - type: volume
+        source: wal-node-2
+        target: /app/wal-data
+networks:
+  daijin235-net:
+    name: deploy_daijin235-net
+    driver: bridge
+volumes:
+  wal-node-1:
+    name: deploy_wal-node-1
+  wal-node-2:
+    name: deploy_wal-node-2
+
+修正D确认: compose project name=deploy
+  网络: deploy_daijin235-net vs harness net-${RUN_ID} → 不冲突
+  卷: deploy_wal-node-* vs harness wal*-${RUN_ID} → 不冲突
+  容器: daijin235-node-* vs harness n*-${RUN_ID} → 不冲突
+判定: PASS
