@@ -118,7 +118,7 @@ task_t1() {
     check_flags "T1" || return $?
     if run_knife "v1.0.0-d2-t1" "true" | tee -a "$RLOG"; then
         local rid; rid=$(get_run_id)
-        git commit -m "fix(ci): T1 harness.sh RUN_ID守卫 (run_id=$rid)"
+        git diff --cached --quiet || git commit -m "fix(ci): T1 harness.sh RUN_ID守卫 (run_id=$rid)"
         log "T1 PASS commit=$(git rev-parse --short HEAD) run_id=$rid"
         return 0
     else
@@ -196,7 +196,7 @@ RUN_ID="$_knife_run_id"' "$KR"
     check_flags "T2" || return $?
     if run_knife "v1.0.0-d2-t2" "true" | tee -a "$RLOG"; then
         local rid; rid=$(get_run_id)
-        git commit -m "fix(ci): T2 do_rollback双节点冒烟 (run_id=$rid)"
+        git diff --cached --quiet || git commit -m "fix(ci): T2 do_rollback双节点冒烟 (run_id=$rid)"
         log "T2 PASS commit=$(git rev-parse --short HEAD) run_id=$rid"
         return 0
     else
@@ -235,7 +235,7 @@ task_t3() {
     check_flags "T3" || return $?
     if run_knife "v1.0.0-d2-t3" "true" | tee -a "$RLOG"; then
         local rid; rid=$(get_run_id)
-        git commit -m "fix(ci): T3 sleep→wait_for统一 (run_id=$rid)"
+        git diff --cached --quiet || git commit -m "fix(ci): T3 sleep→wait_for统一 (run_id=$rid)"
         log "T3 PASS commit=$(git rev-parse --short HEAD) run_id=$rid"
         return 0
     else
