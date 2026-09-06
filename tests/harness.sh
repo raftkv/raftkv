@@ -12,7 +12,7 @@ FP_ANCHOR="${FP_ANCHOR:-tcx4-v25-test}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-${TESTS_DIR}/evidence}"
 
 # ── 全局状态 ──
-RUN_ID=""
+RUN_ID="${RUN_ID:-}"
 NET_NAME=""
 C1=""  # container 1 name
 C2=""  # container 2 name
