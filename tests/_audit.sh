@@ -15,10 +15,16 @@ if [ -z "$SEAL_MD5" ]; then
     SEAL_MD5="28fb6943824a92d56bd8bdd46910348f"
 fi
 
-# 找最新pipeline目录
-PDIR=$(ls -dt "${TESTS_DIR}"/evidence/pipeline-* 2>/dev/null | head -1)
+# 找最新含DECISION.md的pipeline目录（跳过--soak等无DECISION的目录）
+PDIR=""
+for d in $(ls -dt "${TESTS_DIR}"/evidence/pipeline-* 2>/dev/null); do
+    if [ -f "${d}/DECISION.md" ]; then
+        PDIR="$d"
+        break
+    fi
+done
 if [ -z "${PDIR:-}" ] || [ ! -d "$PDIR" ]; then
-    echo "AUDIT FAIL: 找不到pipeline目录"
+    echo "AUDIT FAIL: 找不到含DECISION.md的pipeline目录"
     exit 1
 fi
 PLOG="${PDIR}/progress.log"
