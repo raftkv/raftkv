@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
-BRANCH="fix/d1-batch2"
+BRANCH="v1.0-dev"
 FINAL_TAG="v1.0.0-d2"
 D1_TAG_COMMIT="9d5c491"
 MERGE_COMMIT="ca84148"
