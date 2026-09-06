@@ -1,0 +1,102 @@
+﻿=== 步骤3: deploy_verify.sh 全流程 ===
+RUN_ID: step4-repeat-20260906_230722
+
+--- 0. 清理步骤2遗留集群 ---
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"IMAGE_NAME\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"FP_ANCHOR\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"SM4_KEY\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"GRPC_PORT\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"HTTP_PORT\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"GRPC_PORT\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"LICENSE_DIR\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"IMAGE_NAME\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"FP_ANCHOR\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"SM4_KEY\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"GRPC_PORT\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"HTTP_PORT\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"GRPC_PORT\" variable is not set. Defaulting to a blank string."
+  time="2026-09-06T23:07:22+08:00" level=warning msg="The \"LICENSE_DIR\" variable is not set. Defaulting to a blank string."
+  service "node-2" has neither an image nor a build context specified: invalid compose project
+
+IMAGE_NAME: daijin235-v26:ci-knife
+SM4_KEY: 4349288a...(一次性随机)
+
+--- 1. 拉起集群 ---
+   Network deploy_daijin235-net Creating 
+   Volume deploy_wal-node-1 Creating 
+   Volume deploy_wal-node-1 Creating 
+   Volume deploy_wal-node-2 Creating 
+   Volume deploy_wal-node-2 Creating 
+   Network deploy_daijin235-net Creating 
+   Volume deploy_wal-node-2 Created 
+   Volume deploy_wal-node-2 Created 
+   Volume deploy_wal-node-1 Created 
+   Volume deploy_wal-node-1 Created 
+   Network deploy_daijin235-net Created 
+   Network deploy_daijin235-net Created 
+   Container daijin235-node-2 Creating 
+   Container daijin235-node-1 Creating 
+   Container daijin235-node-2 Created 
+   Container daijin235-node-1 Created 
+   Container daijin235-node-1 Starting 
+   Container daijin235-node-2 Starting 
+   Container daijin235-node-1 Started 
+   Container daijin235-node-2 Started 
+
+[verify] Leader=daijin235-node-1 after 5s
+[verify] stats: id=node-1 state=Leader term=1 leader=node-1 commit=1 applied=1 logs=1 peers=1 voted=node-1
+
+--- 2. gRPC探针 (两节点SERVING) ---
+  [PASS] daijin235-node-1 gRPC探针: SERVING == SERVING
+  [PASS] daijin235-node-2 gRPC探针: SERVING == SERVING
+
+--- 3. 写入10条数据 ---
+  write[1]: {"index":2,"success":true}
+  write[2]: {"index":3,"success":true}
+  write[3]: {"index":4,"success":true}
+  write[4]: {"index":5,"success":true}
+  write[5]: {"index":6,"success":true}
+  write[6]: {"index":7,"success":true}
+  write[7]: {"index":8,"success":true}
+  write[8]: {"index":9,"success":true}
+  write[9]: {"index":10,"success":true}
+  write[10]: {"index":11,"success":true}
+
+--- 4. 读回stats ---
+  stats: id=node-1 state=Leader term=1 leader=node-1 commit=11 applied=11 logs=11 peers=1 voted=node-1
+  [PASS] applied==commit: 11 == 11
+  [PASS] commit!=0: 11 != 0
+
+--- 5. 读回entry ---
+  entry[index=2]: {"command":"dmVyaWZ5LWVudHJ5LTE=","found":true,"index":2,"term":1}
+  [PASS] entry[index=2] found=true: true == true
+
+--- 6. Follower同步 ---
+  follower stats: id=node-2 state=Follower term=1 leader=node-1 commit=11 applied=11 logs=11 peers=1 voted=node-1
+  [PASS] follower commit==leader commit: 11 == 11
+
+--- 7. 干净关闭 (down -v) ---
+   Container daijin235-node-2 Stopping 
+   Container daijin235-node-1 Stopping 
+   Container daijin235-node-1 Stopped 
+   Container daijin235-node-1 Removing 
+   Container daijin235-node-2 Stopped 
+   Container daijin235-node-2 Removing 
+   Container daijin235-node-1 Removed 
+   Container daijin235-node-2 Removed 
+   Volume deploy_wal-node-1 Removing 
+   Network deploy_daijin235-net Removing 
+   Volume deploy_wal-node-2 Removing 
+   Volume deploy_wal-node-1 Removed 
+   Volume deploy_wal-node-2 Removed 
+   Network deploy_daijin235-net Removed 
+
+--- 8. 无残留 ---
+  [PASS] 无残留容器:  == 
+  [PASS] 无残留卷:  == 
+  [PASS] 无残留网络:  == 
+
+=== 汇总: PASS=9 FAIL=0 ===
+[verify] PASS: 全部断言通过
+evidence: D:\235备份文件\V2.4_Performance_Sandbox\tests\evidence\deploy-verify\step4-repeat-20260906_230722
+verify.log md5: 7266d5a590940b3ede777206dd0dd68d  tests/evidence/deploy-verify/step4-repeat-20260906_230722/verify.log

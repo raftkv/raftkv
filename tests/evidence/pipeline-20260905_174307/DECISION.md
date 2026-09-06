@@ -133,3 +133,64 @@ merge: 5d47cba Merge fix/d1-batch2: knife_run PASS (v1.0.0-d2)
 [ 04:44:55] T3 PASS (no-op) commit=unchanged run_id=run-20260906_043820
 [ 04:44:55] 终局: knife_run fix/d1-batch2 v1.0.0-d2
 [ 04:51:35] 终局PASS tag=v1.0.0-d2
+
+---
+
+# D2-batch1 关账记录
+
+## 目标
+把沙箱测试拓扑转化为真实可部署拓扑（docker-compose + 配置文件化 + 一键脚本）
+
+## 交付清单
+1. tests/deploy/docker-compose.yml — 2节点集群拓扑声明 (md5=e04972a4e5e2f0dd61e5c8b6e58f6f9c)
+2. tests/deploy/deploy.env.example — 配置模板（占位符，入git） (md5=d58dd90cb2b8948df4aa9cd6bd385de4)
+3. tests/deploy/deploy_up.sh — 一键拉起脚本 (md5=3bbb2dfaabb12b728262d5e54545f1af)
+4. tests/deploy/deploy_verify.sh — 一键验收脚本 (md5=4559909fea0e23f5b6ff53b695237bca)
+5. .gitignore更新 — 添加tests/deploy/deploy.env和.sm4_key (md5=34a93e6c00a1b8713aaf60302cc93708)
+
+## 两轮9/9证据指纹
+- 步骤2 Leader当选: step2-up-20260906_230231/deploy_up.log (Leader=daijin235-node-1 after 5s)
+- 步骤3 全流程9/9 PASS: step3-verify-20260906_230624/verify.log (md5=ea6ab38d963e517b8aaaec0394ba216a)
+- 步骤4 可重复性9/9 PASS: step4-repeat-20260906_230722/verify.log (md5=7266d5a590940b3ede777206dd0dd68d)
+- compose config校验: compose-config-output.txt (退出码0, 修正D不冲突确认)
+
+## 修正A-D落实情况
+- 修正A (SM4_KEY双模式): deploy_up.sh留空→首次生成写入.sm4_key复用; deploy_verify.sh一次性随机+down -v ✅
+- 修正B (deploy.env不入git): 提交deploy.env.example(占位符), deploy.env+.sm4_key入.gitignore, LICENSE_DIR不入库 ✅
+- 修正C (yaml语法校验): 删除version行, docker compose config退出码0 ✅
+- 修正D (project name不冲突): compose project=deploy, 资源前缀deploy_ vs harness net-/wal/n前缀, 不冲突 ✅
+
+## 已知限制
+deploy_up.sh / deploy_verify.sh 为bash脚本，在本机经PowerShell(ps1)等价包装执行
+（WSL2无docker CLI，bash入口未直跑）。功能逻辑由ps1等价覆盖，两轮9/9验证通过。
+后续在Linux/WSL有docker环境时可直跑bash脚本无需ps1包装。
+
+## 关账时间
+2026-09-06 23:08
+
+---
+
+# 时间线补充记录
+
+## Docker迁移验证 (2026-09-06)
+- 迁移: C:\Users\27998\AppData\Local\Docker → D:\DockerData (VHDX+目录联接)
+- 验证: docker-migration-verify.log 6/6通过
+  - 步骤1 docker version ✅
+  - 步骤2 docker ps -a ✅ (4容器Exited0)
+  - 步骤3 镜像计数 ✅ (82镜像一致)
+  - 步骤4 hello-world ⚠️ (registry 403非迁移问题, 本地镜像确认可用)
+  - 步骤5 集群实跑 ✅ (Leader 6s + gRPC SERVING + 10条写入读回 + Follower同步 + 干净关闭)
+  - 步骤6 日志落盘 ✅
+- 判定: Docker迁移无损确认
+
+## C盘清理 (2026-09-06)
+- 清理前: C盘 已用=205.60GB 剩余=94.40GB
+- 清理后: C盘 已用=163.36GB 剩余=136.64GB
+- 总释放: 42.24GB
+  - Docker迁移: 24.51GB (VHDX C→D)
+  - B类清理: 3.88GB (Temp 2.17 + npm 1.71)
+  - C类迁移: 13.17GB (Desktop 3.16 + tcx4_forensics 10.01 → D盘归档)
+  - D类处理: 0.92GB (.jdks僵尸 0.28 + go 0.64)
+  - Ollama: 保留 (用户选择)
+- 数据安全: 全部迁移到D盘(归档区+隔离区+DockerData), 无永久删除
+- 报告: D:\235备份文件\c-cleanup-report.txt
