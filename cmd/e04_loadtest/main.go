@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -131,7 +130,7 @@ func main() {
 				}
 				localSeq++
 				n := seq.Add(1)
-				isWrite := (localSeq * 100 / *writeRatio) % 100 == 0
+				isWrite := (localSeq*100 / *writeRatio)%100 == 0
 				if *writeRatio == 100 {
 					isWrite = true
 				}

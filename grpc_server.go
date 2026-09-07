@@ -59,12 +59,12 @@ func (svc *RaftServiceImpl) AppendEntries(
 // =========================================================================
 
 type GRPCServer struct {
-	node       *RaftNode
-	listener   net.Listener
-	server     *grpc.Server
-	healthSrv  *healthServer
-	ready      atomic.Bool
-	port       string
+	node      *RaftNode
+	listener  net.Listener
+	server    *grpc.Server
+	healthSrv *healthServer
+	ready     atomic.Bool
+	port      string
 }
 
 // =========================================================================
@@ -189,9 +189,12 @@ func (s *GRPCServer) Address() string {
 // =========================================================================
 
 type PeerClientManager struct {
-	mu      sync.RWMutex
-	clients map[string]peerConn // peerID → 连接 + 客户端
-	address map[string]string   // peerID → 地址
+	mu            sync.RWMutex
+	clients       map[string]peerConn // peerID → 连接 + 客户端
+	address       map[string]string   // peerID → 地址
+	onReconnect   func(peerID string, client pb.RaftServiceClient) // R-04修复A: 重连成功回调
+	stopReconnect chan struct{}                                       // R-04修复A: 停止重连循环信号
+	reconnectOnce sync.Once                                           // R-04修复A: 确保停止通道只关闭一次
 }
 
 type peerConn struct {
@@ -368,6 +371,111 @@ func (m *PeerClientManager) RemovePeer(peerID string) {
 		delete(m.clients, peerID)
 	}
 	delete(m.address, peerID)
+}
+
+// R-04修复A: SetOnReconnect 设置重连成功回调（更新RaftNode.peerClients map）
+func (m *PeerClientManager) SetOnReconnect(fn func(peerID string, client pb.RaftServiceClient)) {
+	m.onReconnect = fn
+}
+
+// R-04修复A: StartReconnectLoop 启动后台重连循环
+// 每2s检查所有peer连接状态，若某peer持续TransientFailure/Idle超过5s，
+// 关闭旧连接并创建新连接（强制DNS重解析），通过onReconnect回调更新RaftNode.peerClients
+// 判据: DNS恢复后≤10s内重连成功（2s检测+5s阈值+新连接建立~1s）
+func (m *PeerClientManager) StartReconnectLoop() {
+	m.mu.Lock()
+	m.stopReconnect = make(chan struct{})
+	m.mu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		failureSince := make(map[string]time.Time)
+
+		for {
+			select {
+			case <-m.stopReconnect:
+				return
+			case <-ticker.C:
+				m.mu.RLock()
+				peerIDs := make([]string, 0, len(m.clients))
+				for id := range m.clients {
+					peerIDs = append(peerIDs, id)
+				}
+				m.mu.RUnlock()
+
+				for _, id := range peerIDs {
+					m.mu.RLock()
+					pc, ok := m.clients[id]
+					m.mu.RUnlock()
+					if !ok {
+						continue
+					}
+
+					state := pc.conn.GetState()
+					if state == connectivity.TransientFailure || state == connectivity.Idle || state == connectivity.Shutdown {
+						if _, exists := failureSince[id]; !exists {
+							failureSince[id] = time.Now()
+							log.Printf("[peer-client] R-04修复A: peer %s 连接状态=%s，开始计时", id, state)
+						}
+						if time.Since(failureSince[id]) > 5*time.Second {
+							log.Printf("[peer-client] R-04修复A: peer %s 持续失败>5s，强制重连（DNS重解析）", id)
+							m.reconnectPeer(id)
+							delete(failureSince, id)
+						}
+					} else if state == connectivity.Ready {
+						if _, wasFailing := failureSince[id]; wasFailing {
+							log.Printf("[peer-client] R-04修复A: peer %s 已恢复连接(Ready)", id)
+						}
+						delete(failureSince, id)
+					}
+				}
+			}
+		}
+	}()
+}
+
+// R-04修复A: StopReconnectLoop 停止后台重连循环
+func (m *PeerClientManager) StopReconnectLoop() {
+	m.reconnectOnce.Do(func() {
+		m.mu.Lock()
+		if m.stopReconnect != nil {
+			close(m.stopReconnect)
+			m.stopReconnect = nil
+		}
+		m.mu.Unlock()
+	})
+}
+
+// R-04修复A: reconnectPeer 关闭旧连接并创建新连接（强制DNS重解析）
+func (m *PeerClientManager) reconnectPeer(peerID string) {
+	m.mu.Lock()
+	addr, ok := m.address[peerID]
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
+	old, exists := m.clients[peerID]
+	if exists {
+		delete(m.clients, peerID)
+	}
+	m.mu.Unlock()
+
+	if exists {
+		old.conn.Close()
+	}
+
+	client, err := m.connect(peerID, addr)
+	if err != nil {
+		log.Printf("[peer-client] R-04修复A: 重连 peer %s 失败: %v", peerID, err)
+		return
+	}
+
+	log.Printf("[peer-client] R-04修复A: peer %s 重连成功（新DNS resolver）", peerID)
+
+	if m.onReconnect != nil {
+		m.onReconnect(peerID, client)
+	}
 }
 
 func licenseGuardInterceptor(
