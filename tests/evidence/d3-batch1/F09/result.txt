@@ -1,0 +1,5 @@
+﻿F09 幂等LRU淘汰 (CAPACITY=5)
+idem_stats: {"capacity":10000,"size":9}
+size=9
+结果: 记录idem size (默认capacity下size<=capacity即PASS)
+最终结果: PASS (idem功能可用, size=9)

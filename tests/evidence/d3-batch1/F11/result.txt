@@ -1,0 +1,3 @@
+﻿F11 fail-closed SM4非法(短)
+容器状态: exited, exitCode=1
+结果: PASS (exit非0)

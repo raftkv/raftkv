@@ -1,0 +1,4 @@
+﻿F01 Leader选举
+Leader节点: node-1 after 3s
+stats: id=node-1 state=Leader term=1 leader=node-1 commit=1 applied=1 logs=1 peers=1 voted=node-1
+结果: PASS

@@ -1,0 +1,3 @@
+﻿F06 /raft/status JSON
+status: {"commit_index":6,"id":"node-1","last_applied":6,"leader_id":"node-1","log_count":6,"peer_count":1,"state":"Leader","term":1,"voted_for":"node-1"}
+结果: PASS (9字段完全匹配)

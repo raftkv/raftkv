@@ -1,0 +1,4 @@
+﻿F04 数据同步
+leader: id=node-1 state=Leader term=1 leader=node-1 commit=6 applied=6 logs=6 peers=1 voted=node-1
+follower: id=node-2 state=Follower term=1 leader=node-1 commit=6 applied=6 logs=6 peers=1 voted=node-1
+结果: PASS (commit=6 一致)

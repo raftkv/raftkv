@@ -71,7 +71,8 @@ diag_report.pdf
 # --- 无关内容 ---
 鲲鹏物理机最终撤离证据/
 main,go,
-tests/evidence/
+tests/evidence/*
+!tests/evidence/d3-batch1/
 
 # --- D2-batch1 部署配置（修正B: 不入git）---
 tests/deploy/deploy.env

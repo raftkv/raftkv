@@ -171,3 +171,33 @@ LICENSE_FAIL_MODE: closed (fail-closed授权防线)
 - tests/evidence/d3-batch0R/smoke-run1.log (第1遍完整日志)
 - tests/evidence/d3-batch0R/smoke-run2.log (第2遍完整日志)
 - tests/deploy/docker-compose-5node.yml (5节点compose定义)
+
+---
+
+## E. D3-batch1运行环境说明（D3-audit-reply闭环4补强）
+
+### E1. batch1运行拓扑
+
+D3-batch1 Part1的15项测试(F01-F09,F10-F14,F16)运行在**2节点裁剪版compose**(tests/deploy/docker-compose.yml)上，而非5节点原始设计。
+
+证据: F01 `peers=1`, F04 `leader=node-1/follower=node-2`, F14仅检查2节点SERVING。
+
+**结论: Part1结果基于错误拓扑(2节点而非5节点)，全部作废待5节点重测。**
+
+历史compose已归档: `tests/evidence/d3-batch1/docker-compose-2node-historical.yml`（标注"历史形态，仅作拓扑证明"）。
+
+### E2. compose差异引用
+
+5节点compose(docker-compose-5node.yml)相对根compose的8处适配性改写详见: `docs/D3-AUDIT-REPLY.md` 闭环1。
+
+### E3. kunpeng-evidence归档状态
+
+鲲鹏920实机证据已归档至 `docs/kunpeng-evidence/`（D3-clarify批次, commit da4b044）。
+
+采集形态说明:
+- 采集环境: 3台鲲鹏920裸金属服务器(DG-S920X20, 172.38.3.147/173/174)
+- 采集窗口: 2026-08-08 ~ 2026-08-25
+- **3台裸金属混部5节点**: V2.2S集群运行日志(05_V2.2S集群运行日志/)包含node-1~node-5的tail2000日志，说明在3台物理机上混部了5个节点进程
+- 文件数: 28数据文件 + 1索引文档 = 29文件, 1.73MB
+- MD5核对: 29/29逐字节保真
+- 关联定位: 作为5节点拓扑的实机运行前例，供D3-batch2压测基线参照
