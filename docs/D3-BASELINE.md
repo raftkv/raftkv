@@ -201,3 +201,50 @@ D3-batch1 Part1的15项测试(F01-F09,F10-F14,F16)运行在**2节点裁剪版com
 - 文件数: 28数据文件 + 1索引文档 = 29文件, 1.73MB
 - MD5核对: 29/29逐字节保真
 - 关联定位: 作为5节点拓扑的实机运行前例，供D3-batch2压测基线参照
+
+---
+
+## F. D3-batch1终态（2026-09-07 收官）
+
+### F1. 用例PASS拓扑
+
+| 批次 | 用例范围 | 节点数 | PASS/总计 | 证据目录 |
+|------|---------|--------|----------|---------|
+| batch1-r2 Part1 | F01-F16 | 5 | 16/16 | tests/evidence/d3-batch1-r2/ |
+| batch1 Part2 | E01, E01b, E02, E03 | 5 | 3/3 (+E01b追加) | tests/evidence/d3-batch1-part2/ |
+| **合计** | **F01-F16 + E01-E03** | **5** | **19/19** | — |
+
+遗留缺陷数: **0**（F10/F11已修复并selfverify裁决为真实防线）
+
+### F2. tag链
+
+| tag | commit | 说明 |
+|-----|--------|------|
+| d3-batch0-pass | 277f30e | 环境基线+2节点冒烟 |
+| d3-batch0R-pass | c64bf46 | 5节点基线修正+冒烟2x |
+| d3-clarify-pass | da4b044 | 存疑点补证+鲲鹏证据归档 |
+| d3-audit-reply-pass | a4e51db | 盲审问题闭环4项 |
+| d3-sec-rotate-pass | 2490c22 | SM4密钥轮换+deploy脚本5节点化 |
+| d3-batch1-r2-pass | e103ffa | F10-F13/F15/F16 5节点测试 |
+| d3-batch1-r2-fix-pass | 13c23f6 | F10/F11修复+回归PASS |
+| d3-selfverify-pass | fb34301 | F10/F11修复真伪判别(三实验) |
+| d3-part2-pass | 928b386 | E01/E01b/E02/E03 四用例PASS |
+
+### F3. 实测基线参数表
+
+| 参数 | 实测值 | 场景 | batch2用途 |
+|------|--------|------|-----------|
+| 分区恢复日志追平耗时 | **35s** | E02: node-2断网恢复后从commit=15追平至commit=27（追12条日志） | batch2压测前评估心跳/同步参数是否偏保守 |
+| Follower崩溃恢复追平耗时 | <10s | E01: node-1 kill→restart, commit追平 | 故障恢复基线 |
+| Leader崩溃重新选举耗时 | <5s | E01b: node-5 kill→node-1当选新Leader | 选举性能基线 |
+| 并发写入确定性增量 | 11/20 | E03: 10带idem_token去重为1 + 10不带各1 | 幂等去重基线 |
+
+> **35s同步参数说明**: E02重跑中node-2追平12条日志耗时35s，期间leader commit持续增长(17→27)。
+> batch2压测前需评估Raft心跳间隔、AppendEntries批量大小等参数是否偏保守，作为前置项E04。
+
+### F4. 挂账清单
+
+| 项 | 状态 | 说明 |
+|----|------|------|
+| 外部盲审#4 | **挂账** | 待Credits恢复后补审 sec-rotate + selfverify + part2 全链 |
+| batch2计划 | **起草中** | D3-BATCH2-PLAN.md，提交后停机等批复 |
