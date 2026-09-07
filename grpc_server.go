@@ -19,6 +19,7 @@ import (
 	pb "daijin235/proto"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -256,6 +257,14 @@ func (m *PeerClientManager) connect(peerID, addr string) (pb.RaftServiceClient, 
 			grpc.MaxCallRecvMsgSize(16*1024*1024),
 			grpc.MaxCallSendMsgSize(16*1024*1024),
 		),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff.Config{
+				BaseDelay:  1 * time.Second,
+				Multiplier: 1.6,
+				Jitter:     0.2,
+				MaxDelay:   5 * time.Second,
+			},
+		}),
 	}
 
 	caFile := os.Getenv("TLS_CA_FILE")
