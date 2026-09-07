@@ -52,6 +52,9 @@ func main() {
 	if n, _ := strconv.Atoi(grpcPort); n <= 0 {
 		log.Fatalf("[main] GRPC_PORT 非法 (%q): 必须为正整数", grpcPort)
 	}
+	// SM4_KEY 早期校验（fail-closed）：在 peer 连接等耗时初始化之前校验，
+	// 确保 SM4_KEY 缺失/非法时进程立即以非零码退出（D3-F1011 修复）。
+	_ = loadSM4KeyFromEnv()
 	httpListen := envOr("HTTP_PORT", *httpPort, "9000")
 	httpBind := envOr("HTTP_BIND", "", "127.0.0.1")
 	peerList := envOr("PEERS", *peersRaw, "")
