@@ -75,9 +75,9 @@ docker network disconnect node-2
   → leader到node-2的gRPC连接断开
   → gRPC自动重连开始指数退避(1s→1.6s→2.56s→...)
   → leader心跳到node-2全部超时(500ms)
-  → node-2收不到心跳，触发选举超时(1-2s)
-  → node-2选举失败(无法获quorum)，term+1
-  → 反复选举(28次/35s)
+  → node-2收不到心跳，触发选举超时(1-2s) ← Raft预期行为
+  → node-2竞选失败(无法获quorum)，term+1
+  → 反复竞选(28次/35s) ← 病灶仅gRPC退避：退避不收敛则心跳不恢复
 
 docker network connect node-2
   → gRPC在下一个退避周期重连成功(约17s后)
@@ -85,6 +85,9 @@ docker network connect node-2
   → AppendEntries批量复制日志(15→27)
   → 收敛
 ```
+
+> **措辞修正**: node-2因收不到心跳而竞选是Raft协议的预期行为，不是缺陷。
+> 病灶仅gRPC重连退避一处（MaxDelay=120s导致恢复后连接长时间不重建）。
 
 ## 4. 修复建议（仅评估，不修改代码）
 
