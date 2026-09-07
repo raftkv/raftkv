@@ -1,0 +1,38 @@
+﻿
+[20:57:19] === D3-batch1-r2 Part1 5节点重跑 [r2] ===
+[20:57:19] SM4_KEY前8位: 856aa4fb
+[20:57:19] 
+[20:57:19] --- 启动5节点集群 ---
+[20:57:27] --- F01 Leader选举 ---
+[20:57:27] F01: Leader=daijin235-node-3, peers=4
+[20:57:27] --- F02 数据写入 ---
+[20:57:27]   write[1]: {"index":2,"success":true}
+[20:57:27]   write[2]: {"index":3,"success":true}
+[20:57:27]   write[3]: {"index":4,"success":true}
+[20:57:27]   write[4]: {"index":5,"success":true}
+[20:57:28]   write[5]: {"index":6,"success":true}
+[20:57:29] --- F03 数据读回 ---
+[20:57:29]   entry[index=2]: {"command":"ZjAyLXIyLTE=","found":true,"index":2,"term":1}
+[20:57:29] --- F04 数据同步(5节点) ---
+[20:57:29]   follower node-1: commit=6 (leader=6)
+[20:57:29]   follower node-2: commit=6 (leader=6)
+[20:57:29]   follower node-4: commit=6 (leader=6)
+[20:57:29]   follower node-5: commit=6 (leader=6)
+[20:57:29] --- F05 /raft/stats字段 ---
+[20:57:29] --- F06 /raft/status JSON ---
+[20:57:29]   status: {"commit_index":6,"id":"node-3","last_applied":6,"leader_id":"node-3","log_count":6,"peer_count":4,"state":"Leader","term":1,"voted_for":"node-3"}
+[20:57:29] --- F07 幂等串行去重 ---
+[20:57:30]   r1={"index":7,"success":true} r2={"duplicate":true,"index":7,"success":true} r3={"duplicate":true,"index":7,"success":true}
+[20:57:30] --- F08 幂等并发去重 ---
+[20:57:32]   before logs=7, after logs=8, delta=1
+[20:57:32] --- F14 gRPC健康检查(5节点) ---
+[20:57:37]   gRPC: node- node- node- node- node- 
+[20:57:37] --- F09 幂等LRU淘汰 (标注DEFECT, 待IDEM_TOKEN_CAPACITY=5修复) ---
+[20:57:37]   idem_stats: {"capacity":10000,"size":2}
+[20:57:37]   F09: DEFECT (待修复)
+[20:57:37] 
+[20:57:37] --- 关闭5节点集群 ---
+[20:57:38] [PASS] 集群已关闭
+[20:57:38] 
+[20:57:38] === Part1汇总: PASS=9 FAIL=0 DEFECT=1(F09待修复) ===
+[20:57:38] 注: F10-F13/F16需单独容器验证(fail-closed), F15需WAL持久化补跑

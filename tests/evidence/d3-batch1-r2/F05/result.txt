@@ -1,0 +1,4 @@
+﻿F05 /raft/stats字段
+stats: id=node-3 state=Leader term=1 leader=node-3 commit=6 applied=6 logs=6 peers=4 voted=node-3
+字段存在: 9/9
+结果: PASS (全部字段存在)

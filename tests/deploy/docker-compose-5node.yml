@@ -37,6 +37,7 @@ services:
       - HTTP_BIND=0.0.0.0
       - PEERS=node-2=node-2:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-4=node-4:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
       - LICENSE_FAIL_MODE=closed
+      - IDEM_TOKEN_CAPACITY=5
     volumes:
       - ${LICENSE_DIR}/node-1.key:/app/license.key:ro
       - wal-node-1:/app/wal-data
@@ -61,6 +62,7 @@ services:
       - HTTP_BIND=0.0.0.0
       - PEERS=node-1=node-1:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-4=node-4:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
       - LICENSE_FAIL_MODE=closed
+      - IDEM_TOKEN_CAPACITY=5
     volumes:
       - ${LICENSE_DIR}/node-2.key:/app/license.key:ro
       - wal-node-2:/app/wal-data
@@ -85,6 +87,7 @@ services:
       - HTTP_BIND=0.0.0.0
       - PEERS=node-1=node-1:${GRPC_PORT},node-2=node-2:${GRPC_PORT},node-4=node-4:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
       - LICENSE_FAIL_MODE=closed
+      - IDEM_TOKEN_CAPACITY=5
     volumes:
       - ${LICENSE_DIR}/node-3.key:/app/license.key:ro
       - wal-node-3:/app/wal-data
@@ -109,6 +112,7 @@ services:
       - HTTP_BIND=0.0.0.0
       - PEERS=node-1=node-1:${GRPC_PORT},node-2=node-2:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
       - LICENSE_FAIL_MODE=closed
+      - IDEM_TOKEN_CAPACITY=5
     volumes:
       - ${LICENSE_DIR}/node-4.key:/app/license.key:ro
       - wal-node-4:/app/wal-data
@@ -133,6 +137,7 @@ services:
       - HTTP_BIND=0.0.0.0
       - PEERS=node-1=node-1:${GRPC_PORT},node-2=node-2:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-4=node-4:${GRPC_PORT}
       - LICENSE_FAIL_MODE=closed
+      - IDEM_TOKEN_CAPACITY=5
     volumes:
       - ${LICENSE_DIR}/node-5.key:/app/license.key:ro
       - wal-node-5:/app/wal-data

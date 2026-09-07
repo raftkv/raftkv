@@ -1,0 +1,5 @@
+﻿F09 幂等LRU淘汰 (CAPACITY=5) - 修复验证
+idem_stats: {"capacity":5,"size":5}
+capacity=5 (期望5)
+size=5 (期望<=5)
+结果: PASS (capacity=5生效, LRU淘汰正常)
