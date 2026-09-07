@@ -1,0 +1,8 @@
+﻿=== E01b Leader崩溃接管 ===
+原Leader L1=daijin235-node-5, commit C1=4
+崩溃后新Leader L2=daijin235-node-1
+通过L2写入后 commit C2=8
+重启L1后: state=Follower commit C3=8
+预期: state=Follower, C3==C2
+实际: state=Follower, C3=8, C2=8
+结果: PASS (旧Leader以Follower回归, commit追平)

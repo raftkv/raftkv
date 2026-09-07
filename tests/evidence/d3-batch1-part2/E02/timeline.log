@@ -1,0 +1,42 @@
+﻿
+[22:40:31] E02-rerun Step1: leader=daijin235-node-1, 断开follower=daijin235-node-2
+[22:40:31]   分区前 commit C1=15
+[22:40:31]   分区前 /raft/status (5节点):
+[22:40:32]     node-1: {"commit_index":15,"id":"node-1","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Leader","term":25,"voted_for":"node-1"}
+[22:40:32]     node-2: {"commit_index":15,"id":"node-2","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:32]     node-3: {"commit_index":15,"id":"node-3","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:32]     node-4: {"commit_index":15,"id":"node-4","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:32]     node-5: {"commit_index":15,"id":"node-5","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:32] E02-rerun Step2: disconnect daijin235-node-2
+[22:40:43] E02-rerun Step3: 等待10秒(分区中)
+[22:40:43]   分区期间 /raft/status (5节点):
+[22:40:43]     node-1: {"commit_index":15,"id":"node-1","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Leader","term":25,"voted_for":"node-1"}
+[22:40:43]     node-2: {"commit_index":15,"id":"node-2","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:43]     node-3: {"commit_index":15,"id":"node-3","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:43]     node-4: {"commit_index":15,"id":"node-4","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:43]     node-5: {"commit_index":15,"id":"node-5","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
+[22:40:43]   分区期间Leader数: 1
+[22:40:43] E02-rerun Step4: 通过leader写入2条
+[22:40:44]     write[1]: {"index":16,"success":true}
+[22:40:45]     write[2]: {"index":17,"success":true}
+[22:40:46]   分区期间写入后 commit C2=17
+[22:40:46] E02-rerun Step5: reconnect daijin235-node-2
+[22:40:46]   network connect 完成, 开始轮询
+[22:40:51]   轮询5s: follower commit=15, leader commit=19
+[22:40:56]   轮询10s: follower commit=15, leader commit=20
+[22:41:02]   轮询15s: follower commit=15, leader commit=21
+[22:41:07]   轮询20s: follower commit=15, leader commit=23
+[22:41:12]   轮询25s: follower commit=15, leader commit=25
+[22:41:17]   轮询30s: follower commit=15, leader commit=26
+[22:41:23]   轮询35s: follower commit=27, leader commit=27
+[22:41:23]   收敛! 耗时=35s
+[22:41:23]   收敛耗时: 35s
+[22:41:23]   恢复后 /raft/status (5节点):
+[22:41:23]     node-1: {"commit_index":27,"id":"node-1","last_applied":27,"leader_id":"node-1","log_count":27,"peer_count":4,"state":"Leader","term":53,"voted_for":"node-1"} commit=27
+[22:41:23]     node-2: {"commit_index":27,"id":"node-2","last_applied":27,"leader_id":"node-1","log_count":27,"peer_count":4,"state":"Follower","term":53,"voted_for":"node-1"} commit=27
+[22:41:24]     node-3: {"commit_index":27,"id":"node-3","last_applied":27,"leader_id":"node-1","log_count":27,"peer_count":4,"state":"Follower","term":53,"voted_for":"node-1"} commit=27
+[22:41:24]     node-4: {"commit_index":27,"id":"node-4","last_applied":27,"leader_id":"node-1","log_count":27,"peer_count":4,"state":"Follower","term":53,"voted_for":"node-1"} commit=27
+[22:41:24]     node-5: {"commit_index":27,"id":"node-5","last_applied":27,"leader_id":"node-1","log_count":27,"peer_count":4,"state":"Follower","term":53,"voted_for":"node-1"} commit=27
+[22:41:24]   恢复后Leader数: 1
+[22:41:25]   判定: 期间Leader=1(True) 恢复后Leader=1(True) commit一致(True) 收敛=35s
+[22:41:25]   结果: PASS

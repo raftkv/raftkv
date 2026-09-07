@@ -1,0 +1,20 @@
+﻿[国密]   ✓ "a"                    623476ac18f65a2909e43c7fec61b49c7e764a91a18ccb82f1917a29c86c5e88
+[pipeline] 2026/09/07 22:28:25 WAL 加密存储已启用: /app/wal-data/daijin235_raft.wal
+2026/09/07 22:28:25 WAL回放完成: 恢复 4 条日志, commitIdx 0 -> 4, 耗时 136.982µs, 完整性 完整
+2026/09/07 22:28:25 [raft/node-5] WAL回放完成: 恢复 4 条日志, commitIdx=4, term=1, 完整性=完整
+[国密]   ✓ "abcd" × 16 (64B)      debe9ff92275b8a138604889c18e5a4d6fdb70e5387e5765293dcba39c0c5732
+[国密]   ✓ 链式摘要确定性                8bbf4df53de8799e…
+[国密] 统一状态机已装配 (引擎=*main.StandardSM3, 链头=0000000000000000)
+[启动] Raft 管线已接入 (WAL=true, Sink=false)
+[启动] WAL回放成功: 恢复 4 条日志, commitIdx=4, 完整性=完整
+[启动] WAL门禁已启动 (阈值=3, 探测间隔=1s)
+[启动] 批量同步管理器已初始化 (enable=true, lagThreshold=100, maxBatch=4096)
+2026/09/07 22:28:25 [raft/node-5] [raft/node-5] 启动，初始状态: Follower, peers: [node-1 node-2 node-3 node-4]
+[mTLS] 证书加载失败，降级为明文传输: open ./certs/node-5-cert.pem: no such file or directory
+[岱境235 网关] gRPC 服务启动成功，端口: 9500
+════════════════════════════════════════════════════════════
+  所有服务已就绪，等待外部指令接入
+════════════════════════════════════════════════════════════
+[启动] HTTP API 服务监听 :9000
+[启动] Raft 状态机开始运行
+[启动] gRPC 服务监听 :9500

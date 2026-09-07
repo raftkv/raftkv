@@ -1,0 +1,6 @@
+﻿node-1: id=node-1 state=Leader term=53 leader=node-1 commit=38 applied=38 logs=38 peers=4 voted=node-1
+node-2: id=node-2 state=Follower term=53 leader=node-1 commit=38 applied=38 logs=38 peers=4 voted=node-1
+node-3: id=node-3 state=Follower term=53 leader=node-1 commit=38 applied=38 logs=38 peers=4 voted=node-1
+node-4: id=node-4 state=Follower term=53 leader=node-1 commit=38 applied=38 logs=38 peers=4 voted=node-1
+node-5: id=node-5 state=Follower term=53 leader=node-1 commit=38 applied=38 logs=38 peers=4 voted=node-1
+
