@@ -26,6 +26,15 @@
 | **预期** | C3 == C2（重启节点自动追平leader日志）<br>集群始终维持5节点（重启后peers=4） |
 | **证据格式** | `E01/result.txt`: 崩溃前commit、崩溃节点、写入后commit、重启后commit、结论<br>`E01/node-log.txt`: 重启节点Raft日志最后20行 |
 
+### E01b [追加-已批复] Leader崩溃接管
+
+| 项 | 内容 |
+|---|---|
+| **目的** | 验证Leader节点崩溃后，集群自动选举新Leader继续服务，原Leader重启后以Follower身份重新加入并同步至最新commit |
+| **步骤** | 1. 5节点集群正常运行，记录Leader=L1和commit=C1<br>2. `docker kill` 强制杀死L1<br>3. 等待5秒（Raft选举超时）<br>4. 查询剩余4节点，确认新Leader=L2已当选<br>5. 通过L2写入3条新数据，commit升至C2<br>6. 重启L1 `docker start`<br>7. 等待10秒，查询L1的state（应为Follower）和commit值C3 |
+| **预期** | L1崩溃后剩余4节点自动选举新Leader L2（4>=quorum=3）<br>L1重启后state=Follower（不重新抢占Leader）<br>C3 == C2（重启的旧Leader追平新Leader日志） |
+| **证据格式** | `E01b/result.txt`: 原Leader、新Leader、崩溃后commit、重启后state和commit、结论<br>`E01b/node-log.txt`: 重启节点Raft日志最后20行 |
+
 ### E02 [重建] 网络分区自愈
 
 | 项 | 内容 |
@@ -46,11 +55,12 @@
 
 ## 4. 执行顺序
 
-E01 → E02 → E03（每个用例前确保集群健康状态）
+E01 → E01b → E02 → E03（每个用例前确保集群健康状态）
 
 ## 5. 通过标准
 
 - E01: 重启节点commit追平leader
+- E01b: 旧Leader重启后state=Follower且commit追平新Leader
 - E02: 分区恢复后5节点commit一致
 - E03: 5节点commit/logs完全一致，增量=11
 
