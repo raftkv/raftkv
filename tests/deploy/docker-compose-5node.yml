@@ -1,0 +1,145 @@
+# =========================================================================
+# 岱境235 — 5节点Raft集群部署compose（D3-batch0R基线）
+#
+# 基于D2部署compose(docker-compose.yml)扩展至5节点，匹配原始设计(docker-compose.yml根目录)
+# 与根目录compose的区别：
+#   1. 使用ci-knife镜像（已验证/health/live端点）而非build: .
+#   2. 挂载SM4_KEY + license.key（fail-closed授权防线）
+#   3. 无frontend服务（冒烟测试聚焦Raft集群）
+#   4. 无host端口暴露（全部容器内通信，与D2部署一致）
+#
+# 用法: docker compose -p deploy5 -f docker-compose-5node.yml --env-file deploy.env up -d
+# =========================================================================
+
+services:
+
+  node-1:
+    image: ${IMAGE_NAME}
+    container_name: daijin235-node-1
+    networks:
+      - daijin235-net
+    environment:
+      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - SM4_KEY=${SM4_KEY}
+      - NODE_ID=node-1
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
+      - HTTP_BIND=0.0.0.0
+      - PEERS=node-2=node-2:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-4=node-4:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
+      - LICENSE_FAIL_MODE=closed
+    volumes:
+      - ${LICENSE_DIR}/node-1.key:/app/license.key:ro
+      - wal-node-1:/app/wal-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  node-2:
+    image: ${IMAGE_NAME}
+    container_name: daijin235-node-2
+    networks:
+      - daijin235-net
+    environment:
+      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - SM4_KEY=${SM4_KEY}
+      - NODE_ID=node-2
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
+      - HTTP_BIND=0.0.0.0
+      - PEERS=node-1=node-1:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-4=node-4:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
+      - LICENSE_FAIL_MODE=closed
+    volumes:
+      - ${LICENSE_DIR}/node-2.key:/app/license.key:ro
+      - wal-node-2:/app/wal-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  node-3:
+    image: ${IMAGE_NAME}
+    container_name: daijin235-node-3
+    networks:
+      - daijin235-net
+    environment:
+      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - SM4_KEY=${SM4_KEY}
+      - NODE_ID=node-3
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
+      - HTTP_BIND=0.0.0.0
+      - PEERS=node-1=node-1:${GRPC_PORT},node-2=node-2:${GRPC_PORT},node-4=node-4:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
+      - LICENSE_FAIL_MODE=closed
+    volumes:
+      - ${LICENSE_DIR}/node-3.key:/app/license.key:ro
+      - wal-node-3:/app/wal-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  node-4:
+    image: ${IMAGE_NAME}
+    container_name: daijin235-node-4
+    networks:
+      - daijin235-net
+    environment:
+      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - SM4_KEY=${SM4_KEY}
+      - NODE_ID=node-4
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
+      - HTTP_BIND=0.0.0.0
+      - PEERS=node-1=node-1:${GRPC_PORT},node-2=node-2:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-5=node-5:${GRPC_PORT}
+      - LICENSE_FAIL_MODE=closed
+    volumes:
+      - ${LICENSE_DIR}/node-4.key:/app/license.key:ro
+      - wal-node-4:/app/wal-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  node-5:
+    image: ${IMAGE_NAME}
+    container_name: daijin235-node-5
+    networks:
+      - daijin235-net
+    environment:
+      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - SM4_KEY=${SM4_KEY}
+      - NODE_ID=node-5
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
+      - HTTP_BIND=0.0.0.0
+      - PEERS=node-1=node-1:${GRPC_PORT},node-2=node-2:${GRPC_PORT},node-3=node-3:${GRPC_PORT},node-4=node-4:${GRPC_PORT}
+      - LICENSE_FAIL_MODE=closed
+    volumes:
+      - ${LICENSE_DIR}/node-5.key:/app/license.key:ro
+      - wal-node-5:/app/wal-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+networks:
+  daijin235-net:
+    driver: bridge
+
+volumes:
+  wal-node-1:
+  wal-node-2:
+  wal-node-3:
+  wal-node-4:
+  wal-node-5:

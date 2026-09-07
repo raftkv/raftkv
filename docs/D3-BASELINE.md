@@ -1,8 +1,20 @@
-# D3-batch0 环境基线 + 冒烟测试报告
+# D3 环境基线 + 冒烟测试报告
 
-生成时间: 2026-09-07 18:45
-批次: D3-batch0
+生成时间: 2026-09-07 19:34
+批次: D3-batch0 (2节点基线) → D3-batch0R (5节点基线修正)
 状态: PASS
+
+---
+
+## 0. 批次演进说明
+
+| 批次 | 时间 | 节点数 | 状态 | 说明 |
+|---|---|---|---|---|
+| D3-batch0 | 2026-09-07 18:45 | 2 | PASS(缺陷) | 环境基线+2节点冒烟，compose仅2节点(裁剪自原始5节点设计) |
+| D3-batch0R | 2026-09-07 19:34 | 5 | PASS | 取证根目录compose→确认ci-knife含/health/live→创建5节点compose→冒烟2遍通过 |
+
+D3-batch0发现的缺陷: tests/deploy/docker-compose.yml仅定义2节点，原始设计(docker-compose.yml根目录)为5节点。
+D3-batch0R修正: 创建tests/deploy/docker-compose-5node.yml，基于D2部署模式(ci-knife镜像+SM4_KEY+license挂载)扩展至5节点，冒烟2遍11/11 PASS。
 
 ---
 
@@ -44,62 +56,118 @@
 | golang:1.25-alpine | 329MB |
 | golang:1.24-alpine | 395MB |
 | alpine:latest / 3.21 / 3.18 | 13/25.1/11.5MB |
+| nginx:alpine | 49.3MB (D3-batch0R拉取，用于frontend) |
 
-总计: 顶层镜像 1950MB (1.9GB)；docker info Images计数=82（含中间层）
+总计: 顶层镜像 ~2.0GB；docker info Images计数=83（含中间层，新增nginx:alpine）
 
-### A4. compose 服务清单
-| 服务 | 镜像 | gRPC端口 | HTTP端口 | 健康检查 |
-|---|---|---|---|---|
-| node-1 | daijin235-v26:ci-knife | 9500 | 9000 | 无(无healthcheck配置) |
-| node-2 | daijin235-v26:ci-knife | 9500 | 9000 | 无(无healthcheck配置) |
+### A4. compose 服务清单（5节点，D3-batch0R）
+| 服务 | 镜像 | gRPC端口(容器内) | HTTP端口(容器内) | 健康检查 | License挂载 |
+|---|---|---|---|---|---|
+| node-1 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-1.key |
+| node-2 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-2.key |
+| node-3 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-3.key |
+| node-4 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-4.key |
+| node-5 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-5.key |
 
-说明: compose当前为2服务（node-1/node-2），无healthcheck配置，容器状态为Up（非healthy）。用户总纲中"预期9/9"为模板遗留数字，实际服务数为2，按2/2验收。
+compose文件: tests/deploy/docker-compose-5node.yml
+项目名: deploy5 (docker compose -p deploy5)
+网络: deploy5_daijin235-net (bridge)
+WAL卷: deploy5_wal-node-{1..5}
+SM4_KEY: 从tests/deploy/.sm4_key复用 (837e01cd...)
+FP_ANCHOR: tcx4-v25-test
+LICENSE_FAIL_MODE: closed (fail-closed授权防线)
 
 ---
 
-## B. 冒烟测试（2遍重复）
+## B. 取证三问（D3-batch0R）
 
-### B1. 第1遍 (smoke-r1-20260907_184433)
+### B1. ci-knife镜像内是否实现/health/live端点?
+**结论: PASS**
+- 源码main.go:199注册路由: `httpMux.HandleFunc("/health/live", ...)`
+- 镜像内二进制`/app/gateway`的strings分析: `strings /app/gateway | grep -c 'health/live'` = 1
+- 运行时验证: 5/5节点curl /health/live → HTTP 200
+
+### B2. 原始compose中frontend引用的镜像(nginx:alpine)本地是否存在?
+**结论: 初始不存在，已拉取**
+- 取证时: `docker image inspect nginx:alpine` → No such image
+- 处置: `docker pull nginx:alpine` → 成功 (49.3MB)
+- 当前: nginx:alpine已在本地，frontend服务可启动
+
+### B3. docker-compose-3dc.yml与docker-compose.yml差异摘要
+| 维度 | docker-compose.yml(根) | docker-compose-3dc.yml |
+|---|---|---|
+| 节点数 | 5 (node-1~5) | 9 (dc1-n1~3, dc2-n1~3, dc3-n1~3) |
+| 拓扑 | 单子网daijin-net | 3子网(dc1-net/dc2-net/dc3-net) + inter-dc桥 |
+| 子网IP | 自动分配 | 10.1.0.0/24, 10.2.0.0/24, 10.3.0.0/24 |
+| frontend | 有(nginx:alpine, 8096:80) | 无 |
+| build | build: . (从Dockerfile构建) | 无build,仅image引用 |
+| LICENSE_FAIL_MODE | closed | 未设置 |
+| gRPC端口 | 9500-9502, 9604-9605 | 9700-9702, 9710-9712, 9720-9722 |
+| HTTP端口 | 9001-9003, 9104-9105 | 9201-9203, 9211-9213, 9221-9223 |
+| 容灾能力 | 单机房 | 跨机房(停任一DC的3节点,剩6>majority(5)→集群可用) |
+
+---
+
+## C. 5节点冒烟测试（2遍重复，D3-batch0R）
+
+### C1. 第1遍 (smoke-run1, 19:32:55)
 | 项 | 结果 |
 |---|---|
-| 一键up耗时 | 9.1s |
-| Leader选举 | PASS, daijin235-node-2 after 4s |
-| 容器状态 | 2/2 Up |
-| HTTP探活 node-1 | HTTP 200, 155.1ms |
-| HTTP探活 node-2 | HTTP 200, 156.3ms |
-| 一键down | 无残留 |
+| docker compose up | PASS, 5容器启动 |
+| Leader选举 | PASS, daijin235-node-2 after 3s |
+| /health/live | 5/5 PASS (HTTP 200) |
+| 容器Running | 5/5 PASS |
+| 写入10条 | 10/10 success (index 2-11) |
+| stats | commit=11 applied=11 (applied==commit!=0) |
+| entry[index=2] | found=true |
+| Follower同步 | 4/4 PASS (commit=11) |
+| down -v | PASS |
+| 无残留 | PASS (容器/卷/网络均无) |
+| **汇总** | **PASS=11 FAIL=0** |
 
-### B2. 第2遍 (smoke-r2-20260907_184449)
+### C2. 第2遍 (smoke-run2, 19:33:51)
 | 项 | 结果 |
 |---|---|
-| 一键up耗时 | 1.1s |
-| Leader选举 | PASS, daijin235-node-2 after 6s |
-| 容器状态 | 2/2 Up |
-| HTTP探活 node-1 | HTTP 200, 188.6ms |
-| HTTP探活 node-2 | HTTP 200, 187.8ms |
-| 一键down | 无残留 |
+| docker compose up | PASS, 5容器启动 |
+| Leader选举 | PASS, daijin235-node-4 after 4s |
+| /health/live | 5/5 PASS (HTTP 200) |
+| 容器Running | 5/5 PASS |
+| 写入10条 | 10/10 success (index 2-11) |
+| stats | commit=11 applied=11 (applied==commit!=0) |
+| entry[index=2] | found=true |
+| Follower同步 | 4/4 PASS (commit=11) |
+| down -v | PASS |
+| 无残留 | PASS (容器/卷/网络均无) |
+| **汇总** | **PASS=11 FAIL=0** |
 
-### B3. 两次差异比对
-功能结果差异: **0**（2/2 Up、HTTP 200、无残留、Leader当选 → 两次完全一致）
+### C3. 两次差异比对
+功能结果差异: **0**（5/5 Up、5/5 health/live 200、10条写入、4/4同步、无残留 → 两次完全一致）
 
 运行期动态值差异（非功能差异，属自然波动）:
-- Leader选举耗时: 4s vs 6s（选举时间自然波动）
-- 容器Up秒数: 6s vs 8s（容器启动后经过时间）
-- docker ps列表顺序: 不同（输出排序差异）
+- Leader节点: node-2 vs node-4（Raft选举自然选主差异）
+- Leader选举耗时: 3s vs 4s（选举时间自然波动）
+- entry[index=2].command: base64编码内容不同（两次写入数据不同，属正常）
 
 ---
 
-## C. 结论
+## D. 结论
 
-**D3-batch0 PASS**
+**D3-batch0R PASS**
 
-- 环境基线指纹已完整采集（版本/资源/镜像/服务清单）
-- 一键up全栈 → 2/2容器Up → HTTP探活200 → 一键down无残留
-- 2遍重复，功能结果差异为0
+- 环境基线指纹已完整采集（版本/资源/镜像/5节点服务清单）
+- 取证三问全部解决:
+  - 1a: ci-knife镜像内/health/live端点已确认（源码+strings+运行时三重验证）
+  - 1b: nginx:alpine已拉取至本地
+  - 1c: 3dc与根compose差异已完整记录
+- 5节点compose(docker-compose-5node.yml)创建并验证:
+  - 一键up → 5/5容器Running → 5/5 /health/live 200 → Leader当选 → 10条写入 → 4/4 Follower同步 → 一键down -v → 无残留
+  - 2遍重复，功能结果差异为0，11/11 PASS
 - 核心镜像 daijin235-v26:ci-knife (41.2MB) 在本地，无拉取依赖
+- D3-batch0的2节点裁剪缺陷已修正为5节点原始设计
 
 ---
 
 ## 证据文件
-- tests/evidence/d3-batch0/smoke-r1-20260907_184433/smoke.log
-- tests/evidence/d3-batch0/smoke-r2-20260907_184449/smoke.log
+- tests/evidence/d3-batch0R/smoke-run1.log (第1遍完整日志)
+- tests/evidence/d3-batch0R/smoke-run2.log (第2遍完整日志)
+- tests/deploy/docker-compose-5node.yml (5节点compose定义)
