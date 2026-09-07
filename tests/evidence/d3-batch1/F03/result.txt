@@ -1,0 +1,4 @@
+﻿F03 数据读回
+entry[index=2]: {"command":"ZjAyLTE=","found":true,"index":2,"term":1}
+base64解码: f02-1
+结果: PASS (数据一致)

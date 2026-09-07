@@ -1,0 +1,4 @@
+﻿F14 gRPC健康检查
+daijin235-node-1: SERVING
+daijin235-node-2: SERVING
+结果: PASS (两节点SERVING)

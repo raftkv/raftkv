@@ -1,0 +1,58 @@
+# =========================================================================
+# 历史形态归档：D3-batch1 Part1运行时的2节点裁剪版compose
+#
+# 标注: 历史形态，仅作拓扑证明
+# 来源: tests/deploy/docker-compose.yml (D2-batch1部署工程产出)
+# 运行时间: 2026-09-07 (D3-batch1 Part1功能测试)
+# 拓扑: 2节点Raft集群 (node-1, node-2)
+#
+# 重要声明:
+#   此compose为2节点裁剪版，原始设计(docker-compose.yml根目录)为5节点。
+#   D3-batch1 Part1的15项测试(F01-F09,F10-F14,F16)全部基于此2节点拓扑运行。
+#   证据: F01 stats peers=1, F04 leader=node-1/follower=node-2, F14仅检查2节点SERVING。
+#   结论: Part1结果基于错误拓扑(2节点而非5节点)，全部作废待5节点重测。
+#
+# 此文件为原始compose的逐字节副本，仅添加本注释头。
+# =========================================================================
+
+services:
+  node-1:
+    image: ${IMAGE_NAME}
+    container_name: daijin235-node-1
+    networks:
+      - daijin235-net
+    environment:
+      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - SM4_KEY=${SM4_KEY}
+      - NODE_ID=node-1
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
+      - HTTP_BIND=0.0.0.0
+      - PEERS=node-2=node-2:${GRPC_PORT}
+      - LICENSE_FAIL_MODE=closed
+    volumes:
+      - ${LICENSE_DIR}/node-1.key:/app/license.key:ro
+      - wal-node-1:/app/wal-data
+  node-2:
+    image: ${IMAGE_NAME}
+    container_name: daijin235-node-2
+    networks:
+      - daijin235-net
+    environment:
+      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - SM4_KEY=${SM4_KEY}
+      - NODE_ID=node-2
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
+      - HTTP_BIND=0.0.0.0
+      - PEERS=node-1=node-1:${GRPC_PORT}
+      - LICENSE_FAIL_MODE=closed
+    volumes:
+      - ${LICENSE_DIR}/node-2.key:/app/license.key:ro
+      - wal-node-2:/app/wal-data
+networks:
+  daijin235-net:
+    driver: bridge
+volumes:
+  wal-node-1:
+  wal-node-2:

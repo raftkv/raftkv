@@ -1,0 +1,3 @@
+﻿F10 fail-closed SM4缺失
+容器状态: exited, exitCode=1
+结果: PASS (exit非0)

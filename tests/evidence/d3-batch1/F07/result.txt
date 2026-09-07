@@ -1,0 +1,6 @@
+﻿F07 幂等串行去重
+r1={"index":7,"success":true}
+r2={"duplicate":true,"index":7,"success":true}
+r3={"duplicate":true,"index":7,"success":true}
+logs增量=1 (期望1)
+结果: PASS (增量1, duplicate=true)

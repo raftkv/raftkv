@@ -1,0 +1,7 @@
+﻿F02 数据写入
+write[1]: {"index":2,"success":true}
+write[2]: {"index":3,"success":true}
+write[3]: {"index":4,"success":true}
+write[4]: {"index":5,"success":true}
+write[5]: {"index":6,"success":true}
+结果: PASS (5/5 success)
