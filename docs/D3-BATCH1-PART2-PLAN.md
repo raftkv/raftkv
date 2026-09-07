@@ -40,8 +40,8 @@
 | 项 | 内容 |
 |---|---|
 | **目的** | 验证网络分区恢复后集群自动重新同步，无脑裂、无数据丢失 |
-| **步骤** | 1. 5节点集群正常运行<br>2. 通过`docker network disconnect`将一个follower从集群网络断开<br>3. 等待10秒（模拟网络分区）<br>4. 通过leader写入2条数据<br>5. `docker network connect`恢复断开节点网络<br>6. 等待15秒，查询所有节点commit值 |
-| **预期** | 分区期间集群仍可用（剩余4节点>=quorum=3）<br>恢复后所有5节点commit一致<br>无脑裂（始终仅1个Leader） |
+| **步骤** | 1. 5节点集群正常运行<br>2. 通过`docker network disconnect`将一个follower从集群网络断开<br>3. 等待10秒（模拟网络分区）<br>4. 通过leader写入2条数据<br>5. `docker network connect`恢复断开节点网络<br>6. [修订-已批复-原值15秒]轮询等待，上限60秒：每5秒查一次断开节点commit，追平leader即收敛 |
+| **预期** | 分区期间集群仍可用（剩余4节点>=quorum=3）<br>恢复后所有5节点commit一致（轮询收敛，上限60秒）<br>无脑裂（始终仅1个Leader） |
 | **证据格式** | `E02/result.txt`: 分区前commit、分区期间写入结果、恢复后各节点commit、结论<br>`E02/timeline.log`: 操作时间线 |
 
 ### E03 [重建] 并发写入确定性
