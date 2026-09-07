@@ -1,0 +1,7 @@
+﻿docker : 2026/09/07 21:57:06 [pipeline] SM4_KEY 非法，拒绝启动 (fail-closed): 必须为 32 位 hex 编码的 16 字节密钥
+At line:21 char:11
++ $logs2a = docker logs sv-2a 2>&1
++           ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/07 21:5...hex 编码的 16 字节密钥:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
