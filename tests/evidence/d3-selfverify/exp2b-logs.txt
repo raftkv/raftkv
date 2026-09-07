@@ -1,0 +1,7 @@
+﻿docker : 2026/09/07 21:57:12 [pipeline] SM4_KEY 未设置，拒绝启动 (fail-closed): 请通过环境变量 SM4_KEY 提供 32 位 hex 编码的 16 字节密钥
+At line:47 char:11
++ $logs2b = docker logs sv-2b 2>&1
++           ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/07 21:5...hex 编码的 16 字节密钥:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
