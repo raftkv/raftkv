@@ -1,0 +1,3 @@
+﻿F12 fail-closed GRPC_PORT非法
+容器状态: exited, exitCode: 1
+结果: PASS (拒绝启动)

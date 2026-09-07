@@ -1,0 +1,23 @@
+﻿
+[21:03:18] === F10-F13/F15/F16 测试 ===
+[21:03:18] 
+[21:03:18] --- F10 fail-closed SM4缺失 ---
+[21:03:22]   状态: running, exitCode: 0
+[21:03:22] --- F11 fail-closed SM4非法(短) ---
+[21:03:26]   状态: running, exitCode: 0
+[21:03:26] --- F12 fail-closed GRPC_PORT非法 ---
+[21:03:30]   状态: exited, exitCode: 1
+[21:03:30] --- F13 fail-closed WAL_FLUSH_INTERVAL_MS非法 ---
+[21:03:33]   状态: exited, exitCode: 1
+[21:03:33] --- F16 权限校验(无license.key) ---
+[21:03:37]   状态: exited, exitCode: 1
+[21:03:37] 
+[21:03:37] --- F15 WAL持久化 ---
+[21:03:49]   Leader: daijin235-node-5
+[21:03:50]   写入后 commit=4
+[21:03:57]   重启后 Leader: daijin235-node-3
+[21:03:58]   重启后 commit=5
+[21:03:58]   重启后 entry[index=2]: {"command":"d2FsLXBlcnNpc3QtMQ==","found":true,"index":2,"term":1}
+[21:03:59]   集群已关闭
+[21:03:59] 
+[21:03:59] === F10-F13/F15/F16汇总: PASS=4 FAIL=2 ===
