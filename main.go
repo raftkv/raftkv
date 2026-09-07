@@ -118,6 +118,12 @@ func main() {
 	node.logger = &stdLogger{prefix: fmt.Sprintf("[raft/%s]", nodeID)}
 	node.config.logger = node.logger // V2.3: 同步 logger 到集群配置
 
+	// R-04修复A: 设置重连回调 + 启动后台重连循环
+	// DNS别名丢失后gRPC "produced zero addresses"，需定期重建连接强制DNS重解析
+	peerMgr.SetOnReconnect(node.UpdatePeerClient)
+	peerMgr.StartReconnectLoop()
+	defer peerMgr.StopReconnectLoop()
+
 	// ── 国密 SM3 防篡改链：标准自检与装配（V2.5.1 真实启用）────────────────
 	// 算法本体：github.com/tjfoc/gmsm v1.4.1（清华大学开源国密库，非本项目自研）
 	// 标准依据：GB/T 32905-2016《信息安全技术 SM3 密码杂凑算法》
@@ -225,6 +231,10 @@ func main() {
 			s.ID, s.State, s.Term, s.LeaderID, s.CommitIndex, s.LastApplied,
 			s.LogCount, s.PeerCount, s.VotedFor)
 		s.RUnlock()
+		// R-04修复C: 输出 follower gap + 降级状态
+		gaps := node.FollowerGaps()
+		degraded := node.DegradedFollowers()
+		fmt.Fprintf(w, " gaps=%v degraded=%v", gaps, degraded)
 	})
 	idemTable := NewIdemTokenTable()
 	httpMux.HandleFunc("/raft/propose", func(w http.ResponseWriter, r *http.Request) {

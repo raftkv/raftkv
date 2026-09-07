@@ -124,6 +124,15 @@ type RaftNode struct {
 
 	// --- TCX-Ⅳ 硬修复：批量闪电同步 ---
 	batchSyncMgr *BatchSyncManager // 批量同步管理器
+
+	// --- R-04修复A: peerClients 线程安全访问 ---
+	peerClientsMu sync.RWMutex // 保护 peerClients map 并发更新（重连回调写入）
+
+	// --- R-04修复B: follower 降级标记 ---
+	degradedFollowers map[string]bool // peerID → 批量同步放弃后标记降级
+
+	// --- R-04修复C: gap 持续告警 ---
+	gapSince map[string]time.Time // peerID → gap首次超过阈值的时间戳
 }
 
 type voteResult struct {
@@ -179,6 +188,8 @@ func NewRaftNode(
 		consecutiveSuccess:       0,
 		currentHeartbeatInterval: heartbeatIntervalMin,
 		logCaughtUp:              false,
+		degradedFollowers:        make(map[string]bool),
+		gapSince:                 make(map[string]time.Time),
 	}
 
 	// V2.3: 初始化集群配置（自身 + 所有 peer）
@@ -392,6 +403,93 @@ func (rn *RaftNode) UpdateFollowerProgress(peerID string, lastMatch int64) {
 	rn.nextIdx[peerID] = lastMatch + 1
 }
 
+// R-04修复A: UpdatePeerClient 更新指定 peer 的 gRPC 客户端（重连回调调用）
+func (rn *RaftNode) UpdatePeerClient(peerID string, client pb.RaftServiceClient) {
+	rn.peerClientsMu.Lock()
+	rn.peerClients[peerID] = client
+	rn.peerClientsMu.Unlock()
+	rn.logf("[raft/%s] R-04修复A: peer %s 客户端已更新（重连回调）", rn.id, peerID)
+}
+
+// R-04修复A: GetPeerClient 线程安全获取指定 peer 的 gRPC 客户端
+func (rn *RaftNode) GetPeerClient(peerID string) (pb.RaftServiceClient, bool) {
+	rn.peerClientsMu.RLock()
+	defer rn.peerClientsMu.RUnlock()
+	client, ok := rn.peerClients[peerID]
+	return client, ok
+}
+
+// R-04修复B: MarkFollowerDegraded 标记 follower 降级（批量同步放弃）
+func (rn *RaftNode) MarkFollowerDegraded(peerID string) {
+	rn.mu.Lock()
+	if !rn.degradedFollowers[peerID] {
+		rn.degradedFollowers[peerID] = true
+		rn.logf("[raft/%s] R-04修复B [WARN] follower %s 标记降级（批量同步放弃）", rn.id, peerID)
+	}
+	rn.mu.Unlock()
+}
+
+// R-04修复B: ClearFollowerDegraded 清除 follower 降级标记（同步成功）
+func (rn *RaftNode) ClearFollowerDegraded(peerID string) {
+	rn.mu.Lock()
+	if rn.degradedFollowers[peerID] {
+		delete(rn.degradedFollowers, peerID)
+		rn.logf("[raft/%s] R-04修复B: follower %s 降级已清除（同步恢复）", rn.id, peerID)
+	}
+	rn.mu.Unlock()
+}
+
+// R-04修复C: CheckGapAlerts 检查 gap 持续告警（gap>阈值持续10s → ERROR日志）
+func (rn *RaftNode) CheckGapAlerts() {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+	if rn.state != StateLeader {
+		return
+	}
+	threshold := int64(100)
+	if rn.batchSyncMgr != nil {
+		threshold = rn.batchSyncMgr.config.LagThreshold
+	}
+	for _, p := range rn.peers {
+		gap := rn.commitIdx - rn.matchIdx[p.ID]
+		if gap > threshold {
+			if _, exists := rn.gapSince[p.ID]; !exists {
+				rn.gapSince[p.ID] = time.Now()
+			}
+			if time.Since(rn.gapSince[p.ID]) > 10*time.Second {
+				rn.logf("[raft/%s] R-04修复C [ERROR] follower %s gap=%d 持续>10s (commitIdx=%d, matchIdx=%d, degraded=%v)",
+					rn.id, p.ID, gap, rn.commitIdx, rn.matchIdx[p.ID], rn.degradedFollowers[p.ID])
+			}
+		} else {
+			delete(rn.gapSince, p.ID)
+		}
+	}
+}
+
+// R-04修复C: FollowerGaps 返回每个 follower 的 commit gap
+func (rn *RaftNode) FollowerGaps() map[string]int64 {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	gaps := make(map[string]int64, len(rn.peers))
+	for _, p := range rn.peers {
+		gaps[p.ID] = rn.commitIdx - rn.matchIdx[p.ID]
+	}
+	return gaps
+}
+
+// R-04修复C: DegradedFollowers 返回降级 follower 列表
+func (rn *RaftNode) DegradedFollowers() []string {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	result := make([]string, 0)
+	for id, degraded := range rn.degradedFollowers {
+		if degraded {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
 // =========================================================================
 // 公共接口
 // =========================================================================
@@ -578,7 +676,7 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 				}
 			}()
 			defer wg.Done()
-			client, ok := rn.peerClients[p.ID]
+			client, ok := rn.GetPeerClient(p.ID)
 			if !ok {
 				rn.logf("[raft/%s] 未找到 peer %s 的 gRPC 客户端", rn.id, p.ID)
 				return
@@ -788,7 +886,7 @@ func (rn *RaftNode) sendHeartbeats() {
 				}
 			}()
 			defer wg.Done()
-			client, ok := rn.peerClients[p.ID]
+			client, ok := rn.GetPeerClient(p.ID)
 			if !ok {
 				return
 			}

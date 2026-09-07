@@ -27,7 +27,9 @@ services:
     image: ${IMAGE_NAME}
     container_name: daijin235-node-1
     networks:
-      - daijin235-net
+      daijin235-net:
+        aliases:
+          - node-1
     environment:
       - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
@@ -52,7 +54,9 @@ services:
     image: ${IMAGE_NAME}
     container_name: daijin235-node-2
     networks:
-      - daijin235-net
+      daijin235-net:
+        aliases:
+          - node-2
     environment:
       - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
@@ -77,7 +81,9 @@ services:
     image: ${IMAGE_NAME}
     container_name: daijin235-node-3
     networks:
-      - daijin235-net
+      daijin235-net:
+        aliases:
+          - node-3
     environment:
       - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
@@ -102,7 +108,9 @@ services:
     image: ${IMAGE_NAME}
     container_name: daijin235-node-4
     networks:
-      - daijin235-net
+      daijin235-net:
+        aliases:
+          - node-4
     environment:
       - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
@@ -127,7 +135,9 @@ services:
     image: ${IMAGE_NAME}
     container_name: daijin235-node-5
     networks:
-      - daijin235-net
+      daijin235-net:
+        aliases:
+          - node-5
     environment:
       - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
