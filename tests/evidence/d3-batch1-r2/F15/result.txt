@@ -1,0 +1,6 @@
+﻿F15 WAL持久化
+写入后 commit=4
+重启Leader(daijin235-node-5)后 Leader=daijin235-node-3 commit=5
+entry[index=2]: {"command":"d2FsLXBlcnNpc3QtMQ==","found":true,"index":2,"term":1}
+结果: PASS (WAL数据持久化, 重启后数据恢复)
+注: 原BLOCKED原因=WAL测试未执行, 现已补跑
