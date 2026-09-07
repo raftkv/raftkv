@@ -1,0 +1,8 @@
+﻿=== E02 网络分区自愈 (重跑, 计划修订后) ===
+断开: daijin235-node-2
+C1=15 C2=17
+期间Leader数=1 恢复后Leader数=1
+恢复后commits=27,27,27,27,27
+收敛耗时: 35s (从network connect到commit追平)
+无脑裂: 期间=True 恢复后=True
+结果: PASS
