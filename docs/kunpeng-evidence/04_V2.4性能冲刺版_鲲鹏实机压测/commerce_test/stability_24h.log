@@ -1,0 +1,38 @@
+=== 24小时长稳监测 ===
+开始时间: Mon Aug 24 12:51:42 AM CST 2026
+采样间隔: 60秒
+持续时长: 24小时
+
+[Mon Aug 24 01:50:45 AM CST 2026] 采样#60 RSS=17544KB 基线=17608KB 增长=-64KB Leader=node-3 Term=74
+[Mon Aug 24 02:50:48 AM CST 2026] 采样#120 RSS=17768KB 基线=17608KB 增长=160KB Leader=node-3 Term=74
+[Mon Aug 24 03:50:51 AM CST 2026] 采样#180 RSS=18284KB 基线=17608KB 增长=676KB Leader=node-5 Term=126
+[Mon Aug 24 04:50:55 AM CST 2026] 采样#240 RSS=18408KB 基线=17608KB 增长=800KB Leader=node-5 Term=126
+[Mon Aug 24 05:50:58 AM CST 2026] 采样#300 RSS=18344KB 基线=17608KB 增长=736KB Leader=node-5 Term=126
+[Mon Aug 24 06:51:01 AM CST 2026] 采样#360 RSS=18176KB 基线=17608KB 增长=568KB Leader=node-5 Term=126
+[Mon Aug 24 07:51:04 AM CST 2026] 采样#420 RSS=18620KB 基线=17608KB 增长=1012KB Leader=node-5 Term=126
+[Mon Aug 24 08:51:08 AM CST 2026] 采样#480 RSS=18276KB 基线=17608KB 增长=668KB Leader=node-2 Term=128
+[Mon Aug 24 09:51:11 AM CST 2026] 采样#540 RSS=17768KB 基线=17608KB 增长=160KB Leader=node-2 Term=128
+[Mon Aug 24 10:51:14 AM CST 2026] 采样#600 RSS=17944KB 基线=17608KB 增长=336KB Leader=node-5 Term=131
+[Mon Aug 24 11:51:17 AM CST 2026] 采样#660 RSS=18072KB 基线=17608KB 增长=464KB Leader=node-5 Term=131
+[Mon Aug 24 12:51:20 PM CST 2026] 采样#720 RSS=17904KB 基线=17608KB 增长=296KB Leader=node-5 Term=131
+[Mon Aug 24 01:51:24 PM CST 2026] 采样#780 RSS=17668KB 基线=17608KB 增长=60KB Leader=node-5 Term=131
+[Mon Aug 24 02:51:27 PM CST 2026] 采样#840 RSS=18592KB 基线=17608KB 增长=984KB Leader=node-5 Term=131
+[Mon Aug 24 03:51:31 PM CST 2026] 采样#900 RSS=18320KB 基线=17608KB 增长=712KB Leader=node-5 Term=131
+[Mon Aug 24 04:51:33 PM CST 2026] 采样#960 RSS=18228KB 基线=17608KB 增长=620KB Leader=node-5 Term=131
+[Mon Aug 24 05:51:37 PM CST 2026] 采样#1020 RSS=18348KB 基线=17608KB 增长=740KB Leader=node-3 Term=133
+[Mon Aug 24 06:51:40 PM CST 2026] 采样#1080 RSS=18300KB 基线=17608KB 增长=692KB Leader=node-3 Term=133
+[Mon Aug 24 07:51:43 PM CST 2026] 采样#1140 RSS=17792KB 基线=17608KB 增长=184KB Leader=node-3 Term=133
+[Mon Aug 24 08:51:48 PM CST 2026] 采样#1200 RSS=18104KB 基线=17608KB 增长=496KB Leader=node-4 Term=1
+[Mon Aug 24 09:51:52 PM CST 2026] 采样#1260 RSS=17472KB 基线=17608KB 增长=-136KB Leader=node-4 Term=1
+[Mon Aug 24 10:52:06 PM CST 2026] 采样#1320 RSS=16536KB 基线=17608KB 增长=-1072KB Leader=node-5 Term=51
+[Mon Aug 24 11:52:10 PM CST 2026] 采样#1380 RSS=17092KB 基线=17608KB 增长=-516KB Leader=node-5 Term=58
+
+=== 24小时长稳监测结果 ===
+结束时间: Tue Aug 25 12:52:13 AM CST 2026
+总采样数: 1439
+监测时长: 23小时
+基线RSS: 17608KB
+最终RSS: 17028KB
+内存增长: -580KB
+内存泄漏检测: PASS (增长<10MB)
+=== 监测结束 ===

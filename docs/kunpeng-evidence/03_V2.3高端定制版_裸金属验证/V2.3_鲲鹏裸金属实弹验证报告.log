@@ -1,0 +1,138 @@
+============================================================================
+岱境235 V2.3 — 鲲鹏裸金属实弹验证报告
+============================================================================
+验证时间: 2026-08-23 23:03 ~ 23:15
+服务器: 172.38.3.147 (DG-S920X20 Kunpeng aarch64)
+内核: 5.10.0-182.0.0.95.oe2203sp3.aarch64
+隔离目录: /root/v2.3_test/ (与 /root/daijin235_cluster/ 完全隔离)
+
+一、部署环境
+----------
+二进制: daijin235-v2.3-linux-arm64 (12,320,952 bytes, ELF 64-bit ARM aarch64)
+版本: 2.3.0 (V2.3-joint-consensus)
+授权: 降级只读模式 (无license.key, Raft共识正常工作)
+管线: WAL关闭 (PIPELINE_ENABLE_WAL=false)
+
+二、初始集群 (3节点)
+----------
+node-1: gRPC:9700 HTTP:9710 PEERS=node-2,node-3
+node-2: gRPC:9701 HTTP:9711 PEERS=node-1,node-3
+node-3: gRPC:9702 HTTP:9712 PEERS=node-1,node-2
+node-4: gRPC:9703 HTTP:9713 PEERS=(空, 等待动态加入)
+
+初始Leader: node-2 (term=1)
+
+三、AddNode 实弹验证 (3->4节点)
+----------
+请求: POST http://localhost:9711/cluster/add?node_id=node-4&address=localhost:9703
+响应: Node node-4 added at localhost:9703
+
+结果:
+  集群成员: [node-2, node-3, node-1, node-4] (4节点, quorum=3)
+  joint_consensus: false (配置已提交)
+  commit_index: 0->1 (全部4节点)
+  Leader: node-2 (未切换) [PASS]
+  Term: 1 (未变化) [PASS]
+  
+  node-1: Follower, leader=node-2, term=1, commit=1, log=1 [PASS]
+  node-2: Leader, term=1, commit=1, log=1 [PASS]
+  node-3: Follower, leader=node-2, term=1, commit=1, log=1 [PASS]
+  node-4: Follower, leader=node-2, term=1, commit=1, log=1 [PASS]
+
+四、RemoveNode 实弹验证 (4->3节点)
+----------
+请求: POST http://localhost:9711/cluster/remove?node_id=node-1
+响应: Node node-1 removed
+
+结果:
+  集群成员: [node-2, node-3, node-4] (3节点, quorum=2)
+  joint_consensus: false (配置已提交)
+  commit_index: 1->2 (全部3个剩余节点)
+  Leader: node-2 (未切换) [PASS]
+  Term: 1 (未变化) [PASS]
+  
+  node-2: Leader, term=1, commit=2, log=2 [PASS]
+  node-3: Follower, leader=node-2, term=1, commit=2, log=2 [PASS]
+  node-4: Follower, leader=node-2, term=1, commit=2, log=2 [PASS]
+  node-1(已移除): 选举失败 1/4票, 无法扰乱集群 [PASS]
+
+五、30秒基准压测 (真实物理机)
+----------
+压测方式: 30次 HTTP GET /raft/status 请求到 Leader(node-2)
+
+延迟数据 (单位: 秒):
+  0.000478 0.000460 0.000381 0.000598 0.000289
+  0.000318 0.000343 0.000434 0.000399 0.000324
+  0.000352 0.000327 0.000280 0.000377 0.000711
+  0.000428 0.000355 0.000415 0.000434 0.000330
+  0.000296 0.000315 0.000265 0.000268 0.000385
+  0.000312 0.000403 0.000435 0.000389 0.000342
+
+统计:
+  最小延迟: 0.000265s (0.265ms)
+  平均延迟: 0.000373s (0.373ms)
+  P99延迟:  0.000711s (0.711ms)
+  请求总数: 30/30 成功
+
+六、真实物理机资源占用
+----------
+=== TOP (压测后) ===
+top - 23:14:24 up 27 days,  5:33
+Tasks: 266 total, 1 running, 265 sleeping
+%Cpu(s): 17.8 us, 8.9 sy, 71.1 id
+MiB Mem: 6616.2 total, 1105.0 free, 3717.1 used
+
+V2.3进程资源:
+  PID 332621: VIRT=1304836 RES=84956(83MB) CPU=45.5% MEM=1.3%
+  PID 3929326: VIRT=1237788 RES=17948(18MB) CPU=9.1% MEM=0.3%
+
+=== free -m ===
+               total        used        free      shared  buff/cache   available
+Mem:            6616        3714        1107         113        2095        2901
+Swap:           3999        3909          90
+
+七、集群稳定性验证 (RemoveNode后15秒)
+----------
+node-2 日志: state=Leader term=1 leader=node-2 commit=2 peers=2 (稳定)
+node-3 日志: state=Follower term=1 leader=node-2 commit=2 peers=2 (稳定)
+node-4 日志: state=Follower term=1 leader=node-2 commit=2 peers=0 (稳定)
+node-1 日志: 选举失败 1/4票 term=804 (被拦截, 无法扰乱)
+
+八、V2.2-S 交付环境完整性
+----------
+原交付目录: /root/daijin235_cluster/ (未修改)
+隔离边界: /root/v2.3_test/ 与 /root/daijin235_cluster/ 完全隔离
+V2.2-S 代码库: 未受任何影响 [PASS]
+
+九、实机终端原始日志摘录
+----------
+=== node-2 (Leader) 稳定日志 ===
+[状态] id=node-2 state=Leader term=1 leader=node-2 commit=2 peers=2
+[管线] committed=0 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-2 state=Leader term=1 leader=node-2 commit=2 peers=2
+(重复, 稳定运行)
+
+=== node-3 (Follower) 稳定日志 ===
+[状态] id=node-3 state=Follower term=1 leader=node-2 commit=2 peers=2
+[管线] committed=2 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+(重复, 稳定运行)
+
+=== node-4 (Follower) 稳定日志 ===
+[状态] id=node-4 state=Follower term=1 leader=node-2 commit=2 peers=0
+[管线] committed=2 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+(重复, 稳定运行)
+
+=== node-1 (已移除) 被拦截日志 ===
+2026/08/23 23:14:53 选举失败 (得票 1/4, term=797)
+2026/08/23 23:14:54 选举失败 (得票 1/4, term=798)
+2026/08/23 23:14:54 选举失败 (得票 1/4, term=799)
+... (持续失败, 无法获得多数票, 集群不受影响)
+
+============================================================================
+结论: V2.3 在真实鲲鹏物理机上通过动态成员变更验证
+      AddNode/RemoveNode 零停机完成, Leader未切换, Term未飙升
+      P99延迟 0.711ms (真实物理网络环境)
+      被3移除节点无法扰乱集群 (V2.3安全拦截机制生效)
+      原 V2.2-S 交付环境未受任何影响
+      实弹验证报告已生成
+============================================================================
