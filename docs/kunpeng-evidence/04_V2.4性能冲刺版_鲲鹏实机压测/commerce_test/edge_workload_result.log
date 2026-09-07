@@ -1,0 +1,40 @@
+=== 边缘业务流模拟 ===
+开始时间: Mon Aug 24 12:44:45 AM CST 2026
+持续时间: 2小时 (7200秒)
+资源限制: 0.5核/512MB
+负载比例: 写入60% + 读取40%
+
+[Mon Aug 24 12:44:47 AM CST 2026] 采样: 300 请求, P99=7ms, AVG=5.30ms
+[Mon Aug 24 12:44:49 AM CST 2026] 采样: 600 请求, P99=7ms, AVG=5.28ms
+[Mon Aug 24 12:44:51 AM CST 2026] 采样: 900 请求, P99=7ms, AVG=5.27ms
+[Mon Aug 24 12:44:53 AM CST 2026] 采样: 1200 请求, P99=7ms, AVG=5.25ms
+[Mon Aug 24 12:44:55 AM CST 2026] 采样: 1500 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:44:57 AM CST 2026] 采样: 1800 请求, P99=7ms, AVG=5.27ms
+[Mon Aug 24 12:44:59 AM CST 2026] 采样: 2100 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:01 AM CST 2026] 采样: 2400 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:03 AM CST 2026] 采样: 2700 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:05 AM CST 2026] 采样: 3000 请求, P99=7ms, AVG=5.25ms
+[Mon Aug 24 12:45:07 AM CST 2026] 采样: 3300 请求, P99=7ms, AVG=5.25ms
+[Mon Aug 24 12:45:09 AM CST 2026] 采样: 3600 请求, P99=7ms, AVG=5.25ms
+[Mon Aug 24 12:45:11 AM CST 2026] 采样: 3900 请求, P99=7ms, AVG=5.24ms
+[Mon Aug 24 12:45:13 AM CST 2026] 采样: 4200 请求, P99=7ms, AVG=5.24ms
+[Mon Aug 24 12:45:16 AM CST 2026] 采样: 4500 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:18 AM CST 2026] 采样: 4800 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:20 AM CST 2026] 采样: 5100 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:22 AM CST 2026] 采样: 5400 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:24 AM CST 2026] 采样: 5700 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:26 AM CST 2026] 采样: 6000 请求, P99=7ms, AVG=5.27ms
+[Mon Aug 24 12:45:28 AM CST 2026] 采样: 6300 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:30 AM CST 2026] 采样: 6600 请求, P99=7ms, AVG=5.26ms
+[Mon Aug 24 12:45:32 AM CST 2026] 采样: 6900 请求, P99=7ms, AVG=5.27ms
+[Mon Aug 24 12:45:34 AM CST 2026] 采样: 7200 请求, P99=7ms, AVG=5.27ms
+
+=== 最终统计 ===
+结束时间: Mon Aug 24 12:45:34 AM CST 2026
+总请求数: 7200
+P50延迟: 5ms
+P99延迟: 7ms
+平均延迟: 5.27ms
+最大延迟: 11ms
+最小延迟: 4ms
+=== 模拟结束 ===

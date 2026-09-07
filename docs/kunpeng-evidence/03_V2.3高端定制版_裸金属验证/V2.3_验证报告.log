@@ -1,0 +1,100 @@
+============================================================================
+岱境235 V2.3 — Raft Joint Consensus 动态成员变更验证报告
+============================================================================
+验证时间: 2026-08-23 22:36
+沙箱路径: C:\Users\27998\Desktop\V2.3_Development_Sandbox
+原引擎路径: C:\Users\27998\Desktop\岱境235\daijin235_go_engine (未修改)
+
+一、实现概述
+----------
+实现原理: Diego Ongaro 博士论文 §4.3 单节点变更法
+变更流程: C_old -> C_old,new (联合共识) -> C_new
+配置条目: 作为特殊日志条目通过 Raft 复制, marker byte 0x01
+Quorum计算: 联合共识阶段需 majority(C_old) + majority(C_new) 各自同意
+
+二、代码改动清单
+----------
+1. membership.go (新增, 384行)
+   - ClusterConfig: 联合共识状态管理
+   - ConfigChange: 配置变更条目编码/解码
+   - AddNode/RemoveNode: Leader 发起成员变更
+   - addPeerDynamic/removePeerDynamic: 动态 peer 连接管理
+   - HandleAddNode/HandleRemoveNode/HandleClusterMembers: HTTP 端点
+
+2. raft.go (修改, +130行)
+   - RaftNode.config: 集群配置字段
+   - NewRaftNode: 初始化 ClusterConfig
+   - requestVotes: 动态 quorum (支持联合共识)
+   - sendHeartbeats: 发送日志条目(含配置条目) + 推进 commitIdx
+   - applyConfigChangesLocked: 应用已提交的配置变更
+   - HandleAppendEntries: 同 term Leader->Follower + 拒绝非配置内 Leader
+   - HandleRequestVote: 拒绝非配置内候选者
+   - handleElectionTimeout: 0-peer 节点不选举
+
+3. main.go (修改, +4行)
+   - HTTP 端点: /cluster/add, /cluster/remove, /cluster/members
+   - config.logger 同步
+
+4. grpc_server.go (修改, +16行)
+   - PeerClientManager.AddPeer/RemovePeer: 动态连接管理
+
+三、验证结果
+----------
+初始集群: 3节点 (node-1, node-2, node-3)
+node-4: 独立启动, PEERS="" (空), 等待被动态加入
+
+=== AddNode (3->4节点) ===
+- 调用: POST /cluster/add?node_id=node-4&address=node-4:9703
+- 结果: 成功
+- 联合共识: C_old=[node-1,node-2,node-3] -> C_new=[node-1,node-2,node-3,node-4]
+- 配置条目: index=1, 已复制到所有4个节点
+- commit_index: 0->1 (全部节点)
+- Leader: node-1 (未切换) [PASS]
+- Term: 1->1 (未变化) [PASS]
+- node-4 状态: Follower, leader=node-1, log=1, term=1 [PASS]
+
+=== RemoveNode (4->3节点) ===
+- 调用: POST /cluster/remove?node_id=node-2
+- 结果: 成功
+- 联合共识: C_old=[node-1,node-2,node-3,node-4] -> C_new=[node-1,node-3,node-4]
+- 配置条目: index=2, 已复制到所有3个剩余节点
+- commit_index: 1->2 (全部剩余节点)
+- Leader: node-1 (未切换) [PASS]
+- Term: 1->1 (未变化) [PASS]
+- 被移除的 node-2: 被 RequestVote/AppendEntries 拦截, 无法扰乱集群 [PASS]
+
+=== 稳定性验证 (15秒后) ===
+- node-1: Leader, term=1, commit=2, log=2 [PASS]
+- node-3: Follower, leader=node-1, term=1, commit=2, log=2 [PASS]
+- node-4: Follower, leader=node-1, term=1, commit=2, log=2 [PASS]
+- 集群成员: [node-1, node-3, node-4], quorum=2 [PASS]
+- 0 选举风暴, 0 term 飙升, 0 丢数据 [PASS]
+
+四、关键设计决策
+----------
+1. 0-peer 节点不选举: 防止新节点自选为 Leader 导致 term 飙升
+2. 同 term Leader->Follower: 新节点接收 Leader AppendEntries 时立即回正
+3. 拒绝非配置内 Leader: 被移除的节点不能继续当 Leader
+4. 拒绝非配置内候选者: 被移除的节点不能通过 RequestVote 扰乱集群
+5. 新节点(配置只有自己)豁免: 允许接受任何 Leader 的 AppendEntries
+6. Follower 也连接新节点: applyConfigChangesLocked 中所有节点都处理 peer 连接
+
+五、ARM64 交叉编译
+----------
+二进制: daijin235-v2.3-linux-arm64
+大小: 12,320,952 bytes (12.32MB)
+编译: GOOS=linux GOARCH=arm64 CGO_ENABLED=0
+版本: 2.3.0 (V2.3-joint-consensus)
+
+六、原引擎完整性验证
+----------
+原引擎路径: C:\Users\27998\Desktop\岱境235\daijin235_go_engine
+状态: 未修改 (所有改动在 V2.3_Development_Sandbox 沙箱内)
+交付包: 岱境235_终极交付与验证证据包.zip 未受影响
+
+============================================================================
+结论: V2.3 Raft Joint Consensus 动态成员变更已在隔离沙箱中跑通验证。
+      AddNode/RemoveNode 均零停机完成, Leader 未切换, Term 未飙升,
+      数据零丢失。原生产代码与交付包未受任何影响。
+      是否合入主干的决策, 等待用户指令。
+============================================================================
