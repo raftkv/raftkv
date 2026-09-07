@@ -1,0 +1,3 @@
+﻿F03 数据读回
+entry[index=2]: {"command":"ZjAyLXIyLTE=","found":true,"index":2,"term":1}
+结果: PASS (数据一致)

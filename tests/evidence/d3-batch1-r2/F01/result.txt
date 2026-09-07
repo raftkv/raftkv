@@ -1,0 +1,5 @@
+﻿F01 Leader选举
+Leader节点: daijin235-node-3 after 1s
+stats: id=node-3 state=Leader term=1 leader=node-3 commit=1 applied=1 logs=1 peers=4 voted=node-3
+peers=4
+结果: PASS

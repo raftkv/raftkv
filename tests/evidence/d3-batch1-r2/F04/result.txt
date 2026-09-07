@@ -1,0 +1,4 @@
+﻿F04 数据同步(5节点)
+leader: id=node-3 state=Leader term=1 leader=node-3 commit=6 applied=6 logs=6 peers=4 voted=node-3
+followers: node-1 commit=6 node-2 commit=6 node-4 commit=6 node-5 commit=6 
+结果: PASS (4/4 followers sync, commit=6)

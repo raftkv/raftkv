@@ -1,0 +1,30 @@
+﻿
+[20:59:43] === F09修复验证: IDEM_TOKEN_CAPACITY=5 ===
+[20:59:43] 
+[20:59:43] --- 启动5节点集群(IDEM_TOKEN_CAPACITY=5) ---
+[20:59:54] Leader: daijin235-node-2
+[20:59:54] 
+[20:59:54] --- 写入7个不同token (CAPACITY=5, 期望淘汰最早2个) ---
+[20:59:54]   token[1]: {"index":2,"success":true}
+[20:59:55]   token[2]: {"index":3,"success":true}
+[20:59:55]   token[3]: {"index":4,"success":true}
+[20:59:55]   token[4]: {"index":5,"success":true}
+[20:59:55]   token[5]: {"index":6,"success":true}
+[20:59:55]   token[6]: {"index":7,"success":true}
+[20:59:55]   token[7]: {"index":8,"success":true}
+[20:59:56] 
+[20:59:56] --- 检查idem_stats ---
+[20:59:57] idem_stats: {"capacity":5,"size":5}
+[20:59:57] capacity=5 (期望5)
+[20:59:57] size=5 (期望<=5, LRU淘汰后)
+[20:59:57] [PASS] capacity==5 (标题声明值生效)
+[20:59:57] [PASS] size=5 <= 5 (LRU淘汰生效)
+[20:59:57] 
+[20:59:57] --- 验证LRU淘汰: token-1重试(应创建新条目) ---
+[20:59:58] token-1重试: {"index":9,"success":true}
+[20:59:58] [PASS] token-1被淘汰后重试创建新条目
+[20:59:58] 
+[20:59:58] --- 关闭集群 ---
+[20:59:59] [PASS] 集群已关闭
+[20:59:59] 
+[20:59:59] === F09修复汇总: PASS=3 FAIL=0 ===
