@@ -47,7 +47,15 @@ tests/evidence/d3-batch1/
 
 | 配置项 | 值 | 出处 | 生成方式 |
 |---|---|---|---|
-| SM4_KEY | 837e01cd887218ba8db4b34104455ba9 | tests/deploy/.sm4_key (gitignored) | `openssl rand -hex 16` (deploy_up.sh首次生成) |
+| SM4_KEY | \<已轮换，见.sm4_key\> | tests/deploy/.sm4_key (gitignored) | `openssl rand -hex 16` (deploy_up.sh首次生成) |
+
+### SM4_KEY密钥轮换整改说明
+
+**泄露发现**：盲审#2发现本文件L50原明文记录SM4_KEY值（commit a4e51db），评级P1。
+
+**处置方式**：密钥轮换制。生成新密钥替换.sm4_key内容，本文件明文改为`<已轮换，见.sm4_key>`。旧密钥自本commit起失效。
+
+**历史处理**：旧密钥值已在git历史a4e51db中，视为已作废。按R2红线（禁止改写历史），不执行history清除。旧密钥作废验证见tests/evidence/d3-sec-rotate/。
 | FP_ANCHOR | tcx4-v25-test | tests/deploy/deploy.env.example | 硬编码(指纹锚标识) |
 | LICENSE_DIR | C:/Users/27998/.daijin235/tcx4_test/licenses_v25 | tests/deploy/deploy.env | 本地license目录 |
 | license.key | node-{1..5}.key (各817字节) | LICENSE_DIR下 | RSA-2048商业授权文件(预生成) |

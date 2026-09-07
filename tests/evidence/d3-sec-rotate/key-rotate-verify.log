@@ -1,0 +1,111 @@
+﻿
+[20:47:01] === SM4密钥轮换验证 ===
+[20:47:01] 新密钥前8位: 856aa4fb
+[20:47:01] 旧密钥前8位: 837e01cd
+[20:47:01] 
+[20:47:01] --- P1-3: 新密钥5节点启动验证 ---
+[20:47:01]    Volume deploy5_wal-node-1 Creating 
+[20:47:01]    Volume deploy5_wal-node-4 Creating 
+[20:47:01]    Volume deploy5_wal-node-4 Creating 
+[20:47:01]    Network deploy5_daijin235-net Creating 
+[20:47:01]    Volume deploy5_wal-node-5 Creating 
+[20:47:01]    Network deploy5_daijin235-net Creating 
+[20:47:01]    Volume deploy5_wal-node-1 Creating 
+[20:47:01]    Volume deploy5_wal-node-3 Creating 
+[20:47:01]    Volume deploy5_wal-node-3 Creating 
+[20:47:02]    Volume deploy5_wal-node-5 Creating 
+[20:47:02]    Volume deploy5_wal-node-2 Creating 
+[20:47:02]    Volume deploy5_wal-node-2 Creating 
+[20:47:02]    Volume deploy5_wal-node-4 Created 
+[20:47:02]    Volume deploy5_wal-node-4 Created 
+[20:47:02]    Volume deploy5_wal-node-3 Created 
+[20:47:02]    Volume deploy5_wal-node-3 Created 
+[20:47:02]    Volume deploy5_wal-node-1 Created 
+[20:47:02]    Volume deploy5_wal-node-1 Created 
+[20:47:02]    Volume deploy5_wal-node-5 Created 
+[20:47:02]    Volume deploy5_wal-node-5 Created 
+[20:47:02]    Volume deploy5_wal-node-2 Created 
+[20:47:02]    Volume deploy5_wal-node-2 Created 
+[20:47:02]    Network deploy5_daijin235-net Created 
+[20:47:02]    Network deploy5_daijin235-net Created 
+[20:47:02]    Container daijin235-node-5 Creating 
+[20:47:02]    Container daijin235-node-3 Creating 
+[20:47:02]    Container daijin235-node-4 Creating 
+[20:47:02]    Container daijin235-node-2 Creating 
+[20:47:02]    Container daijin235-node-1 Creating 
+[20:47:02]    Container daijin235-node-5 Created 
+[20:47:02]    Container daijin235-node-1 Created 
+[20:47:02]    Container daijin235-node-4 Created 
+[20:47:02]    Container daijin235-node-2 Created 
+[20:47:02]    Container daijin235-node-3 Created 
+[20:47:02]    Container daijin235-node-1 Starting 
+[20:47:02]    Container daijin235-node-2 Starting 
+[20:47:02]    Container daijin235-node-4 Starting 
+[20:47:02]    Container daijin235-node-5 Starting 
+[20:47:02]    Container daijin235-node-3 Starting 
+[20:47:02]    Container daijin235-node-2 Started 
+[20:47:02]    Container daijin235-node-1 Started 
+[20:47:02]    Container daijin235-node-3 Started 
+[20:47:02]    Container daijin235-node-4 Started 
+[20:47:02]    Container daijin235-node-5 Started 
+[20:47:09] [PASS] 新密钥: Leader=daijin235-node-2, 5节点启动成功
+[20:47:09] 新密钥健康节点: 5/5
+[20:47:09] 
+[20:47:09] --- 写入测试数据(新密钥加密) ---
+[20:47:09] 写入响应: {"index":2,"success":true}
+[20:47:10] 
+[20:47:10] --- 关闭新密钥集群 ---
+[20:47:12] [PASS] 新密钥集群已关闭
+[20:47:12] 
+[20:47:12] --- P1-4: 旧密钥作废验证 ---
+[20:47:12]    Volume deploy5old_wal-node-3 Creating 
+[20:47:12]    Volume deploy5old_wal-node-2 Creating 
+[20:47:12]    Volume deploy5old_wal-node-3 Creating 
+[20:47:12]    Volume deploy5old_wal-node-1 Creating 
+[20:47:12]    Volume deploy5old_wal-node-4 Creating 
+[20:47:12]    Volume deploy5old_wal-node-5 Creating 
+[20:47:12]    Volume deploy5old_wal-node-2 Creating 
+[20:47:12]    Volume deploy5old_wal-node-1 Creating 
+[20:47:12]    Volume deploy5old_wal-node-4 Creating 
+[20:47:12]    Volume deploy5old_wal-node-5 Creating 
+[20:47:12]    Network deploy5old_daijin235-net Creating 
+[20:47:12]    Network deploy5old_daijin235-net Creating 
+[20:47:12]    Volume deploy5old_wal-node-2 Created 
+[20:47:12]    Volume deploy5old_wal-node-2 Created 
+[20:47:12]    Volume deploy5old_wal-node-3 Created 
+[20:47:12]    Volume deploy5old_wal-node-3 Created 
+[20:47:12]    Volume deploy5old_wal-node-1 Created 
+[20:47:12]    Volume deploy5old_wal-node-1 Created 
+[20:47:12]    Volume deploy5old_wal-node-4 Created 
+[20:47:12]    Volume deploy5old_wal-node-4 Created 
+[20:47:12]    Volume deploy5old_wal-node-5 Created 
+[20:47:12]    Volume deploy5old_wal-node-5 Created 
+[20:47:12]    Network deploy5old_daijin235-net Created 
+[20:47:12]    Network deploy5old_daijin235-net Created 
+[20:47:12]    Container daijin235-node-5 Creating 
+[20:47:12]    Container daijin235-node-2 Creating 
+[20:47:12]    Container daijin235-node-4 Creating 
+[20:47:12]    Container daijin235-node-3 Creating 
+[20:47:12]    Container daijin235-node-1 Creating 
+[20:47:12]    Container daijin235-node-4 Created 
+[20:47:12]    Container daijin235-node-5 Created 
+[20:47:12]    Container daijin235-node-2 Created 
+[20:47:12]    Container daijin235-node-3 Created 
+[20:47:12]    Container daijin235-node-1 Created 
+[20:47:12]    Container daijin235-node-1 Starting 
+[20:47:12]    Container daijin235-node-2 Starting 
+[20:47:12]    Container daijin235-node-3 Starting 
+[20:47:12]    Container daijin235-node-4 Starting 
+[20:47:12]    Container daijin235-node-5 Starting 
+[20:47:13]    Container daijin235-node-3 Started 
+[20:47:13]    Container daijin235-node-2 Started 
+[20:47:13]    Container daijin235-node-1 Started 
+[20:47:13]    Container daijin235-node-4 Started 
+[20:47:13]    Container daijin235-node-5 Started 
+[20:47:22] [INFO] 旧密钥: Leader=daijin235-node-4, 集群可启动
+[20:47:22] [INFO] SM4_KEY为数据加密密钥(非授权密钥), 旧密钥可启动集群但无法解密新密钥加密的WAL数据
+[20:47:23] 旧密钥健康节点: 5/5
+[20:47:23] [PASS] 旧密钥可启动新集群(空WAL), 但已作废: 新数据将用新密钥加密, 旧密钥无法解密
+[20:47:25] [PASS] 旧密钥集群已关闭
+[20:47:25] 
+[20:47:25] === 验证完成 ===
