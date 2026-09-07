@@ -1,0 +1,5 @@
+﻿F07/F08/F09 回归 (r2-fix)
+F07: PASS (串行去重, duplicate=true)
+F08: PASS (并发10次增量1, delta=1)
+F09: PASS (capacity=5已生效, idem_stats={"capacity":5,"size":2})
+结论: 修复SM4_KEY早期校验对幂等三件套无副作用
