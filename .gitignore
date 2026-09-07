@@ -73,6 +73,7 @@ diag_report.pdf
 main,go,
 tests/evidence/*
 !tests/evidence/d3-batch1/
+!tests/evidence/d3-batch2-p1/
 
 # --- D2-batch1 部署配置（修正B: 不入git）---
 tests/deploy/deploy.env
