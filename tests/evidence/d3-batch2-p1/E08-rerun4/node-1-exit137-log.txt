@@ -1,0 +1,42 @@
+﻿[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=14904 peers=4
+[管线] committed=1376 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=20836 peers=4
+[管线] committed=7308 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2577 leader=node-2 commit=24749 peers=4
+[管线] committed=10076 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+docker : 2026/09/09 00:28:58 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2578
+At line:1 char:32
++ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/09 00:2...date, term=2578:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026/09/09 00:28:59 [raft/node-1] [raft/node-1] RequestVote → node-2 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:28:59 [raft/node-1] [raft/node-1] RequestVote → node-4 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:28:59 [raft/node-1] [raft/node-1] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:00 [raft/node-1] [raft/node-1] RequestVote → node-5 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:00 [raft/node-1] [raft/node-1] 选举失败 (得票 1/5, term=2578)
+2026/09/09 00:29:03 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2579
+2026/09/09 00:29:04 [raft/node-1] [raft/node-1] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:04 [raft/node-1] [raft/node-1] RequestVote → node-2 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded

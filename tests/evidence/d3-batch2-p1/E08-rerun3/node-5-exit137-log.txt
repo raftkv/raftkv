@@ -1,0 +1,61 @@
+﻿docker : [pipeline] 2026/09/08 23:42:54 快照失败: 快照重命名失败: rename /app/wal-data/daijin235_raft.wal.snapshot.gz.tmp /app/wal
+-data/daijin235_raft.wal.snapshot.gz: no such file or directory
+At line:1 char:32
++ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 50 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([pipeline] 2026...le or directory:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[状态] id=node-5 state=Follower term=2640 leader= commit=24913 peers=4
+[管线] committed=74 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-5 state=Follower term=2640 leader=node-2 commit=27779 peers=4
+[管线] committed=2701 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-5 state=Follower term=2640 leader=node-2 commit=31611 peers=4
+[管线] committed=6533 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-5 state=Follower term=2640 leader=node-2 commit=34070 peers=4
+[管线] committed=8992 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-5 state=Follower term=2642 leader=node-2 commit=35397 peers=4
+[管线] committed=10026 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-5 state=Follower term=2645 leader= commit=35669 peers=4
+[管线] committed=10036 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-5 state=Follower term=2646 leader=node-4 commit=35669 peers=4
+[管线] committed=0 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-5 state=Follower term=2648 leader=node-2 commit=35669 peers=4
+2026/09/08 23:42:54 [raft/node-5] [raft/node-5] RequestVote → node-1 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:54 [raft/node-5] [raft/node-5] RequestVote → node-2 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:54 [raft/node-5] [raft/node-5] 选举失败 (得票 2/5, term=2639)
+2026/09/08 23:42:55 [storage] 快照完成: 326084 条, WAL 6524 → 0 字节, 快照 4850675 字节
+[pipeline] 2026/09/08 23:42:55 快照触发: 326084 条, WAL 释放 6524 字节
+2026/09/08 23:42:57 [peer-client] R-04修复A: peer node-1 连接状态=TRANSIENT_FAILURE，开始计时
+2026/09/08 23:42:58 [storage] 快照完成: 325903 条, WAL 59464 → 0 字节, 快照 4847843 字节
+[pipeline] 2026/09/08 23:42:58 快照触发: 325903 条, WAL 释放 59464 字节
+2026/09/08 23:43:03 [peer-client] R-04修复A: peer node-1 持续失败>5s，强制重连（DNS重解析）
+2026/09/08 23:43:06 [peer-client] R-04修复A: peer node-1 重连成功（新DNS resolver）
+2026/09/08 23:43:06 [raft/node-5] [raft/node-5] R-04修复A: peer node-1 客户端已更新（重连回调）
+2026/09/08 23:43:43 [raft/node-5] [raft/node-5] 选举超时触发 → Candidate, term=2644
+2026/09/08 23:43:44 [raft/node-5] [raft/node-5] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:43:44 [raft/node-5] [raft/node-5] RequestVote → node-1 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:43:44 [raft/node-5] [raft/node-5] 选举失败 (得票 2/5, term=2644)
+2026/09/08 23:43:53 [storage] 快照完成: 335937 条, WAL 2338296 → 0 字节, 快照 4996865 字节
+[pipeline] 2026/09/08 23:43:53 快照触发: 335937 条, WAL 释放 2338296 字节
+2026/09/08 23:43:53 [peer-client] R-04修复A: peer node-1 连接状态=TRANSIENT_FAILURE，开始计时
+2026/09/08 23:43:58 [storage] 快照完成: 335939 条, WAL 0 → 0 字节, 快照 4996907 字节
+[pipeline] 2026/09/08 23:43:58 快照触发: 335939 条, WAL 释放 0 字节
+2026/09/08 23:43:59 [storage] 快照完成: 335939 条, WAL 1864 → 0 字节, 快照 4996907 字节
+[pipeline] 2026/09/08 23:43:59 快照触发: 335939 条, WAL 释放 1864 字节
+2026/09/08 23:44:00 [peer-client] R-04修复A: peer node-1 持续失败>5s，强制重连（DNS重解析）
+2026/09/08 23:44:00 [peer-client] R-04修复A: peer node-1 重连成功（新DNS resolver）
+2026/09/08 23:44:00 [raft/node-5] [raft/node-5] R-04修复A: peer node-1 客户端已更新（重连回调）
+2026/09/08 23:44:04 [storage] 快照完成: 335939 条, WAL 0 → 0 字节, 快照 4996907 字节
+[pipeline] 2026/09/08 23:44:04 快照触发: 335939 条, WAL 释放 0 字节
+2026/09/08 23:44:06 [storage] 快照完成: 325903 条, WAL 2563 → 0 字节, 快照 4847843 字节
+[pipeline] 2026/09/08 23:44:06 快照触发: 325903 条, WAL 释放 2563 字节
+[管线] committed=43 walErr=7 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+2026/09/08 23:44:09 [storage] 快照完成: 335939 条, WAL 9927 → 0 字节, 快照 4996907 字节
+[pipeline] 2026/09/08 23:44:09 快照触发: 335939 条, WAL 释放 9927 字节
+2026/09/08 23:44:09 [storage] 快照完成: 325903 条, WAL 932 → 0 字节, 快照 4847843 字节
+[pipeline] 2026/09/08 23:44:09 快照触发: 325903 条, WAL 释放 932 字节

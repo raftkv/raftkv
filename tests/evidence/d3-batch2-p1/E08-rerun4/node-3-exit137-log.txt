@@ -1,0 +1,39 @@
+﻿docker : 2026/09/09 00:34:49 [raft/node-3] [raft/node-3] R-04修复C [ERROR] follower node-5 gap=68300 持续>10s (commitIdx=68
+300, matchIdx=0, degraded=true)
+At line:1 char:32
++ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/09 00:3... degraded=true):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68301 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68302 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68303 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68304 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68305 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68306 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68307 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68308 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68309 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] 批量同步失败: follower=node-1, startIdx=1, 重试6次后放弃
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] 批量同步失败: follower=node-5, startIdx=1, 重试6次后放弃
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] 批量同步失败: follower=node-5, startIdx=1, 重试6次后放弃
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] R-04修复C [ERROR] follower node-1 gap=68300 持续>10s (commitIdx=68300, matc
+hIdx=0, degraded=true)
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] R-04修复C [ERROR] follower node-5 gap=68300 持续>10s (commitIdx=68300, matc
+hIdx=0, degraded=true)
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68310 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] 批量同步失败: follower=node-5, startIdx=1, 重试6次后放弃
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68311 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68312 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68313 term=2635 cmd_len=55
+2026/09/09 00:34:49 [storage] 快照完成: 376635 条, WAL 18695 → 0 字节, 快照 5584781 字节
+[pipeline] 2026/09/09 00:34:49 快照触发: 376635 条, WAL 释放 18695 字节
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68314 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68315 term=2635 cmd_len=55
+2026/09/09 00:34:49 [storage] 快照完成: 376638 条, WAL 16562 → 0 字节, 快照 5584836 字节
+[pipeline] 2026/09/09 00:34:49 快照触发: 376638 条, WAL 释放 16562 字节
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68316 term=2635 cmd_len=54
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68317 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68318 term=2635 cmd_len=55
+2026/09/09 00:34:49 [raft/node-3] [raft/node-3] Propose: index=68319 term=2635 cmd_len=55

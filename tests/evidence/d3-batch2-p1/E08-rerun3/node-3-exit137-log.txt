@@ -1,0 +1,56 @@
+﻿docker : [pipeline] 2026/09/08 23:49:28 快照触发: 346354 条, WAL 释放 474 字节
+At line:1 char:32
++ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 50 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([pipeline] 2026..., WAL 释放 474 字节:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026/09/08 23:49:28 [storage] 快照完成: 346354 条, WAL 474 → 0 字节, 快照 5143833 字节
+[pipeline] 2026/09/08 23:49:28 快照触发: 346354 条, WAL 释放 474 字节
+2026/09/08 23:49:29 [storage] 快照完成: 346354 条, WAL 711 → 0 字节, 快照 5143833 字节
+[pipeline] 2026/09/08 23:49:29 快照触发: 346354 条, WAL 释放 711 字节
+2026/09/08 23:49:29 [storage] 快照完成: 346354 条, WAL 940 → 0 字节, 快照 5143833 字节
+[pipeline] 2026/09/08 23:49:29 快照触发: 346354 条, WAL 释放 940 字节
+2026/09/08 23:49:29 [storage] 快照完成: 346354 条, WAL 4491 → 0 字节, 快照 5143833 字节
+[pipeline] 2026/09/08 23:49:29 快照触发: 346354 条, WAL 释放 4491 字节
+2026/09/08 23:49:29 [storage] 快照完成: 346354 条, WAL 3314 → 0 字节, 快照 5143833 字节
+[pipeline] 2026/09/08 23:49:29 快照触发: 346354 条, WAL 释放 3314 字节
+2026/09/08 23:49:33 [peer-client] R-04修复A: peer node-1 持续失败>5s，强制重连（DNS重解析）
+2026/09/08 23:49:33 [peer-client] R-04修复A: peer node-1 重连成功（新DNS resolver）
+2026/09/08 23:49:33 [raft/node-3] [raft/node-3] R-04修复A: peer node-1 客户端已更新（重连回调）
+2026/09/08 23:49:33 [peer-client] R-04修复A: peer node-5 持续失败>5s，强制重连（DNS重解析）
+2026/09/08 23:49:33 [peer-client] R-04修复A: peer node-5 重连成功（新DNS resolver）
+2026/09/08 23:49:33 [raft/node-3] [raft/node-3] R-04修复A: peer node-5 客户端已更新（重连回调）
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=77795 peers=4
+[管线] committed=957 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=78231 peers=4
+[管线] committed=1393 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=79571 peers=4
+[管线] committed=2733 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=80060 peers=4
+[管线] committed=3222 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=81151 peers=4
+[管线] committed=4313 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=81978 peers=4
+[管线] committed=5140 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=82796 peers=4
+[管线] committed=5958 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=83655 peers=4
+[管线] committed=6817 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=85631 peers=4
+[管线] committed=8793 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=87282 peers=4
+[管线] committed=10029 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=88239 peers=4
+[管线] committed=10062 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-3 state=Follower term=2693 leader=node-4 commit=88950 peers=4
+[管线] committed=10103 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[pipeline] 2026/09/08 23:51:27 WAL 写入失败 index=88951: WAL 已关闭
+[pipeline] 2026/09/08 23:51:28 WAL 写入失败 index=88992: WAL 已关闭
+[pipeline] 2026/09/08 23:51:28 WAL 写入失败 index=89018: WAL 已关闭
+[pipeline] 2026/09/08 23:51:29 WAL 写入失败 index=89028: WAL 已关闭
+[pipeline] 2026/09/08 23:51:29 WAL 写入失败 index=89065: WAL 已关闭
+2026/09/08 23:51:29 [storage] 快照完成: 356408 条, WAL 2379060 → 0 字节, 快照 5294811 字节
+[pipeline] 2026/09/08 23:51:29 快照触发: 356408 条, WAL 释放 2379060 字节
+2026/09/08 23:51:30 [storage] 快照完成: 356407 条, WAL 940 → 0 字节, 快照 5294793 字节
+[pipeline] 2026/09/08 23:51:30 快照触发: 356407 条, WAL 释放 940 字节
