@@ -1,0 +1,38 @@
+﻿docker : [pipeline] 2026/09/09 02:37:16 WAL 写入失败 index=37860: WAL 已关闭
+At line:1 char:32
++ ... ,2,3) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([pipeline] 2026...=37860: WAL 已关闭:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[状态] id=node-3 state=Follower term=2598 leader=node-5 commit=38810 peers=4
+[pipeline] 2026/09/09 02:37:16 WAL 写入失败 index=37960: WAL 已关闭
+[pipeline] 2026/09/09 02:37:17 WAL 写入失败 index=37961: WAL 已关闭
+[pipeline] 2026/09/09 02:37:17 WAL 写入失败 index=37973: WAL 已关闭
+[管线] committed=74 walErr=40 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[pipeline] 2026/09/09 02:37:17 WAL 写入失败 index=38012: WAL 已关闭
+[pipeline] 2026/09/09 02:37:17 WAL 写入失败 index=38058: WAL 已关闭
+[pipeline] 2026/09/09 02:37:17 WAL 写入失败 index=38060: WAL 已关闭
+[pipeline] 2026/09/09 02:37:18 WAL 写入失败 index=38061: WAL 已关闭
+[pipeline] 2026/09/09 02:37:18 WAL 写入失败 index=38159: WAL 已关闭
+[pipeline] 2026/09/09 02:37:18 WAL 写入失败 index=38161: WAL 已关闭
+[pipeline] 2026/09/09 02:37:18 WAL 写入失败 index=38174: WAL 已关闭
+[pipeline] 2026/09/09 02:37:18 WAL 写入失败 index=38232: WAL 已关闭
+[pipeline] 2026/09/09 02:37:19 WAL 写入失败 index=38331: WAL 已关闭
+[pipeline] 2026/09/09 02:37:19 WAL 写入失败 index=38405: WAL 已关闭
+[pipeline] 2026/09/09 02:37:19 WAL 写入失败 index=38462: WAL 已关闭
+[pipeline] 2026/09/09 02:37:20 WAL 写入失败 index=38559: WAL 已关闭
+[pipeline] 2026/09/09 02:37:20 WAL 写入失败 index=38594: WAL 已关闭
+[pipeline] 2026/09/09 02:37:21 WAL 写入失败 index=38693: WAL 已关闭
+[pipeline] 2026/09/09 02:37:21 WAL 写入失败 index=38714: WAL 已关闭
+[pipeline] 2026/09/09 02:37:22 WAL 写入失败 index=38781: WAL 已关闭
+2026/09/09 02:37:23 [storage] 快照完成: 406732 条, WAL 2350087 → 0 字节, 快照 6016996 字节
+[pipeline] 2026/09/09 02:37:23 快照触发: 406732 条, WAL 释放 2350087 字节
+2026/09/09 02:37:30 [raft/node-3] [raft/node-3] 选举超时触发 → Candidate, term=2599
+2026/09/09 02:37:30 [storage] 快照完成: 406741 条, WAL 17242 → 0 字节, 快照 6017165 字节
+[pipeline] 2026/09/09 02:37:30 快照触发: 406741 条, WAL 释放 17242 字节
+2026/09/09 02:37:31 [raft/node-3] [raft/node-3] RequestVote → node-1 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 02:37:31 [raft/node-3] [raft/node-3] RequestVote → node-2 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded while waiting for connections to become ready
+2026/09/09 02:37:31 [raft/node-3] [raft/node-3] 选举失败 (得票 1/5, term=2599)

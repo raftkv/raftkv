@@ -1,0 +1,38 @@
+﻿docker : 2026/09/09 02:36:53 [raft/node-2] [raft/node-2] RequestVote → node-1 失败: rpc error: code = Unavailable desc = 
+name resolver error: produced zero addresses
+At line:1 char:32
++ ... ,2,3) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/09 02:3... zero addresses:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026/09/09 02:36:53 [peer-client] R-04修复A: peer node-1 连接状态=TRANSIENT_FAILURE，开始计时
+2026/09/09 02:36:54 [storage] 快照完成: 398733 条, WAL 23815 → 0 字节, 快照 5892210 字节
+[pipeline] 2026/09/09 02:36:54 快照触发: 398733 条, WAL 释放 23815 字节
+2026/09/09 02:36:54 [raft/node-2] [raft/node-2] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 02:36:54 [raft/node-2] [raft/node-2] 选举失败 (得票 1/5, term=2596)
+2026/09/09 02:36:54 [storage] 快照完成: 398733 条, WAL 233 → 0 字节, 快照 5892210 字节
+[pipeline] 2026/09/09 02:36:54 快照触发: 398733 条, WAL 释放 233 字节
+2026/09/09 02:36:54 [storage] 快照完成: 398733 条, WAL 233 → 0 字节, 快照 5892210 字节
+[pipeline] 2026/09/09 02:36:54 快照触发: 398733 条, WAL 释放 233 字节
+2026/09/09 02:36:54 [storage] 快照完成: 398733 条, WAL 4427 → 0 字节, 快照 5892210 字节
+[pipeline] 2026/09/09 02:36:54 快照触发: 398733 条, WAL 释放 4427 字节
+2026/09/09 02:36:55 [storage] 快照完成: 398733 条, WAL 932 → 0 字节, 快照 5892210 字节
+[pipeline] 2026/09/09 02:36:55 快照触发: 398733 条, WAL 释放 932 字节
+2026/09/09 02:36:55 [storage] 快照完成: 398733 条, WAL 699 → 0 字节, 快照 5892210 字节
+[pipeline] 2026/09/09 02:36:55 快照触发: 398733 条, WAL 释放 699 字节
+2026/09/09 02:36:55 [storage] 快照完成: 398733 条, WAL 233 → 0 字节, 快照 5892210 字节
+[pipeline] 2026/09/09 02:36:55 快照触发: 398733 条, WAL 释放 233 字节
+[pipeline] 2026/09/09 02:36:57 WAL 写入失败 index=35336: WAL 已关闭
+[pipeline] 2026/09/09 02:36:57 WAL 写入失败 index=35337: WAL 已关闭
+[pipeline] 2026/09/09 02:36:57 WAL 写入失败 index=35338: WAL 已关闭
+2026/09/09 02:36:57 [storage] 快照完成: 388712 条, WAL 13189 → 0 字节, 快照 5746002 字节
+[pipeline] 2026/09/09 02:36:57 快照触发: 388712 条, WAL 释放 13189 字节
+2026/09/09 02:36:57 [storage] 快照完成: 388721 条, WAL 466 → 0 字节, 快照 5746195 字节
+[pipeline] 2026/09/09 02:36:57 快照触发: 388721 条, WAL 释放 466 字节
+2026/09/09 02:36:59 [peer-client] R-04修复A: peer node-1 持续失败>5s，强制重连（DNS重解析）
+2026/09/09 02:36:59 [peer-client] R-04修复A: peer node-1 重连成功（新DNS resolver）
+2026/09/09 02:36:59 [raft/node-2] [raft/node-2] R-04修复A: peer node-1 客户端已更新（重连回调）
+[状态] id=node-2 state=Follower term=2597 leader=node-5 commit=35309 peers=4
+[管线] committed=31 walErr=1 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
