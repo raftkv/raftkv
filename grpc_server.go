@@ -190,11 +190,11 @@ func (s *GRPCServer) Address() string {
 
 type PeerClientManager struct {
 	mu            sync.RWMutex
-	clients       map[string]peerConn // peerID → 连接 + 客户端
-	address       map[string]string   // peerID → 地址
+	clients       map[string]peerConn                              // peerID → 连接 + 客户端
+	address       map[string]string                                // peerID → 地址
 	onReconnect   func(peerID string, client pb.RaftServiceClient) // R-04修复A: 重连成功回调
-	stopReconnect chan struct{}                                       // R-04修复A: 停止重连循环信号
-	reconnectOnce sync.Once                                           // R-04修复A: 确保停止通道只关闭一次
+	stopReconnect chan struct{}                                    // R-04修复A: 停止重连循环信号
+	reconnectOnce sync.Once                                        // R-04修复A: 确保停止通道只关闭一次
 }
 
 type peerConn struct {
@@ -413,7 +413,10 @@ func (m *PeerClientManager) StartReconnectLoop() {
 					}
 
 					state := pc.conn.GetState()
-					if state == connectivity.TransientFailure || state == connectivity.Idle || state == connectivity.Shutdown {
+					// 修复F: 移除 connectivity.Idle 误判——grpc.NewClient 是惰性连接，
+					// 新建连接默认 Idle 状态，仅在真正 TransientFailure(连接失败) 时才应重连，
+					// 否则重连循环会把健康的 Idle 连接每5s误判为失败并无条件重建
+					if state == connectivity.TransientFailure || state == connectivity.Shutdown {
 						if _, exists := failureSince[id]; !exists {
 							failureSince[id] = time.Now()
 							log.Printf("[peer-client] R-04修复A: peer %s 连接状态=%s，开始计时", id, state)

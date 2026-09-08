@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -19,7 +20,29 @@ var (
 	totalFail    atomic.Int64
 	writeReqs    atomic.Int64
 	readReqs     atomic.Int64
+	redirectCnt  atomic.Int64 // 修复E: leader重定向次数
+	retryCnt     atomic.Int64 // 修复E: 写失败重试次数
+	retryOkCnt   atomic.Int64 // 修复E: 重试后转为成功次数
+
+	leaderMu      sync.RWMutex
+	currentLeader string // 修复E: 当前leader端口(共享状态)
 )
+
+var backoffDelays = []time.Duration{10 * time.Millisecond, 50 * time.Millisecond, 200 * time.Millisecond}
+
+var nodeIDRe = regexp.MustCompile(`node-(\d+)`)
+
+func getLeader() string {
+	leaderMu.RLock()
+	defer leaderMu.RUnlock()
+	return currentLeader
+}
+
+func setLeader(port string) {
+	leaderMu.Lock()
+	currentLeader = port
+	leaderMu.Unlock()
+}
 
 type latTracker struct {
 	mu   sync.Mutex
@@ -93,6 +116,64 @@ func splitNodes(nodes string) []string {
 	return result
 }
 
+// 修复E: 从"not leader: current leader is node-N"错误信息解析新leader端口
+func parseLeaderFromError(respBody []byte, nodesRaw string) string {
+	m := nodeIDRe.FindSubmatch(respBody)
+	if len(m) < 2 {
+		return ""
+	}
+	port := "900" + string(m[1])
+	for _, n := range splitNodes(nodesRaw) {
+		if n == port {
+			return port
+		}
+	}
+	return ""
+}
+
+// 修复E: 写请求（带NotLeader重定向 + 最多3次重试 + 退避）
+// 返回 true 表示最终成功，false 表示3次尝试后仍失败
+func doWrite(client *http.Client, nodesRaw string, id int, n int64) bool {
+	body := fmt.Sprintf(`{"src":"e04-%d","idx":%d,"ts":%d}`, id, n, time.Now().UnixNano())
+	bodyBytes := []byte(body)
+
+	for attempt := 0; attempt <= 3; attempt++ {
+		leaderPort := getLeader()
+		resp, err := client.Post(
+			fmt.Sprintf("http://localhost:%s/raft/propose", leaderPort),
+			"application/json",
+			bytes.NewBuffer(bodyBytes),
+		)
+		if err == nil {
+			respBody, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode == 200 && !bytes.Contains(respBody, []byte(`"success":false`)) {
+				if attempt > 0 {
+					retryOkCnt.Add(1)
+				}
+				return true
+			}
+			// 失败响应：NotLeader 触发重定向
+			if bytes.Contains(respBody, []byte("not leader")) {
+				newPort := parseLeaderFromError(respBody, nodesRaw)
+				if newPort == "" {
+					newPort = findLeader(nodesRaw)
+				}
+				if newPort != "" && newPort != leaderPort {
+					setLeader(newPort)
+					redirectCnt.Add(1)
+				}
+			}
+		}
+		// 重试（上限3次，逐次退避）
+		if attempt < 3 {
+			retryCnt.Add(1)
+			time.Sleep(backoffDelays[attempt])
+		}
+	}
+	return false
+}
+
 func main() {
 	duration := flag.Duration("duration", 120*time.Second, "压测持续时间")
 	concurrency := flag.Int("concurrency", 500, "并发goroutine数")
@@ -100,12 +181,13 @@ func main() {
 	writeRatio := flag.Int("write-ratio", 20, "写入百分比(0-100)")
 	flag.Parse()
 
-	leaderPort := findLeader(*nodesRaw)
-	if leaderPort == "" {
+	initLeader := findLeader(*nodesRaw)
+	if initLeader == "" {
 		fmt.Fprintln(os.Stderr, "无法找到Leader")
 		os.Exit(1)
 	}
-	fmt.Printf("Leader: localhost:%s\n", leaderPort)
+	setLeader(initLeader)
+	fmt.Printf("Leader: localhost:%s\n", initLeader)
 	fmt.Printf("并发: %d  持续: %v  写入比例: %d%%\n\n", *concurrency, *duration, *writeRatio)
 
 	lat := &latTracker{}
@@ -140,18 +222,21 @@ func main() {
 				t0 := time.Now()
 
 				if isWrite {
-					body := fmt.Sprintf(`{"src":"e04-%d","idx":%d,"ts":%d}`, id, n, time.Now().UnixNano())
-					resp, err = client.Post(
-						fmt.Sprintf("http://localhost:%s/raft/propose", leaderPort),
-						"application/json",
-						bytes.NewBufferString(body),
-					)
 					writeReqs.Add(1)
-				} else {
-					resp, err = client.Get(fmt.Sprintf("http://localhost:%s/raft/status", leaderPort))
-					readReqs.Add(1)
+					ok := doWrite(client, *nodesRaw, id, n)
+					elapsed := time.Since(t0)
+					lat.add(elapsed)
+					totalSent.Add(1)
+					if ok {
+						totalSuccess.Add(1)
+					} else {
+						totalFail.Add(1)
+					}
+					continue
 				}
 
+				resp, err = client.Get(fmt.Sprintf("http://localhost:%s/raft/status", getLeader()))
+				readReqs.Add(1)
 				elapsed := time.Since(t0)
 				lat.add(elapsed)
 				totalSent.Add(1)
@@ -160,9 +245,9 @@ func main() {
 					totalFail.Add(1)
 					continue
 				}
-				respBody, _ := io.ReadAll(resp.Body)
+				_, _ = io.ReadAll(resp.Body)
 				resp.Body.Close()
-				if resp.StatusCode == 200 && !bytes.Contains(respBody, []byte(`"success":false`)) {
+				if resp.StatusCode == 200 {
 					totalSuccess.Add(1)
 				} else {
 					totalFail.Add(1)
@@ -225,6 +310,8 @@ DONE:
 	fmt.Printf("失败:       %d\n", totalF)
 	fmt.Printf("成功率:     %.2f%%\n", successRate)
 	fmt.Printf("平均TPS:    %.0f req/s\n", avgTPS)
+	fmt.Printf("重定向:     %d\n", redirectCnt.Load())
+	fmt.Printf("重试:       %d (重试成功=%d)\n", retryCnt.Load(), retryOkCnt.Load())
 	fmt.Printf("P50:        %v\n", lat.percentile(0.50))
 	fmt.Printf("P99:        %v\n", lat.percentile(0.99))
 	fmt.Printf("Max:        %v\n", lat.max())
