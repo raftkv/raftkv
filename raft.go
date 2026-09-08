@@ -1024,20 +1024,24 @@ func (rn *RaftNode) sendHeartbeats() {
 			}
 		}
 
-		// 修复G-4: 领导权自检 — Leader持续无quorum超过10s必须退位
+		// 修复G-4: 领导权自检 — Leader因degraded follower持续无quorum超过10s必须退位
+		// 注意: 仅当存在degraded follower时才触发退位。若无非degraded follower，
+		// quorum未满足是因为follower正在追赶日志（正常收敛），不应退位。
 		if quorumAchieved {
 			rn.lastQuorumTime = time.Now()
-		} else {
+		} else if len(rn.degradedFollowers) > 0 {
 			if rn.lastQuorumTime.IsZero() {
 				rn.lastQuorumTime = time.Now()
 			}
 			if time.Since(rn.lastQuorumTime) > 10*time.Second {
-				rn.logf("[raft/%s] 修复G: Leader连续10s无quorum，主动退位触发重选", rn.id)
+				rn.logf("[raft/%s] 修复G: Leader因degraded follower连续10s无quorum，主动退位触发重选", rn.id)
 				rn.state = StateFollower
 				rn.leaderID = ""
 				rn.votedFor = ""
 				rn.electionTimer.Reset(randomElectionTimeout())
 			}
+		} else {
+			rn.lastQuorumTime = time.Now()
 		}
 		rn.updateStats()
 	}

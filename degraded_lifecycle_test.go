@@ -235,21 +235,24 @@ func TestLeaderStepDownAfterNoQuorum(t *testing.T) {
 	rn.degradedFollowers["node-4"] = true
 	rn.degradedFollowers["node-5"] = true
 	rn.lastQuorumTime = time.Now().Add(-11 * time.Second)
-	shouldStepDown := true
 
 	quorumAchieved := false
+	shouldStepDown := false
 	if quorumAchieved {
 		rn.lastQuorumTime = time.Now()
-	} else {
+	} else if len(rn.degradedFollowers) > 0 {
 		if rn.lastQuorumTime.IsZero() {
 			rn.lastQuorumTime = time.Now()
 		}
 		if time.Since(rn.lastQuorumTime) > 10*time.Second {
+			shouldStepDown = true
 			rn.state = StateFollower
 			rn.leaderID = ""
 			rn.votedFor = ""
 			rn.electionTimer.Reset(randomElectionTimeout())
 		}
+	} else {
+		rn.lastQuorumTime = time.Now()
 	}
 	rn.mu.Unlock()
 
@@ -269,6 +272,40 @@ func TestLeaderStepDownAfterNoQuorum(t *testing.T) {
 	}
 }
 
+func TestLeaderNoStepDownWithoutDegraded(t *testing.T) {
+	rn := makeTestNode("node-1", []string{"node-2", "node-3", "node-4", "node-5"})
+
+	rn.mu.Lock()
+	rn.state = StateLeader
+	rn.term = 10
+	atomic.StoreInt64(&rn.term, 10)
+	rn.matchIdx["node-2"] = 0
+	rn.matchIdx["node-3"] = 0
+	rn.matchIdx["node-4"] = 0
+	rn.matchIdx["node-5"] = 0
+	rn.lastQuorumTime = time.Now().Add(-60 * time.Second)
+
+	quorumAchieved := false
+	shouldStepDown := false
+	if quorumAchieved {
+		rn.lastQuorumTime = time.Now()
+	} else if len(rn.degradedFollowers) > 0 {
+		if rn.lastQuorumTime.IsZero() {
+			rn.lastQuorumTime = time.Now()
+		}
+		if time.Since(rn.lastQuorumTime) > 10*time.Second {
+			shouldStepDown = true
+		}
+	} else {
+		rn.lastQuorumTime = time.Now()
+	}
+	rn.mu.Unlock()
+
+	if shouldStepDown {
+		t.Fatal("无degraded follower时即使60s无quorum也不应退位（follower正在追赶）")
+	}
+}
+
 func TestLeaderNoStepDownWithinGracePeriod(t *testing.T) {
 	rn := makeTestNode("node-1", []string{"node-2", "node-3"})
 
@@ -276,6 +313,7 @@ func TestLeaderNoStepDownWithinGracePeriod(t *testing.T) {
 	rn.state = StateLeader
 	rn.term = 10
 	atomic.StoreInt64(&rn.term, 10)
+	rn.degradedFollowers["node-2"] = true
 	rn.lastQuorumTime = time.Now().Add(-5 * time.Second)
 
 	shouldStepDown := false
