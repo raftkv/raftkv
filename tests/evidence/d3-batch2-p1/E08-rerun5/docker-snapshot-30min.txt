@@ -1,0 +1,5 @@
+﻿daijin235-node-4: Up 30 minutes (healthy)
+daijin235-node-1: Exited (137) 28 minutes ago
+daijin235-node-2: Exited (137) 27 minutes ago
+daijin235-node-3: Exited (137) 26 minutes ago
+daijin235-node-5: Up 30 minutes (healthy)

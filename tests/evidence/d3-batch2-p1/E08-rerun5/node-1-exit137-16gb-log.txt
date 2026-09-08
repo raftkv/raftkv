@@ -1,0 +1,36 @@
+﻿  所有服务已就绪，等待外部指令接入
+[启动] gRPC 服务监听 :9500
+[启动] Raft 状态机开始运行
+════════════════════════════════════════════════════════════
+[启动] HTTP API 服务监听 :9000
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=14531 peers=4
+[管线] committed=1003 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=14531 peers=4
+[管线] committed=1003 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=14531 peers=4
+[管线] committed=1003 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=14531 peers=4
+[管线] committed=1003 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=14531 peers=4
+[管线] committed=1003 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=14531 peers=4
+[管线] committed=1003 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=14531 peers=4
+[管线] committed=1003 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=21837 peers=4
+[管线] committed=8309 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2578 leader=node-4 commit=24772 peers=4
+[管线] committed=10065 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2580 leader=node-5 commit=24924 peers=4
+[管线] committed=10071 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+docker : 2026/09/09 02:33:26 [raft/node-1] [raft/node-1] 启动，初始状态: Follower, peers: [node-2 node-3 node-4 node-5]
+At line:1 char:32
++ ... ,2,3) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/09 02:3... node-4 node-5]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026/09/09 02:33:26 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2576
+2026/09/09 02:33:26 [raft/node-1] [raft/node-1] stepDown: term 2576 → 2577 (当前状态: Candidate)
+2026/09/09 02:33:26 [raft/node-1] [raft/node-1] 选举失败 (得票 1/5, term=2576)
+2026/09/09 02:35:08 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2582

@@ -1,0 +1,26 @@
+﻿docker : 2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35195 term=2593 cmd_len=54
+At line:1 char:32
++ ... ,2,4) { $log = docker logs "daijin235-node-$n" --tail 20 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/09 02:0...2593 cmd_len=54:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35196 term=2593 cmd_len=54
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35197 term=2593 cmd_len=54
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35198 term=2593 cmd_len=54
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35199 term=2593 cmd_len=54
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35200 term=2593 cmd_len=54
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35180 term=2593 cmd_len=54
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35186 term=2593 cmd_len=53
+2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35147 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35201 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35202 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35203 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35204 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35205 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35206 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35207 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35208 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35209 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35210 term=2593 cmd_len=54
+2026/09/09 02:00:59 [raft/node-4] [raft/node-4] Propose: index=35211 term=2593 cmd_len=54
