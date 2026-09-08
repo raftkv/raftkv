@@ -133,6 +133,10 @@ type RaftNode struct {
 
 	// --- R-04修复C: gap 持续告警 ---
 	gapSince map[string]time.Time // peerID → gap首次超过阈值的时间戳
+
+	// --- 修复G: degraded生命周期管理 ---
+	degradedRecoveryCount map[string]int32 // peerID → 连续心跳成功计数（达到N=3清除degraded）
+	lastQuorumTime        time.Time        // Leader最近一次满足quorum的时间
 }
 
 type voteResult struct {
@@ -190,6 +194,7 @@ func NewRaftNode(
 		logCaughtUp:              false,
 		degradedFollowers:        make(map[string]bool),
 		gapSince:                 make(map[string]time.Time),
+		degradedRecoveryCount:    make(map[string]int32),
 	}
 
 	// V2.3: 初始化集群配置（自身 + 所有 peer）
@@ -424,6 +429,7 @@ func (rn *RaftNode) MarkFollowerDegraded(peerID string) {
 	rn.mu.Lock()
 	if !rn.degradedFollowers[peerID] {
 		rn.degradedFollowers[peerID] = true
+		rn.degradedRecoveryCount[peerID] = 0 // 修复G: 重置恢复计数
 		rn.logf("[raft/%s] R-04修复B [WARN] follower %s 标记降级（批量同步放弃）", rn.id, peerID)
 	}
 	rn.mu.Unlock()
@@ -434,6 +440,7 @@ func (rn *RaftNode) ClearFollowerDegraded(peerID string) {
 	rn.mu.Lock()
 	if rn.degradedFollowers[peerID] {
 		delete(rn.degradedFollowers, peerID)
+		delete(rn.degradedRecoveryCount, peerID)
 		rn.logf("[raft/%s] R-04修复B: follower %s 降级已清除（同步恢复）", rn.id, peerID)
 	}
 	rn.mu.Unlock()
@@ -945,6 +952,18 @@ func (rn *RaftNode) sendHeartbeats() {
 						rn.matchIdx[p.ID] = newMatch
 					}
 					rn.nextIdx[p.ID] = newMatch + 1
+
+					// 修复G-1: degraded自清除 — 连续N=3次心跳成功后清除degraded标记
+					if rn.degradedFollowers[p.ID] {
+						rn.degradedRecoveryCount[p.ID]++
+						if rn.degradedRecoveryCount[p.ID] >= 3 {
+							delete(rn.degradedFollowers, p.ID)
+							delete(rn.degradedRecoveryCount, p.ID)
+							rn.logf("[raft/%s] 修复G: follower %s degraded已清除（连续3次心跳成功）", rn.id, p.ID)
+						}
+					} else {
+						rn.degradedRecoveryCount[p.ID] = 0
+					}
 				}
 				rn.mu.Unlock()
 			} else {
@@ -964,12 +983,17 @@ func (rn *RaftNode) sendHeartbeats() {
 	if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
 		oldPeers := rn.config.oldPeers()
 		newPeers := rn.config.newPeers()
+		quorumAchieved := false
 		for N := int64(len(rn.logs)); N > rn.commitIdx; N-- {
 			oldOK := true
 			newOK := true
 			if len(oldPeers) > 0 {
 				oldCount := 1 // Leader 自己
 				for _, p := range rn.peers {
+					// 修复G-2: degraded follower不参与quorum计数（降权但不切断心跳）
+					if rn.degradedFollowers[p.ID] {
+						continue
+					}
 					if stringInSlice(p.ID, oldPeers) && rn.matchIdx[p.ID] >= N {
 						oldCount++
 					}
@@ -979,6 +1003,10 @@ func (rn *RaftNode) sendHeartbeats() {
 			if len(newPeers) > 0 {
 				newCount := 1
 				for _, p := range rn.peers {
+					// 修复G-2: degraded follower不参与quorum计数
+					if rn.degradedFollowers[p.ID] {
+						continue
+					}
 					if stringInSlice(p.ID, newPeers) && rn.matchIdx[p.ID] >= N {
 						newCount++
 					}
@@ -991,7 +1019,24 @@ func (rn *RaftNode) sendHeartbeats() {
 				rn.applyConfigChangesLocked(oldCommit, N)
 				committedLogs = rn.collectCommittedLogs(oldCommit)
 				rn.lastApplied = rn.commitIdx
+				quorumAchieved = true
 				break
+			}
+		}
+
+		// 修复G-4: 领导权自检 — Leader持续无quorum超过10s必须退位
+		if quorumAchieved {
+			rn.lastQuorumTime = time.Now()
+		} else {
+			if rn.lastQuorumTime.IsZero() {
+				rn.lastQuorumTime = time.Now()
+			}
+			if time.Since(rn.lastQuorumTime) > 10*time.Second {
+				rn.logf("[raft/%s] 修复G: Leader连续10s无quorum，主动退位触发重选", rn.id)
+				rn.state = StateFollower
+				rn.leaderID = ""
+				rn.votedFor = ""
+				rn.electionTimer.Reset(randomElectionTimeout())
 			}
 		}
 		rn.updateStats()
@@ -1114,6 +1159,8 @@ func (rn *RaftNode) HandleRequestVote(
 
 	if req.Term < rn.term {
 		resp.Term = rn.term
+		// 修复G-5: term分裂自愈 — 拒绝低term RequestVote时仍重置选举计时器
+		rn.electionTimer.Reset(randomElectionTimeout())
 		rn.mu.Unlock()
 		return resp, nil
 	}
@@ -1236,6 +1283,9 @@ func (rn *RaftNode) HandleAppendEntries(
 
 	if req.Term < rn.term {
 		resp.Term = rn.term
+		// 修复G-5: term分裂自愈 — 拒绝低term AppendEntries时仍重置选举计时器
+		// 防止follower/candidate因term>leader而持续拒绝心跳→计时器不复位→term无限飙升
+		rn.electionTimer.Reset(randomElectionTimeout())
 		rn.mu.Unlock()
 		return resp, nil
 	}
