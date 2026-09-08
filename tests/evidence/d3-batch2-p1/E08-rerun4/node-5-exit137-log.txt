@@ -1,0 +1,45 @@
+﻿docker : 2026/09/09 00:29:22 [raft/node-5] [raft/node-5] 选举超时触发 → Candidate, term=2585
+At line:1 char:32
++ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/09 00:2...date, term=2585:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[状态] id=node-5 state=Follower term=2584 leader=node-3 commit=24830 peers=4
+[管线] committed=16 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+2026/09/09 00:29:22 [raft/node-5] [raft/node-5] RequestVote → node-1 失败: rpc error: code = Unavailable desc = connectio
+n error: desc = "transport: Error while dialing: dial tcp 192.168.80.2:9500: i/o timeout"
+2026/09/09 00:29:23 [raft/node-5] [raft/node-5] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:23 [raft/node-5] [raft/node-5] 选举失败 (得票 1/5, term=2585)
+2026/09/09 00:29:23 [storage] 快照完成: 335963 条, WAL 1864 → 0 字节, 快照 4992933 字节
+[pipeline] 2026/09/09 00:29:23 快照触发: 335963 条, WAL 释放 1864 字节
+2026/09/09 00:29:24 [peer-client] R-04修复A: peer node-1 持续失败>5s，强制重连（DNS重解析）
+2026/09/09 00:29:24 [peer-client] R-04修复A: peer node-1 重连成功（新DNS resolver）
+2026/09/09 00:29:24 [raft/node-5] [raft/node-5] R-04修复A: peer node-1 客户端已更新（重连回调）
+2026/09/09 00:29:24 [raft/node-5] [raft/node-5] 选举超时触发 → Candidate, term=2586
+2026/09/09 00:29:25 [raft/node-5] [raft/node-5] RequestVote → node-4 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:25 [raft/node-5] [raft/node-5] RequestVote → node-1 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:25 [raft/node-5] [raft/node-5] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:25 [raft/node-5] [raft/node-5] 选举失败 (得票 1/5, term=2586)
+2026/09/09 00:29:25 [storage] 快照完成: 335963 条, WAL 3728 → 0 字节, 快照 4992933 字节
+[pipeline] 2026/09/09 00:29:25 快照触发: 335963 条, WAL 释放 3728 字节
+2026/09/09 00:29:26 [storage] 快照完成: 335962 条, WAL 0 → 0 字节, 快照 4992915 字节
+[pipeline] 2026/09/09 00:29:26 快照触发: 335962 条, WAL 释放 0 字节
+2026/09/09 00:29:26 [storage] 快照完成: 335963 条, WAL 5359 → 0 字节, 快照 4992933 字节
+[pipeline] 2026/09/09 00:29:26 快照触发: 335963 条, WAL 释放 5359 字节
+2026/09/09 00:29:26 [raft/node-5] [raft/node-5] 选举超时触发 → Candidate, term=2587
+2026/09/09 00:29:27 [raft/node-5] [raft/node-5] RequestVote → node-1 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:27 [raft/node-5] [raft/node-5] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:27 [raft/node-5] [raft/node-5] 选举失败 (得票 1/5, term=2587)
+2026/09/09 00:29:28 [raft/node-5] [raft/node-5] 选举超时触发 → Candidate, term=2588
+2026/09/09 00:29:29 [raft/node-5] [raft/node-5] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:29 [raft/node-5] [raft/node-5] RequestVote → node-1 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/09 00:29:29 [raft/node-5] [raft/node-5] 选举失败 (得票 1/5, term=2588)

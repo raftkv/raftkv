@@ -1,0 +1,66 @@
+﻿docker : 2026/09/08 23:39:57 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2577
+At line:1 char:32
++ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 50 2>&1; $log | ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026/09/08 23:3...date, term=2577:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026/09/08 23:39:57 [raft/node-1] [raft/node-1] stepDown: term 2577 → 2617 (当前状态: Candidate)
+2026/09/08 23:39:57 [raft/node-1] [raft/node-1] 选举失败 (得票 1/5, term=2577)
+2026/09/08 23:41:35 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2620
+2026/09/08 23:41:39 [raft/node-1] [raft/node-1] 选举失败 (得票 1/5, term=2620)
+2026/09/08 23:41:44 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2624
+2026/09/08 23:41:45 [raft/node-1] [raft/node-1] RequestVote → node-2 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:41:45 [raft/node-1] [raft/node-1] RequestVote → node-5 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:41:46 [raft/node-1] [raft/node-1] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:41:47 [raft/node-1] [raft/node-1] RequestVote → node-4 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:41:47 [raft/node-1] [raft/node-1] 选举失败 (得票 1/5, term=2624)
+2026/09/08 23:42:04 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2627
+2026/09/08 23:42:05 [raft/node-1] [raft/node-1] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:05 [raft/node-1] [raft/node-1] RequestVote → node-4 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:05 [raft/node-1] [raft/node-1] 选举失败 (得票 1/5, term=2627)
+2026/09/08 23:42:09 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2628
+2026/09/08 23:42:11 [raft/node-1] [raft/node-1] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:14 [raft/node-1] [raft/node-1] RequestVote → node-2 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:14 [raft/node-1] [raft/node-1] RequestVote → node-4 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:14 [raft/node-1] [raft/node-1] RequestVote → node-5 失败: rpc error: code = DeadlineExceeded desc = cont
+ext deadline exceeded
+2026/09/08 23:42:14 [raft/node-1] [raft/node-1] 选举失败 (得票 1/5, term=2628)
+2026/09/08 23:42:17 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2629
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=14512 peers=4
+[管线] committed=984 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=14512 peers=4
+[管线] committed=984 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=14512 peers=4
+[管线] committed=984 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=14512 peers=4
+[管线] committed=984 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=14512 peers=4
+[管线] committed=984 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=14867 peers=4
+[管线] committed=1335 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=18403 peers=4
+[管线] committed=4875 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=22289 peers=4
+[管线] committed=8761 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2618 leader=node-3 commit=24595 peers=4
+[管线] committed=10070 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2621 leader= commit=24682 peers=4
+[管线] committed=10074 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2626 leader= commit=24682 peers=4
+[管线] committed=10074 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2626 leader=node-5 commit=24769 peers=4
+[管线] committed=10077 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2627 leader=node-5 commit=24769 peers=4
+[管线] committed=10077 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
+[状态] id=node-1 state=Follower term=2628 leader=node-4 commit=24770 peers=4
+[管线] committed=10078 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
