@@ -177,26 +177,73 @@ func (es *EncryptedStorage) ReplayAll() ([]RaftLog, error) {
 }
 
 // Snapshot 创建 gzip 压缩快照并重置 WAL
+//
+// V2.5-batch5 增量快照：仅读取 WAL 新条目，与现有快照字节级合并，
+// 消除 ReplayAll 全量装载 + json.Marshal 全量序列化的 O(N²) 分配风暴。
+// 快照格式不变：gzip(json([log1, log2, ..., logN]))，旧代码 ReplayAll 可直接回放。
 func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 	es.wal.Flush()
-	logs, err := es.ReplayAll()
+
+	// 1. 仅读取 WAL 新条目（不读旧快照）
+	entries, err := es.wal.Replay()
 	if err != nil {
-		return 0, 0, fmt.Errorf("快照读取失败: %w", err)
+		return 0, 0, fmt.Errorf("WAL replay失败: %w", err)
 	}
 
-	data, err := json.Marshal(logs)
-	if err != nil {
-		return 0, 0, fmt.Errorf("快照序列化失败: %w", err)
+	// 2. SM4 解密 + 反序列化新条目（加密路径不绕过）
+	newLogs := make([]RaftLog, 0, len(entries))
+	for _, entry := range entries {
+		decrypted, err := sm4CTRDecrypt(es.key, entry.Data)
+		if err != nil {
+			return 0, 0, fmt.Errorf("SM4-CTR 解密失败 index=%d: %w", entry.Index, err)
+		}
+		var log RaftLog
+		if err := json.Unmarshal(decrypted, &log); err != nil {
+			return 0, 0, fmt.Errorf("反序列化失败 index=%d: %w", entry.Index, err)
+		}
+		newLogs = append(newLogs, log)
 	}
 
+	// 3. 读取现有快照（原始解压字节，不 json.Unmarshal）
+	snapshotPath := es.wal.path + ".snapshot.gz"
+	var existingJSON []byte
+	if data, err := os.ReadFile(snapshotPath); err == nil {
+		gz, err := gzip.NewReader(bytes.NewReader(data))
+		if err == nil {
+			existingJSON, err = io.ReadAll(gz)
+			gz.Close()
+			if err != nil {
+				return 0, 0, fmt.Errorf("快照解压失败: %w", err)
+			}
+		}
+	}
+
+	// 4. 字节级合并：existing[0:n-1] + "," + new[1:] （去掉 existing 的 ']' 和 new 的 '['）
+	newJSON, err := json.Marshal(newLogs)
+	if err != nil {
+		return 0, 0, fmt.Errorf("新日志序列化失败: %w", err)
+	}
+
+	var merged []byte
+	if len(existingJSON) > 0 && len(newLogs) > 0 {
+		merged = make([]byte, 0, len(existingJSON)+len(newJSON)+1)
+		merged = append(merged, existingJSON[:len(existingJSON)-1]...) // 去掉末尾 ']'
+		merged = append(merged, ',')
+		merged = append(merged, newJSON[1:]...) // 去掉开头 '['
+	} else if len(existingJSON) > 0 {
+		merged = existingJSON
+	} else {
+		merged = newJSON
+	}
+
+	// 5. gzip 压缩 + 原子写入
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
-	if _, err := gz.Write(data); err != nil {
+	if _, err := gz.Write(merged); err != nil {
 		return 0, 0, fmt.Errorf("快照压缩失败: %w", err)
 	}
 	gz.Close()
 
-	snapshotPath := es.wal.path + ".snapshot.gz"
 	tmpPath := snapshotPath + ".tmp"
 	if err := os.WriteFile(tmpPath, buf.Bytes(), 0644); err != nil {
 		return 0, 0, fmt.Errorf("快照写入失败: %w", err)
@@ -205,6 +252,7 @@ func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 		return 0, 0, fmt.Errorf("快照重命名失败: %w", err)
 	}
 
+	// 6. 重置 WAL
 	oldSize := es.wal.offset
 
 	es.wal.Close()
@@ -215,8 +263,8 @@ func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 	}
 	es.wal = wal
 
-	log.Printf("[storage] 快照完成: %d 条, WAL %d → 0 字节, 快照 %d 字节", len(logs), oldSize, buf.Len())
-	return len(logs), oldSize, nil
+	log.Printf("[storage] 增量快照完成: 新增 %d 条, WAL %d → 0 字节, 快照 %d 字节", len(newLogs), oldSize, buf.Len())
+	return len(newLogs), oldSize, nil
 }
 
 // Close 关闭加密存储（含 WAL）

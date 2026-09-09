@@ -26,6 +26,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"daijin235/pkg/adapters"
@@ -93,12 +95,13 @@ type RaftPipeline struct {
 	logger     *log.Logger
 
 	// 统计
-	totalCommitted int64
+	totalCommitted atomic.Int64
 	walErrors      int64
 	sinkErrors     int64
 
 	// 快照压缩
 	snapshotThreshold int64
+	snapshotMu        sync.Mutex
 }
 
 // NewRaftPipeline 创建 Raft 处理管线
@@ -256,7 +259,7 @@ func (p *RaftPipeline) ReplayWALWithStats() ([]RaftLog, WALReplayStats, error) {
 //   - WAL Append 是缓冲写入（批量 fsync 在后台 goroutine）
 //   - Sink Write 是非阻塞通道写入（满时降级 fallback 队列）
 func (p *RaftPipeline) OnCommit(log RaftLog) {
-	p.totalCommitted++
+	p.totalCommitted.Add(1)
 
 	// 1. 加密写入 WAL
 	if p.storage != nil {
@@ -265,15 +268,19 @@ func (p *RaftPipeline) OnCommit(log RaftLog) {
 			p.logger.Printf("WAL 写入失败 index=%d: %v", log.Index, err)
 		}
 
-		if p.snapshotThreshold > 0 && p.totalCommitted >= p.snapshotThreshold {
-			n, oldBytes, err := p.storage.Snapshot()
-			if err != nil {
-				p.walErrors++
-				p.logger.Printf("快照失败: %v", err)
-			} else {
-				p.logger.Printf("快照触发: %d 条, WAL 释放 %d 字节", n, oldBytes)
-				p.totalCommitted = 0
+		if p.snapshotThreshold > 0 && p.totalCommitted.Load() >= p.snapshotThreshold {
+			p.snapshotMu.Lock()
+			if p.totalCommitted.Load() >= p.snapshotThreshold {
+				n, oldBytes, err := p.storage.Snapshot()
+				if err != nil {
+					p.walErrors++
+					p.logger.Printf("快照失败: %v", err)
+				} else {
+					p.logger.Printf("快照触发: %d 条, WAL 释放 %d 字节", n, oldBytes)
+					p.totalCommitted.Store(0)
+				}
 			}
+			p.snapshotMu.Unlock()
 		}
 	}
 
@@ -338,7 +345,7 @@ func (p *RaftPipeline) Close() error {
 		return fmt.Errorf("管线关闭错误: %v", errs)
 	}
 	p.logger.Printf("管线已安全关闭 (committed=%d, walErrors=%d, sinkErrors=%d)",
-		p.totalCommitted, p.walErrors, p.sinkErrors)
+		p.totalCommitted.Load(), p.walErrors, p.sinkErrors)
 	return nil
 }
 
@@ -367,7 +374,7 @@ type PipelineStats struct {
 // Stats 返回管线统计
 func (p *RaftPipeline) Stats() PipelineStats {
 	stats := PipelineStats{
-		Committed:   p.totalCommitted,
+		Committed:   p.totalCommitted.Load(),
 		WALErrors:   p.walErrors,
 		SinkErrors:  p.sinkErrors,
 		WALEnabled:  p.storage != nil,
