@@ -76,6 +76,9 @@ type RaftNode struct {
 	stateChangeCh chan NodeState  // 状态变更通知
 	shutdownCh    chan struct{}   // 优雅关闭信号
 	shutdownOnce  sync.Once       // 确保只关闭一次
+	// --- V2.5.1 B1修复: 提交推进通知（Propose 去自旋等待）---
+	// commitIdx 前进时非阻塞投递，Propose 通过它等待提交，替代 20ms 自旋 + sendHeartbeats。
+	commitNotify chan struct{}    // 容量 1，select+default 非阻塞投递
 
 	// --- gRPC 客户端工厂 ---
 	// 每个 peer 一个 gRPC 客户端连接，由外部注入
@@ -133,10 +136,6 @@ type RaftNode struct {
 
 	// --- R-04修复C: gap 持续告警 ---
 	gapSince map[string]time.Time // peerID → gap首次超过阈值的时间戳
-
-	// --- 修复G: degraded生命周期管理 ---
-	degradedRecoveryCount map[string]int32 // peerID → 连续心跳成功计数（达到N=3清除degraded）
-	lastQuorumTime        time.Time        // Leader最近一次满足quorum的时间
 }
 
 type voteResult struct {
@@ -176,6 +175,7 @@ func NewRaftNode(
 		matchIdx:      make(map[string]int64),
 		electionTimer: time.NewTimer(randomElectionTimeout()),
 		heartbeatStop: make(chan struct{}),
+		commitNotify:  make(chan struct{}, 1),
 		voteResultCh:  make(chan voteResult, 256),
 		stateChangeCh: make(chan NodeState, 8),
 		shutdownCh:    make(chan struct{}),
@@ -194,7 +194,6 @@ func NewRaftNode(
 		logCaughtUp:              false,
 		degradedFollowers:        make(map[string]bool),
 		gapSince:                 make(map[string]time.Time),
-		degradedRecoveryCount:    make(map[string]int32),
 	}
 
 	// V2.3: 初始化集群配置（自身 + 所有 peer）
@@ -429,7 +428,6 @@ func (rn *RaftNode) MarkFollowerDegraded(peerID string) {
 	rn.mu.Lock()
 	if !rn.degradedFollowers[peerID] {
 		rn.degradedFollowers[peerID] = true
-		rn.degradedRecoveryCount[peerID] = 0 // 修复G: 重置恢复计数
 		rn.logf("[raft/%s] R-04修复B [WARN] follower %s 标记降级（批量同步放弃）", rn.id, peerID)
 	}
 	rn.mu.Unlock()
@@ -440,7 +438,6 @@ func (rn *RaftNode) ClearFollowerDegraded(peerID string) {
 	rn.mu.Lock()
 	if rn.degradedFollowers[peerID] {
 		delete(rn.degradedFollowers, peerID)
-		delete(rn.degradedRecoveryCount, peerID)
 		rn.logf("[raft/%s] R-04修复B: follower %s 降级已清除（同步恢复）", rn.id, peerID)
 	}
 	rn.mu.Unlock()
@@ -830,6 +827,15 @@ func (rn *RaftNode) stepDown(higherTerm int64) {
 	}
 }
 
+// notifyCommit 非阻塞投递提交推进信号（V2.5.1 B1修复：Propose 去自旋用）
+// commitIdx 前进时调用；cap=1 + select+default 保证永不阻塞。
+func (rn *RaftNode) notifyCommit() {
+	select {
+	case rn.commitNotify <- struct{}{}:
+	default:
+	}
+}
+
 // =========================================================================
 // Leader 心跳循环
 // =========================================================================
@@ -876,8 +882,41 @@ func (rn *RaftNode) sendHeartbeats() {
 	for k, v := range rn.nextIdx {
 		nextIdxSnapshot[k] = v
 	}
-	logSnapshot := make([]RaftLog, len(rn.logs))
-	copy(logSnapshot, rn.logs)
+	// V2.5.1 B2修复: 不再全量拷贝 rn.logs（消除 O(N) 每心跳拷贝风暴——E08 OOM 主犯）。
+	// 锁内为每个 peer 构造增量 entries 切片 + prevLog 快照，构造完立即解锁再发送（持锁不做网络 IO）。
+	logEnd := int64(len(rn.logs))
+	type peerPlan struct {
+		prevIdx  int64
+		prevTerm int64
+		entries  []*pb.LogEntry
+	}
+	plans := make(map[string]*peerPlan, len(peers))
+	for _, p := range peers {
+		pp := &peerPlan{}
+		start := nextIdxSnapshot[p.ID]
+		if start > 1 {
+			pp.prevIdx = start - 1
+			if pp.prevIdx-1 >= 0 && int(pp.prevIdx-1) < len(rn.logs) {
+				pp.prevTerm = rn.logs[pp.prevIdx-1].Term
+			}
+		}
+		if start <= logEnd {
+			n := int(logEnd - start + 1)
+			pp.entries = make([]*pb.LogEntry, 0, n)
+			for i := start; i <= logEnd; i++ {
+				if i > 0 && int(i-1) < len(rn.logs) {
+					l := &rn.logs[i-1]
+					pp.entries = append(pp.entries, &pb.LogEntry{
+						Term:    l.Term,
+						Index:   l.Index,
+						Command: l.Command,
+						Sm3Hash: l.SM3Hash,
+					})
+				}
+			}
+		}
+		plans[p.ID] = pp
+	}
 	rn.mu.RUnlock()
 
 	var timeoutCount int32
@@ -898,25 +937,12 @@ func (rn *RaftNode) sendHeartbeats() {
 				return
 			}
 
-			prevLogIdx := nextIdxSnapshot[p.ID] - 1
-			var prevLogTerm int64
-			if prevLogIdx > 0 && int(prevLogIdx-1) < len(logSnapshot) {
-				prevLogTerm = logSnapshot[prevLogIdx-1].Term
-			}
+			plan := plans[p.ID]
+			prevLogIdx := plan.prevIdx
+			prevLogTerm := plan.prevTerm
 
-			// V2.3: 收集待发送日志条目（心跳 + 日志复制，含配置条目）
-			var entries []*pb.LogEntry
-			startIdx := nextIdxSnapshot[p.ID]
-			for i := startIdx; i <= int64(len(logSnapshot)); i++ {
-				if i > 0 && int(i-1) < len(logSnapshot) {
-					entries = append(entries, &pb.LogEntry{
-						Term:    logSnapshot[i-1].Term,
-						Index:   logSnapshot[i-1].Index,
-						Command: logSnapshot[i-1].Command,
-						Sm3Hash: logSnapshot[i-1].SM3Hash,
-					})
-				}
-			}
+			// V2.5.1 B2: entries 已在锁内按 nextIdx 增量构造完毕，此处直接引用（消除 O(N) 拷贝）
+			entries := plan.entries
 
 			ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 			defer cancel()
@@ -943,27 +969,15 @@ func (rn *RaftNode) sendHeartbeats() {
 				return
 			}
 
-			// V2.3: 根据响应更新 nextIdx / matchIdx
+				// V2.3: 根据响应更新 nextIdx / matchIdx
 			if resp.Success {
 				rn.mu.Lock()
 				if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
-					newMatch := int64(len(logSnapshot))
+					newMatch := logEnd
 					if newMatch > rn.matchIdx[p.ID] {
 						rn.matchIdx[p.ID] = newMatch
 					}
 					rn.nextIdx[p.ID] = newMatch + 1
-
-					// 修复G-1: degraded自清除 — 连续N=3次心跳成功后清除degraded标记
-					if rn.degradedFollowers[p.ID] {
-						rn.degradedRecoveryCount[p.ID]++
-						if rn.degradedRecoveryCount[p.ID] >= 3 {
-							delete(rn.degradedFollowers, p.ID)
-							delete(rn.degradedRecoveryCount, p.ID)
-							rn.logf("[raft/%s] 修复G: follower %s degraded已清除（连续3次心跳成功）", rn.id, p.ID)
-						}
-					} else {
-						rn.degradedRecoveryCount[p.ID] = 0
-					}
 				}
 				rn.mu.Unlock()
 			} else {
@@ -983,17 +997,12 @@ func (rn *RaftNode) sendHeartbeats() {
 	if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
 		oldPeers := rn.config.oldPeers()
 		newPeers := rn.config.newPeers()
-		quorumAchieved := false
 		for N := int64(len(rn.logs)); N > rn.commitIdx; N-- {
 			oldOK := true
 			newOK := true
 			if len(oldPeers) > 0 {
 				oldCount := 1 // Leader 自己
 				for _, p := range rn.peers {
-					// 修复G-2: degraded follower不参与quorum计数（降权但不切断心跳）
-					if rn.degradedFollowers[p.ID] {
-						continue
-					}
 					if stringInSlice(p.ID, oldPeers) && rn.matchIdx[p.ID] >= N {
 						oldCount++
 					}
@@ -1003,10 +1012,6 @@ func (rn *RaftNode) sendHeartbeats() {
 			if len(newPeers) > 0 {
 				newCount := 1
 				for _, p := range rn.peers {
-					// 修复G-2: degraded follower不参与quorum计数
-					if rn.degradedFollowers[p.ID] {
-						continue
-					}
 					if stringInSlice(p.ID, newPeers) && rn.matchIdx[p.ID] >= N {
 						newCount++
 					}
@@ -1019,29 +1024,9 @@ func (rn *RaftNode) sendHeartbeats() {
 				rn.applyConfigChangesLocked(oldCommit, N)
 				committedLogs = rn.collectCommittedLogs(oldCommit)
 				rn.lastApplied = rn.commitIdx
-				quorumAchieved = true
+				rn.notifyCommit() // V2.5.1 B1: 唤醒等待提交的 Propose
 				break
 			}
-		}
-
-		// 修复G-4: 领导权自检 — Leader因degraded follower持续无quorum超过10s必须退位
-		// 注意: 仅当存在degraded follower时才触发退位。若无非degraded follower，
-		// quorum未满足是因为follower正在追赶日志（正常收敛），不应退位。
-		if quorumAchieved {
-			rn.lastQuorumTime = time.Now()
-		} else if len(rn.degradedFollowers) > 0 {
-			if rn.lastQuorumTime.IsZero() {
-				rn.lastQuorumTime = time.Now()
-			}
-			if time.Since(rn.lastQuorumTime) > 10*time.Second {
-				rn.logf("[raft/%s] 修复G: Leader因degraded follower连续10s无quorum，主动退位触发重选", rn.id)
-				rn.state = StateFollower
-				rn.leaderID = ""
-				rn.votedFor = ""
-				rn.electionTimer.Reset(randomElectionTimeout())
-			}
-		} else {
-			rn.lastQuorumTime = time.Now()
 		}
 		rn.updateStats()
 	}
@@ -1090,8 +1075,21 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 
 	rn.logf("[raft/%s] Propose: index=%d term=%d cmd_len=%d", rn.id, index, entry.Term, len(command))
 
-	for attempt := 0; attempt < 50; attempt++ {
-		rn.sendHeartbeats()
+	// V2.5.1 B1修复: Propose 去自旋——不再循环调 sendHeartbeats（消除写请求对心跳全量拷贝的放大，
+	// E08 OOM 主放大器）。commit 由心跳 ticker(50ms) 的 sendHeartbeats 自然推进并 notifyCommit；
+	// 此处 select: notify 快速路径 + 50ms ticker 兜底（纯 O(1) commitIdx 检查，不触发任何拷贝），
+	// 1s timer 保留原 ~1s 等待上限语义。
+	commitTimer := time.NewTimer(time.Second)
+	defer commitTimer.Stop()
+	pollTicker := time.NewTicker(50 * time.Millisecond)
+	defer pollTicker.Stop()
+	for {
+		select {
+		case <-rn.commitNotify: // commit 推进信号（快速路径）
+		case <-pollTicker.C: // 兜底轮询（防 notify 被并发等待者消费后饿死）
+		case <-commitTimer.C:
+			return 0, fmt.Errorf("commit timeout: index=%d not committed after 1s", index)
+		}
 
 		rn.mu.RLock()
 		committed := rn.commitIdx >= index
@@ -1104,11 +1102,7 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 		if !stillLeader {
 			return 0, fmt.Errorf("lost leadership while waiting for commit at index=%d", index)
 		}
-
-		time.Sleep(20 * time.Millisecond)
 	}
-
-	return 0, fmt.Errorf("commit timeout: index=%d not committed after 1s", index)
 }
 
 // GetLog 返回指定索引的日志条目（供客户端读取校验）
@@ -1163,8 +1157,6 @@ func (rn *RaftNode) HandleRequestVote(
 
 	if req.Term < rn.term {
 		resp.Term = rn.term
-		// 修复G-5: term分裂自愈 — 拒绝低term RequestVote时仍重置选举计时器
-		rn.electionTimer.Reset(randomElectionTimeout())
 		rn.mu.Unlock()
 		return resp, nil
 	}
@@ -1287,9 +1279,6 @@ func (rn *RaftNode) HandleAppendEntries(
 
 	if req.Term < rn.term {
 		resp.Term = rn.term
-		// 修复G-5: term分裂自愈 — 拒绝低term AppendEntries时仍重置选举计时器
-		// 防止follower/candidate因term>leader而持续拒绝心跳→计时器不复位→term无限飙升
-		rn.electionTimer.Reset(randomElectionTimeout())
 		rn.mu.Unlock()
 		return resp, nil
 	}
