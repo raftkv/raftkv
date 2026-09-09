@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -355,6 +356,8 @@ func main() {
 	httpMux.HandleFunc("/cluster/members", HandleClusterMembers(node))
 
 	httpSrv := &http.Server{Addr: fmt.Sprintf("%s:%s", httpBind, httpListen), Handler: httpMux}
+
+	go func() { _ = http.ListenAndServe("127.0.0.1:9600", nil) }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
