@@ -78,7 +78,7 @@ type RaftNode struct {
 	shutdownOnce  sync.Once       // 确保只关闭一次
 	// --- V2.5.1 B1修复: 提交推进通知（Propose 去自旋等待）---
 	// commitIdx 前进时非阻塞投递，Propose 通过它等待提交，替代 20ms 自旋 + sendHeartbeats。
-	commitNotify chan struct{}    // 容量 1，select+default 非阻塞投递
+	commitNotify chan struct{} // 容量 1，select+default 非阻塞投递
 
 	// --- gRPC 客户端工厂 ---
 	// 每个 peer 一个 gRPC 客户端连接，由外部注入
@@ -992,7 +992,7 @@ func (rn *RaftNode) sendHeartbeats() {
 				return
 			}
 
-				// V2.3: 根据响应更新 nextIdx / matchIdx
+			// V2.3: 根据响应更新 nextIdx / matchIdx
 			if resp.Success {
 				rn.mu.Lock()
 				if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
