@@ -147,6 +147,29 @@ type RaftNode struct {
 	peerHttpAddrs   map[string]string                    // peerID → HTTP address（快照传输用）
 	getSnapshotData func() ([]byte, int64, int64, error) // 回调：返回 (snapshotData, lastIncludedIndex, lastIncludedTerm, error)
 	installSnapshot func([]byte, int64, int64) error     // 回调：参数 (snapshotData, lastIncludedIndex, lastIncludedTerm)
+
+	// --- batch11: group commit 攒批层 ---
+	proposeBatchCh    chan *proposeRequest // Propose 请求通道
+	replicateCh       chan struct{}        // 立即复制触发信号
+	proposeBatchClose chan struct{}        // 攒批循环关闭信号
+	proposeBatchWg    sync.WaitGroup       // 攒批循环 WaitGroup
+	proposeBatchOn    bool                 // 攒批是否已启用
+	proposeBatchSize  int                  // 攒批最大条数
+	proposeBatchWin   time.Duration        // 攒批时间窗口
+	batchStatsMu      sync.Mutex           // 保护 batch 统计
+	batchCountTotal   int64                // 总批次数
+	batchSizeTotal    int64                // 总攒批条数
+	batchSizeHist     [65]int64            // 批大小直方图 (0=1条, 63=64条, 64=溢出)
+}
+
+type proposeRequest struct {
+	command  []byte
+	resultCh chan proposeResult
+}
+
+type proposeResult struct {
+	index int64
+	err   error
 }
 
 type voteResult struct {
@@ -205,6 +228,11 @@ func NewRaftNode(
 		logCaughtUp:              false,
 		degradedFollowers:        make(map[string]bool),
 		gapSince:                 make(map[string]time.Time),
+		proposeBatchCh:           make(chan *proposeRequest, 1024),
+		replicateCh:              make(chan struct{}, 1),
+		proposeBatchClose:        make(chan struct{}),
+		proposeBatchSize:         64,
+		proposeBatchWin:          2 * time.Millisecond,
 	}
 
 	// V2.3: 初始化集群配置（自身 + 所有 peer）
@@ -315,6 +343,9 @@ func (rn *RaftNode) StepDownForWALFailure(reason string) {
 		case rn.heartbeatStop <- struct{}{}:
 		default:
 		}
+		rn.mu.Unlock()
+		rn.StopProposeBatch()
+		rn.mu.Lock()
 	}
 
 	rn.electionTimer.Reset(randomElectionTimeout())
@@ -867,6 +898,9 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 		// 启动心跳循环
 		go rn.heartbeatLoop()
 
+		// batch11: 启动 group commit 攒批（锁内调用）
+		rn.startProposeBatchLocked()
+
 		// TCX-Ⅳ: 启动批量同步管理器
 		if rn.batchSyncMgr != nil {
 			rn.batchSyncMgr.Start()
@@ -910,11 +944,13 @@ func (rn *RaftNode) stepDown(higherTerm int64) {
 	rn.leaderID = ""
 
 	// 如果之前是 Leader，停止心跳
+	needStopBatch := false
 	if oldState == StateLeader {
 		select {
 		case rn.heartbeatStop <- struct{}{}:
 		default:
 		}
+		needStopBatch = rn.proposeBatchOn
 	}
 
 	// 重置选举计时器
@@ -936,6 +972,11 @@ func (rn *RaftNode) stepDown(higherTerm int64) {
 		rn.mu.Lock()
 		rn.batchSyncMgr = NewBatchSyncManager(rn, oldBatchSyncMgr.config)
 		rn.mu.Unlock()
+	}
+
+	// batch11: 锁外停止 group commit 攒批（避免死锁：StopProposeBatch 获取 rn.mu）
+	if needStopBatch {
+		rn.StopProposeBatch()
 	}
 }
 
@@ -967,6 +1008,9 @@ func (rn *RaftNode) heartbeatLoop() {
 		case <-rn.heartbeatStop:
 			rn.logf("[raft/%s] 心跳循环停止 (降级)", rn.id)
 			return
+
+		case <-rn.replicateCh:
+			rn.sendHeartbeats()
 
 		case <-ticker.C:
 			rn.sendHeartbeats()
@@ -1155,11 +1199,213 @@ func (rn *RaftNode) sendHeartbeats() {
 }
 
 // =========================================================================
+// batch11: group commit 攒批层
+// =========================================================================
+
+// StartProposeBatch 启动 group commit 攒批循环（Leader 当选后调用）
+func (rn *RaftNode) StartProposeBatch() {
+	rn.mu.Lock()
+	rn.startProposeBatchLocked()
+	rn.mu.Unlock()
+}
+
+// startProposeBatchLocked 锁内版本（调用前必须持有 rn.mu）
+func (rn *RaftNode) startProposeBatchLocked() {
+	if rn.proposeBatchOn {
+		return
+	}
+	rn.proposeBatchOn = true
+
+	rn.proposeBatchWg.Add(1)
+	go rn.proposeBatchLoop()
+	rn.logf("[raft/%s] group commit 攒批已启动 (batchSize=%d, batchWindow=%v)", rn.id, rn.proposeBatchSize, rn.proposeBatchWin)
+}
+
+
+// StopProposeBatch 停止 group commit 攒批循环
+func (rn *RaftNode) StopProposeBatch() {
+	rn.mu.Lock()
+	if !rn.proposeBatchOn {
+		rn.mu.Unlock()
+		return
+	}
+	rn.proposeBatchOn = false
+	rn.mu.Unlock()
+
+	close(rn.proposeBatchClose)
+	rn.proposeBatchWg.Wait()
+	rn.proposeBatchClose = make(chan struct{})
+	rn.logf("[raft/%s] group commit 攒批已停止", rn.id)
+}
+
+// proposeBatchLoop group commit 攒批主循环
+func (rn *RaftNode) proposeBatchLoop() {
+	defer rn.proposeBatchWg.Done()
+
+	batch := make([]*proposeRequest, 0, rn.proposeBatchSize)
+	timer := time.NewTimer(rn.proposeBatchWin)
+	defer timer.Stop()
+
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		rn.proposeBatchFlush(batch)
+		batch = make([]*proposeRequest, 0, rn.proposeBatchSize)
+		timer.Reset(rn.proposeBatchWin)
+	}
+
+	for {
+		select {
+		case <-rn.proposeBatchClose:
+			for req := range rn.proposeBatchCh {
+				batch = append(batch, req)
+				if len(batch) >= rn.proposeBatchSize {
+					flush()
+				}
+			}
+			flush()
+			return
+		case req := <-rn.proposeBatchCh:
+			batch = append(batch, req)
+			if len(batch) >= rn.proposeBatchSize {
+				flush()
+			}
+		case <-timer.C:
+			flush()
+		}
+	}
+}
+
+// proposeBatchFlush 批量追加日志 + 立即触发复制
+func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
+	n := len(batch)
+
+	rn.mu.Lock()
+	if rn.state != StateLeader {
+		rn.mu.Unlock()
+		leader := rn.leaderID
+		for _, req := range batch {
+			req.resultCh <- proposeResult{err: fmt.Errorf("not leader: current leader is %s", leader)}
+		}
+		return
+	}
+	if rn.walGateClosed {
+		rn.mu.Unlock()
+		for _, req := range batch {
+			req.resultCh <- proposeResult{err: fmt.Errorf("WAL gate closed")}
+		}
+		return
+	}
+
+	term := rn.term
+	baseIdx := int64(len(rn.logs))
+	for i, req := range batch {
+		index := baseIdx + int64(i+1)
+		rn.logs = append(rn.logs, RaftLog{
+			Index:   index,
+			Term:    term,
+			Command: req.command,
+		})
+	}
+
+	rn.stats.Lock()
+	rn.stats.LogCount = len(rn.logs)
+	rn.stats.Unlock()
+	rn.mu.Unlock()
+
+	// 立即触发复制（不等 50ms 心跳 ticker）
+	select {
+	case rn.replicateCh <- struct{}{}:
+	default:
+	}
+
+	// 记录批统计
+	rn.batchStatsMu.Lock()
+	rn.batchCountTotal++
+	rn.batchSizeTotal += int64(n)
+	if n <= 64 {
+		rn.batchSizeHist[n-1]++
+	} else {
+		rn.batchSizeHist[64]++
+	}
+	rn.batchStatsMu.Unlock()
+
+	// 各请求按 index 精确等待 commit
+	for i, req := range batch {
+		index := baseIdx + int64(i+1)
+		go rn.waitForCommit(index, req.resultCh)
+	}
+}
+
+// waitForCommit 等待指定 index 被 commit 后返回结果
+func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult) {
+	commitTimer := time.NewTimer(time.Second)
+	defer commitTimer.Stop()
+	pollTicker := time.NewTicker(50 * time.Millisecond)
+	defer pollTicker.Stop()
+
+	for {
+		select {
+		case <-rn.commitNotify:
+		case <-pollTicker.C:
+		case <-commitTimer.C:
+			resultCh <- proposeResult{err: fmt.Errorf("commit timeout: index=%d not committed after 1s", index)}
+			return
+		case <-rn.shutdownCh:
+			resultCh <- proposeResult{err: fmt.Errorf("node shutdown while waiting for commit at index=%d", index)}
+			return
+		}
+
+		rn.mu.RLock()
+		committed := rn.commitIdx >= index
+		stillLeader := rn.state == StateLeader
+		rn.mu.RUnlock()
+
+		if committed {
+			resultCh <- proposeResult{index: index}
+			return
+		}
+		if !stillLeader {
+			resultCh <- proposeResult{err: fmt.Errorf("lost leadership while waiting for commit at index=%d", index)}
+			return
+		}
+	}
+}
+
+// BatchStats 返回 group commit 批统计
+func (rn *RaftNode) BatchStats() (batchCount, batchSizeTotal int64, hist [65]int64) {
+	rn.batchStatsMu.Lock()
+	defer rn.batchStatsMu.Unlock()
+	return rn.batchCountTotal, rn.batchSizeTotal, rn.batchSizeHist
+}
+
+// =========================================================================
 // Propose — 客户端写入入口
 // Leader直接appendLog → sendHeartbeats(复制) → 等待多数派commit → 返回
 // =========================================================================
 
 func (rn *RaftNode) Propose(command []byte) (int64, error) {
+	// batch11: group commit 路径（攒批 → 批量追加 → 立即复制 → 按 index 精确等待）
+	rn.mu.RLock()
+	batchOn := rn.proposeBatchOn
+	rn.mu.RUnlock()
+
+	if batchOn {
+		req := &proposeRequest{
+			command:  command,
+			resultCh: make(chan proposeResult, 1),
+		}
+		select {
+		case rn.proposeBatchCh <- req:
+		default:
+			return 0, fmt.Errorf("propose batch channel full")
+		}
+		result := <-req.resultCh
+		return result.index, result.err
+	}
+
+	// 原始路径（攒批未启用时的 fallback）
 	rn.mu.Lock()
 	if rn.state != StateLeader {
 		leader := rn.leaderID
