@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -63,12 +66,13 @@ func BatchSyncConfigFromEnv() BatchSyncConfig {
 }
 
 type BatchSyncManager struct {
-	mu     sync.Mutex
-	tasks  map[string]*BatchSyncTask
-	config BatchSyncConfig
-	node   *RaftNode
-	stopCh chan struct{}
-	wg     sync.WaitGroup
+	mu         sync.Mutex
+	tasks      map[string]*BatchSyncTask
+	config     BatchSyncConfig
+	node       *RaftNode
+	stopCh     chan struct{}
+	wg         sync.WaitGroup
+	inProgress sync.Map // 刀三: 并发护栏 — key=peerID, value=struct{}{}
 }
 
 func NewBatchSyncManager(node *RaftNode, config BatchSyncConfig) *BatchSyncManager {
@@ -123,6 +127,12 @@ func (m *BatchSyncManager) SyncLoop() {
 }
 
 func (m *BatchSyncManager) SyncFollower(f LaggingFollower) {
+	// 刀三: 并发护栏 — 每 follower 同时只有 1 个 sync 或 snapshot 操作
+	if _, loaded := m.inProgress.LoadOrStore(f.PeerID, struct{}{}); loaded {
+		return
+	}
+	defer m.inProgress.Delete(f.PeerID)
+
 	client, ok := m.node.GetPeerClient(f.PeerID)
 	if !ok {
 		return
@@ -142,7 +152,13 @@ func (m *BatchSyncManager) SyncFollower(f LaggingFollower) {
 			endIdx = f.EndIdx
 		}
 
-		entries := m.node.GetLogEntries(startIdx, endIdx)
+		entries, errEntries := m.node.GetLogEntries(startIdx, endIdx)
+		if errEntries != nil {
+			m.node.logf("[SYNC] leader=%s follower=%s startIdx=%d endIdx=%d ErrCompacted — 触发快照兜底",
+				m.node.id, f.PeerID, startIdx, endIdx)
+			m.sendSnapshot(f.PeerID)
+			return
+		}
 		if len(entries) == 0 {
 			break
 		}
@@ -198,6 +214,11 @@ func (m *BatchSyncManager) SyncFollower(f LaggingFollower) {
 			m.node.ClearFollowerDegraded(f.PeerID) // R-04修复B: 同步成功清除降级
 			startIdx = endIdx + 1
 		} else {
+			// 刀一: 标准Raft回退探测 — follower拒绝时递减startIdx和nextIdx，禁止跳回1
+			if startIdx > 1 {
+				startIdx--
+			}
+			m.node.DecrementNextIdx(f.PeerID)
 			retryCount++
 			if retryCount > m.config.MaxRetries {
 				m.node.MarkFollowerDegraded(f.PeerID) // R-04修复B: 标记降级
@@ -217,4 +238,69 @@ func (m *BatchSyncManager) SyncFollower(f LaggingFollower) {
 func (m *BatchSyncManager) String() string {
 	return fmt.Sprintf("BatchSyncManager(enabled=%v, lagThreshold=%d, maxBatch=%d, tasks=%d)",
 		m.config.Enable, m.config.LagThreshold, m.config.MaxBatchSize, len(m.tasks))
+}
+
+// sendSnapshot 刀三: 快照兜底路径 — 通过 HTTP 将快照发送给 follower
+func (m *BatchSyncManager) sendSnapshot(peerID string) {
+	if m.node.getSnapshotData == nil {
+		m.node.logf("[SYNC] leader=%s follower=%s getSnapshotData 回调未设置, 跳过快照兜底", m.node.id, peerID)
+		return
+	}
+
+	snapshotData, lastIdx, lastTerm, err := m.node.getSnapshotData()
+	if err != nil {
+		m.node.logf("[SYNC] leader=%s follower=%s 读取快照失败: %v", m.node.id, peerID, err)
+		return
+	}
+
+	httpAddr, ok := m.node.GetPeerHttpAddr(peerID)
+	if !ok {
+		m.node.logf("[SYNC] leader=%s follower=%s HTTP 地址未知, 跳过快照兜底", m.node.id, peerID)
+		return
+	}
+
+	req := struct {
+		SnapshotData      []byte `json:"snapshot_data"`
+		LastIncludedIndex int64  `json:"last_included_index"`
+		LastIncludedTerm  int64  `json:"last_included_term"`
+		LeaderCommit      int64  `json:"leader_commit"`
+	}{
+		SnapshotData:      snapshotData,
+		LastIncludedIndex: lastIdx,
+		LastIncludedTerm:  lastTerm,
+		LeaderCommit:      m.node.getCommitIdx(),
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		m.node.logf("[SYNC] leader=%s follower=%s 快照请求序列化失败: %v", m.node.id, peerID, err)
+		return
+	}
+
+	url := fmt.Sprintf("http://%s/raft/install-snapshot", httpAddr)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		m.node.logf("[SYNC] leader=%s follower=%s HTTP 请求构造失败: %v", m.node.id, peerID, err)
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		m.node.logf("[SYNC] leader=%s follower=%s 快照传输失败: %v", m.node.id, peerID, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		m.node.UpdateFollowerProgress(peerID, lastIdx)
+		m.node.ClearFollowerDegraded(peerID)
+		m.node.logf("[SYNC] leader=%s follower=%s 快照安装成功: lastIncludedIndex=%d, nextIdx=%d",
+			m.node.id, peerID, lastIdx, lastIdx+1)
+	} else {
+		m.node.logf("[SYNC] leader=%s follower=%s 快照安装失败: HTTP %d", m.node.id, peerID, resp.StatusCode)
+	}
 }

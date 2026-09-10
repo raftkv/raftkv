@@ -12,6 +12,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"flag"
@@ -202,6 +204,61 @@ func main() {
 	fmt.Printf("[启动] 批量同步管理器已初始化 (enable=%v, lagThreshold=%d, maxBatch=%d)\n",
 		batchSyncCfg.Enable, batchSyncCfg.LagThreshold, batchSyncCfg.MaxBatchSize)
 
+	// 刀三: 快照兜底路径 — 设置回调 + peerHttpAddrs
+	peerHttpAddrs := make(map[string]string)
+	for pid, addr := range peerAddrs {
+		// 从 gRPC 地址派生 HTTP 地址: 替换端口号
+		// addr 格式: "node-2:9500" → "node-2:9000"
+		colonIdx := strings.LastIndex(addr, ":")
+		if colonIdx >= 0 {
+			peerHttpAddrs[pid] = addr[:colonIdx] + ":" + httpListen
+		}
+	}
+	node.peerHttpAddrs = peerHttpAddrs
+
+	if pipeline != nil && pipeline.Storage() != nil {
+		storage := pipeline.Storage()
+		snapshotPath := storage.WAL().path + ".snapshot.gz"
+
+		node.getSnapshotData = func() ([]byte, int64, int64, error) {
+			data, err := os.ReadFile(snapshotPath)
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("读取快照文件失败: %w", err)
+			}
+			gz, err := gzip.NewReader(bytes.NewReader(data))
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("gzip 解压失败: %w", err)
+			}
+			decompressed, err := io.ReadAll(gz)
+			gz.Close()
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("快照读取失败: %w", err)
+			}
+			var logs []RaftLog
+			if err := json.Unmarshal(decompressed, &logs); err != nil {
+				return nil, 0, 0, fmt.Errorf("快照反序列化失败: %w", err)
+			}
+			if len(logs) == 0 {
+				return nil, 0, 0, fmt.Errorf("快照为空")
+			}
+			last := logs[len(logs)-1]
+			return decompressed, last.Index, last.Term, nil
+		}
+
+		node.installSnapshot = func(data []byte, lastIdx int64, lastTerm int64) error {
+			gzData, err := compressGzip(data)
+			if err != nil {
+				return fmt.Errorf("gzip 压缩失败: %w", err)
+			}
+			if err := os.WriteFile(snapshotPath, gzData, 0644); err != nil {
+				return fmt.Errorf("写入快照文件失败: %w", err)
+			}
+			return node.ReloadFromSnapshot(data, lastIdx, lastTerm)
+		}
+
+		fmt.Printf("[启动] 快照兜底路径已就绪 (snapshotPath=%s)\n", snapshotPath)
+	}
+
 	grpcServer := NewGRPCServer(node, grpcPort)
 	if err := grpcServer.Start(); err != nil {
 		log.Fatalf("gRPC 服务器启动失败: %v", err)
@@ -239,6 +296,36 @@ func main() {
 		gaps := node.FollowerGaps()
 		degraded := node.DegradedFollowers()
 		fmt.Fprintf(w, " gaps=%v degraded=%v", gaps, degraded)
+	})
+	// 刀三: 快照兜底路径 — follower 接收 leader 发来的快照
+	httpMux.HandleFunc("/raft/install-snapshot", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		if node.installSnapshot == nil {
+			http.Error(w, `{"error":"installSnapshot not configured"}`, http.StatusServiceUnavailable)
+			return
+		}
+		var req struct {
+			SnapshotData      []byte `json:"snapshot_data"`
+			LastIncludedIndex int64  `json:"last_included_index"`
+			LastIncludedTerm  int64  `json:"last_included_term"`
+			LeaderCommit      int64  `json:"leader_commit"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"decode failed: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+		if err := node.installSnapshot(req.SnapshotData, req.LastIncludedIndex, req.LastIncludedTerm); err != nil {
+			node.logf("[raft/%s] 快照安装失败: %v", nodeID, err)
+			http.Error(w, fmt.Sprintf(`{"error":"install failed: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		node.logf("[raft/%s] 快照安装成功: lastIncludedIndex=%d, lastIncludedTerm=%d, leaderCommit=%d",
+			nodeID, req.LastIncludedIndex, req.LastIncludedTerm, req.LeaderCommit)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true}`))
 	})
 	idemTable := NewIdemTokenTable()
 	httpMux.HandleFunc("/raft/propose", func(w http.ResponseWriter, r *http.Request) {
@@ -511,6 +598,19 @@ func parsePeerAddrs(raw string) map[string]string {
 		}
 	}
 	return result
+}
+
+func compressGzip(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(data); err != nil {
+		gz.Close()
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 type stdLogger struct{ prefix string }
