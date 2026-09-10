@@ -1,0 +1,13 @@
+﻿D:\235备份文件\V2.4_Performance_Sandbox\e04_loadtest.exe : invalid value "$dur" for flag -duration: parse error
+    + CategoryInfo          : NotSpecified: (invalid value "...on: parse error:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Usage of D:\235备份文件\V2.4_Performance_Sandbox\e04_loadtest.exe:
+  -concurrency int
+    	并发goroutine数 (default 500)
+  -duration duration
+    	压测持续时间 (default 2m0s)
+  -nodes string
+    	节点HTTP端口列表 (default "9001,9002,9003,9004,9005")
+  -write-ratio int
+    	写入百分比(0-100) (default 20)
