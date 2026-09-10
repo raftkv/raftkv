@@ -147,6 +147,17 @@ func (m *BatchSyncManager) SyncFollower(f LaggingFollower) {
 			break
 		}
 
+		// 探针1(M1): batch sync 发送侧观测
+		m.node.logf("[SYNC] leader=%s follower=%s startIdx=%d endIdx=%d entries=%d",
+			m.node.id, f.PeerID, startIdx, endIdx, len(entries))
+		// 探针2(M2): 序列化缓冲大小观测
+		bufBytes := 0
+		for _, e := range entries {
+			bufBytes += 16 + len(e.Command) + len(e.Sm3Hash)
+		}
+		m.node.logf("[SYNCBUF] leader=%s follower=%s entries=%d bufferBytes=%d",
+			m.node.id, f.PeerID, len(entries), bufBytes)
+
 		prevLogIdx := startIdx - 1
 		prevLogTerm := int64(0)
 		if prevLogIdx > 0 {

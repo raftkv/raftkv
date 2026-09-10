@@ -23,6 +23,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"syscall"
@@ -445,6 +447,32 @@ func main() {
 	fmt.Println(strings.Repeat("═", 60))
 	fmt.Println("  所有服务已就绪，等待外部指令接入")
 	fmt.Println(strings.Repeat("═", 60))
+
+	// 探针3(M3): 节点内存自监控 — RSS/heap 超 4GB 时自动触发 heap dump
+	go func() {
+		var ms runtime.MemStats
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		dumped := false
+		for {
+			select {
+			case <-ticker.C:
+				runtime.ReadMemStats(&ms)
+				if ms.Alloc > 4*1024*1024*1024 && !dumped {
+					dumpPath := fmt.Sprintf("/tmp/dump-%s-%d.pb", nodeID, time.Now().Unix())
+					f, err := os.Create(dumpPath)
+					if err != nil {
+						log.Printf("[DUMP] heap dump 创建失败: %v", err)
+						continue
+					}
+					pprof.WriteHeapProfile(f)
+					f.Close()
+					log.Printf("[DUMP] heap dump 已写入: %s (Alloc=%d MiB)", dumpPath, ms.Alloc/1024/1024)
+					dumped = true
+				}
+			}
+		}
+	}()
 
 	// 降级只读模式运行期警示横幅（Fail-Open 专属，closed 模式永不进入此分支）
 	if dg, dgReason := IsDegradedMode(); dg {
