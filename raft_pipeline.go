@@ -100,9 +100,11 @@ type RaftPipeline struct {
 	sinkErrors     int64
 
 	// 快照压缩
-	snapshotThreshold int64
-	snapshotMu        sync.Mutex
-	onSnapshotCompact func(int64) // 快照后日志压缩回调（参数=快照包含的最大 Index）
+	snapshotThreshold   int64
+	snapshotMinInterval time.Duration // 快照最小间隔（节流，防止选举风暴期间频繁快照）
+	lastSnapshotTime    time.Time     // 上次快照时间
+	snapshotMu          sync.Mutex
+	onSnapshotCompact   func(int64) // 快照后日志压缩回调（参数=快照包含的最大 Index）
 }
 
 // NewRaftPipeline 创建 Raft 处理管线
@@ -118,6 +120,13 @@ func NewRaftPipeline(cfg PipelineConfig) (*RaftPipeline, error) {
 	if v := os.Getenv("WAL_SNAPSHOT_THRESHOLD"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			p.snapshotThreshold = int64(n)
+		}
+	}
+
+	p.snapshotMinInterval = 60 * time.Second
+	if v := os.Getenv("WAL_SNAPSHOT_MIN_INTERVAL_MS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			p.snapshotMinInterval = time.Duration(n) * time.Millisecond
 		}
 	}
 
@@ -277,7 +286,8 @@ func (p *RaftPipeline) OnCommit(log RaftLog) {
 
 		if p.snapshotThreshold > 0 && p.totalCommitted.Load() >= p.snapshotThreshold {
 			p.snapshotMu.Lock()
-			if p.totalCommitted.Load() >= p.snapshotThreshold {
+			if p.totalCommitted.Load() >= p.snapshotThreshold && time.Since(p.lastSnapshotTime) >= p.snapshotMinInterval {
+				p.lastSnapshotTime = time.Now()
 				n, oldBytes, err := p.storage.Snapshot()
 				if err != nil {
 					p.walErrors++
