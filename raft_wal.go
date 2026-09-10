@@ -46,7 +46,6 @@ var (
 	walFlushInterval = 5 * time.Millisecond // 批量 fsync 时间窗口
 )
 
-
 func init() {
 	if v := os.Getenv("WAL_FLUSH_INTERVAL_MS"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -371,7 +370,6 @@ func (w *WAL) Replay() ([]walEntry, error) {
 	if _, err := w.file.Seek(0, 0); err != nil {
 		return nil, err
 	}
-
 
 	prefix := make([]byte, walLenPrefix)
 	for {
