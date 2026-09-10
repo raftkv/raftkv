@@ -102,6 +102,7 @@ type RaftPipeline struct {
 	// 快照压缩
 	snapshotThreshold int64
 	snapshotMu        sync.Mutex
+	onSnapshotCompact func(int64) // 快照后日志压缩回调（参数=快照包含的最大 Index）
 }
 
 // NewRaftPipeline 创建 Raft 处理管线
@@ -249,6 +250,12 @@ func (p *RaftPipeline) ReplayWALWithStats() ([]RaftLog, WALReplayStats, error) {
 // OnCommit — Raft 日志提交回调
 // =========================================================================
 
+// SetOnSnapshotCompact 设置快照后日志压缩回调
+// 快照成功后调用，参数为快照包含的最大日志 Index
+func (p *RaftPipeline) SetOnSnapshotCompact(cb func(int64)) {
+	p.onSnapshotCompact = cb
+}
+
 // OnCommit Raft 日志提交回调
 //
 // 当 Raft 日志被提交（commitIdx 前进）时由 RaftNode 调用:
@@ -278,6 +285,11 @@ func (p *RaftPipeline) OnCommit(log RaftLog) {
 				} else {
 					p.logger.Printf("快照触发: %d 条, WAL 释放 %d 字节", n, oldBytes)
 					p.totalCommitted.Store(0)
+
+					// 快照后日志压缩：释放已快照日志的 Command/SM3Hash
+					if p.onSnapshotCompact != nil {
+						p.onSnapshotCompact(log.Index)
+					}
 				}
 			}
 			p.snapshotMu.Unlock()

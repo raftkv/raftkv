@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -67,13 +68,15 @@ func init() {
 // WAL 数据结构
 // =========================================================================
 
-// WAL 预写式日志（1GB 预分配 + 批量 fsync）
+// WAL 预写式日志（1GB 预分配 + 批量 fsync + 轮转）
 type WAL struct {
 	mu     sync.Mutex // 保护文件读写位置
 	file   *os.File
 	path   string
 	offset int64 // 当前写入偏移量
 	closed bool
+
+	closedWALs []string // 已轮转关闭的 WAL 文件路径（按时间顺序）
 
 	batchMu sync.Mutex // 保护批量缓冲
 	batch   []walEntry
@@ -129,6 +132,13 @@ func NewWAL(path string) (*WAL, error) {
 		batch:   make([]walEntry, 0, walMaxBatch),
 		flushCh: make(chan struct{}, 1),
 		closeCh: make(chan struct{}),
+	}
+
+	// 发现已轮转的 closed WAL 文件（崩溃恢复）
+	closedPattern := path + ".closed.*"
+	if matches, _ := filepath.Glob(closedPattern); len(matches) > 0 {
+		sort.Strings(matches)
+		w.closedWALs = matches
 	}
 
 	// 定位到写入偏移
@@ -243,6 +253,13 @@ func (w *WAL) doFlush() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	// 轮转检查：若当前 WAL 已达 90% 容量，先轮转再写入
+	if w.offset > walPreallocSize*9/10 {
+		if err := w.rotateLocked(); err != nil {
+			return fmt.Errorf("WAL 轮转失败: %w", err)
+		}
+	}
+
 	var prefix [walLenPrefix]byte
 	for _, entry := range batch {
 		data, err := json.Marshal(entry)
@@ -263,20 +280,99 @@ func (w *WAL) doFlush() error {
 	return w.file.Sync()
 }
 
+// rotateLocked 轮转 WAL：关闭当前文件 → rename 为 .closed.NNN → 创建新文件
+// 调用前必须持有 w.mu 锁
+func (w *WAL) rotateLocked() error {
+	if err := w.file.Sync(); err != nil {
+		return fmt.Errorf("轮转前 fsync 失败: %w", err)
+	}
+	if err := w.file.Close(); err != nil {
+		return fmt.Errorf("轮转前关闭失败: %w", err)
+	}
+
+	closedPath := fmt.Sprintf("%s.closed.%d", w.path, time.Now().UnixNano())
+	if err := os.Rename(w.path, closedPath); err != nil {
+		return fmt.Errorf("轮转 rename 失败: %w", err)
+	}
+
+	w.closedWALs = append(w.closedWALs, closedPath)
+
+	f, err := os.OpenFile(w.path, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("轮转后创建新 WAL 失败: %w", err)
+	}
+	if err := f.Truncate(walPreallocSize); err != nil {
+		f.Close()
+		return fmt.Errorf("轮转后预分配失败: %w", err)
+	}
+
+	w.file = f
+	w.offset = 0
+	log.Printf("[wal] 轮转完成: %s → %s, closedWALs=%d", w.path, closedPath, len(w.closedWALs))
+	return nil
+}
+
+// replayWALFile 从指定路径回放 WAL 记录（不修改文件）
+func replayWALFile(path string) ([]walEntry, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var entries []walEntry
+	prefix := make([]byte, walLenPrefix)
+	for {
+		_, err := io.ReadFull(f, prefix)
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		length := binary.BigEndian.Uint32(prefix)
+		if length == 0 {
+			break
+		}
+		data := make([]byte, length)
+		if _, err := io.ReadFull(f, data); err != nil {
+			break
+		}
+		var entry walEntry
+		if err := json.Unmarshal(data, &entry); err != nil {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
 // =========================================================================
 // WAL 读取（崩溃恢复）
 // =========================================================================
 
-// Replay 回放 WAL 中所有有效记录
+// Replay 回放 WAL 中所有有效记录（含已轮转的 closed WALs）
 func (w *WAL) Replay() ([]walEntry, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	var entries []walEntry
+
+	// 先回放已轮转的 closed WALs（按时间顺序）
+	for _, closedPath := range w.closedWALs {
+		closedEntries, err := replayWALFile(closedPath)
+		if err != nil {
+			return nil, fmt.Errorf("回放 closed WAL %s 失败: %w", closedPath, err)
+		}
+		entries = append(entries, closedEntries...)
+	}
+
+	// 回放当前 WAL
 	if _, err := w.file.Seek(0, 0); err != nil {
 		return nil, err
 	}
 
-	var entries []walEntry
+
 	prefix := make([]byte, walLenPrefix)
 	for {
 		_, err := io.ReadFull(w.file, prefix)
@@ -436,4 +532,25 @@ func (w *WAL) Offset() int64 {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.offset
+}
+
+// ClosedWALs 返回已轮转的 closed WAL 文件路径列表
+func (w *WAL) ClosedWALs() []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return append([]string(nil), w.closedWALs...)
+}
+
+// RemoveClosedWALs 删除所有已轮转的 closed WAL 文件并清空列表
+func (w *WAL) RemoveClosedWALs() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	for _, p := range w.closedWALs {
+		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("删除 closed WAL %s 失败: %w", p, err)
+		}
+	}
+	w.closedWALs = nil
+	return nil
 }

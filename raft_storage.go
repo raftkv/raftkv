@@ -328,6 +328,11 @@ func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 	// 8. 重置 WAL
 	oldSize := es.wal.offset
 
+	// 清理已轮转的 closed WALs（数据已在快照中）
+	if err := es.wal.RemoveClosedWALs(); err != nil {
+		log.Printf("[storage] 清理 closed WALs 失败（不影响正确性）: %v", err)
+	}
+
 	es.wal.Close()
 	os.Remove(es.wal.path)
 	wal, err := NewWAL(es.wal.path)

@@ -155,6 +155,7 @@ func main() {
 		log.Printf("[启动] ⚠ 管线初始化失败（降级运行）: %v", pipelineErr)
 	} else {
 		node.SetOnCommit(pipeline.OnCommit)
+		pipeline.SetOnSnapshotCompact(node.CompactLogs)
 		sinkOn := pipelineCfg.EnableSink && pipelineCfg.SinkConfig.Enable
 		fmt.Printf("[启动] Raft 管线已接入 (WAL=%v, Sink=%v)\n", pipelineCfg.EnableWAL, sinkOn)
 		defer pipeline.Close()

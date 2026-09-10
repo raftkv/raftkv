@@ -530,12 +530,35 @@ func (rn *RaftNode) IsWALGateClosed() bool {
 }
 
 // SetOnCommit 设置日志提交回调
-// 当 Raft 日志被提交（commitIdx 前进）时调用此回调
+// 当 Raft 日志被提交（commitIdx 前进时）调用此回调
 // 用于接入 WAL 加密持久化 + TiDB/MySQL 异步落盘管线
 func (rn *RaftNode) SetOnCommit(fn func(RaftLog)) {
 	rn.mu.Lock()
 	rn.onCommit = fn
 	rn.mu.Unlock()
+}
+
+// CompactLogs 快照后日志压缩：释放 Index <= upToIndex 的日志的 Command 和 SM3Hash
+// 保留 Index/Term 元数据（Raft 协议需要），仅释放大字段（Command/SM3Hash 占 99%+ 内存）
+// 不改变 logs 数组结构，不影响 1-based 索引 rn.logs[idx-1]
+func (rn *RaftNode) CompactLogs(upToIndex int64) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	compacted := 0
+	for i := 0; i < len(rn.logs); i++ {
+		if rn.logs[i].Index <= upToIndex {
+			rn.logs[i].Command = nil
+			rn.logs[i].SM3Hash = nil
+			compacted++
+		} else {
+			break
+		}
+	}
+
+	if compacted > 0 {
+		rn.logf("[raft/%s] 日志压缩: 截断至 index=%d, 释放 %d 条日志的 Command/SM3Hash", rn.id, upToIndex, compacted)
+	}
 }
 
 // collectCommittedLogs 收集从 oldCommit+1 到 commitIdx 的已提交日志
