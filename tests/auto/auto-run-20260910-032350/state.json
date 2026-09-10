@@ -1,0 +1,24 @@
+﻿{
+    "end_time":  "2026-09-10T03:24:48.8555354+08:00",
+    "run_id":  "20260910-032350",
+    "current_phase":  3,
+    "phases":  {
+                   "P0":  {
+                              "status":  "PASS",
+                              "duration_sec":  10
+                          },
+                   "P1":  {
+                              "status":  "PASS",
+                              "duration_sec":  16
+                          },
+                   "P2":  {
+                              "status":  "PASS",
+                              "duration_sec":  32
+                          },
+                   "P3":  {
+                              "status":  "FAIL",
+                              "duration_sec":  0
+                          }
+               },
+    "start_time":  "2026-09-10T03:23:50.9218773+08:00"
+}

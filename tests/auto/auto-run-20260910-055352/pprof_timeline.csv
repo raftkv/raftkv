@@ -1,0 +1,3 @@
+﻿timestamp,action,tag,detail
+2026-09-10T05:55:42,periodic,60s,TPS=-1 Alive=5/5
+2026-09-10T05:55:46.3840765+08:00,final,profiles,ExitCode=1

@@ -26,10 +26,6 @@ var (
 
 	leaderMu      sync.RWMutex
 	currentLeader string // 修复E: 当前leader端口(共享状态)
-
-	// 修复E增强: 连续非NotLeader失败追踪
-	nonNotLeaderFailCnt atomic.Int64 // 连续非NotLeader失败计数
-	probeCnt            atomic.Int64 // findLeader探测触发次数
 )
 
 var backoffDelays = []time.Duration{10 * time.Millisecond, 50 * time.Millisecond, 200 * time.Millisecond}
@@ -135,7 +131,7 @@ func parseLeaderFromError(respBody []byte, nodesRaw string) string {
 	return ""
 }
 
-// 修复E: 写请求（带NotLeader重定向 + 最多3次重试 + 退避 + 非NotLeader失败探测）
+// 修复E: 写请求（带NotLeader重定向 + 最多3次重试 + 退避）
 // 返回 true 表示最终成功，false 表示3次尝试后仍失败
 func doWrite(client *http.Client, nodesRaw string, id int, n int64) bool {
 	body := fmt.Sprintf(`{"src":"e04-%d","idx":%d,"ts":%d}`, id, n, time.Now().UnixNano())
@@ -155,7 +151,6 @@ func doWrite(client *http.Client, nodesRaw string, id int, n int64) bool {
 				if attempt > 0 {
 					retryOkCnt.Add(1)
 				}
-				nonNotLeaderFailCnt.Store(0) // 成功则重置连续失败计数
 				return true
 			}
 			// 失败响应：NotLeader 触发重定向
@@ -168,30 +163,6 @@ func doWrite(client *http.Client, nodesRaw string, id int, n int64) bool {
 					setLeader(newPort)
 					redirectCnt.Add(1)
 				}
-				nonNotLeaderFailCnt.Store(0) // NotLeader失败也重置
-			} else {
-				// 修复E增强: 非NotLeader失败（如"commit timeout"/"lost leadership"等）
-				// 连续超过50次→主动findLeader探测新leader
-				cnt := nonNotLeaderFailCnt.Add(1)
-				if cnt >= 50 {
-					newPort := findLeader(nodesRaw)
-					if newPort != "" && newPort != leaderPort {
-						setLeader(newPort)
-						probeCnt.Add(1)
-					}
-					nonNotLeaderFailCnt.Store(0)
-				}
-			}
-		} else {
-			// 连接错误也计入非NotLeader失败
-			cnt := nonNotLeaderFailCnt.Add(1)
-			if cnt >= 50 {
-				newPort := findLeader(nodesRaw)
-				if newPort != "" && newPort != leaderPort {
-					setLeader(newPort)
-					probeCnt.Add(1)
-				}
-				nonNotLeaderFailCnt.Store(0)
 			}
 		}
 		// 重试（上限3次，逐次退避）
@@ -202,7 +173,6 @@ func doWrite(client *http.Client, nodesRaw string, id int, n int64) bool {
 	}
 	return false
 }
-
 func main() {
 	duration := flag.Duration("duration", 120*time.Second, "压测持续时间")
 	concurrency := flag.Int("concurrency", 500, "并发goroutine数")
@@ -341,7 +311,6 @@ DONE:
 	fmt.Printf("平均TPS:    %.0f req/s\n", avgTPS)
 	fmt.Printf("重定向:     %d\n", redirectCnt.Load())
 	fmt.Printf("重试:       %d (重试成功=%d)\n", retryCnt.Load(), retryOkCnt.Load())
-	fmt.Printf("探测:       %d (非NotLeader失败触发findLeader)\n", probeCnt.Load())
 	fmt.Printf("P50:        %v\n", lat.percentile(0.50))
 	fmt.Printf("P99:        %v\n", lat.percentile(0.99))
 	fmt.Printf("Max:        %v\n", lat.max())

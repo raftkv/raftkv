@@ -1,0 +1,15 @@
+{
+  "version": "v2.5-batch5",
+  "tps_min": 7000,
+  "p99_max_ms": 150,
+  "success_rate_min_percent": 99.9,
+  "memory_peak_max_mib": 1500,
+  "node_count": 5,
+  "concurrency": 100,
+  "write_ratio": 20,
+  "smoke_duration": "30s",
+  "profile_duration": "20m",
+  "e08_duration": "30m",
+  "soak_duration": "8h",
+  "sample_interval_sec": 5
+}
