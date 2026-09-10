@@ -71,14 +71,14 @@ func TestKnife3_ReloadFromSnapshot_EmptyData(t *testing.T) {
 // 刀三验证: 同一 follower 并发调用 SyncFollower，只有一个执行
 func TestKnife3_ConcurrencyGuard(t *testing.T) {
 	rn := &RaftNode{
-		id:       "node-1",
-		state:    StateLeader,
-		term:     10,
-		logs:     make([]RaftLog, 100),
+		id:        "node-1",
+		state:     StateLeader,
+		term:      10,
+		logs:      make([]RaftLog, 100),
 		commitIdx: 100,
-		nextIdx:  make(map[string]int64),
-		matchIdx: make(map[string]int64),
-		peers:    []PeerInfo{{ID: "node-2"}},
+		nextIdx:   make(map[string]int64),
+		matchIdx:  make(map[string]int64),
+		peers:     []PeerInfo{{ID: "node-2"}},
 	}
 	for i := range rn.logs {
 		rn.logs[i] = RaftLog{Index: int64(i + 1), Term: 10, Command: []byte("cmd")}
@@ -147,14 +147,14 @@ func TestKnife3_SnapshotFallbackOnErrCompacted(t *testing.T) {
 	snapData, _ := json.Marshal(snapLogs)
 
 	rn := &RaftNode{
-		id:           "node-1",
-		state:        StateLeader,
-		term:         10,
-		logs:         make([]RaftLog, 10000),
-		commitIdx:    10000,
-		nextIdx:      make(map[string]int64),
-		matchIdx:     make(map[string]int64),
-		peers:        []PeerInfo{{ID: "node-2"}},
+		id:            "node-1",
+		state:         StateLeader,
+		term:          10,
+		logs:          make([]RaftLog, 10000),
+		commitIdx:     10000,
+		nextIdx:       make(map[string]int64),
+		matchIdx:      make(map[string]int64),
+		peers:         []PeerInfo{{ID: "node-2"}},
 		peerHttpAddrs: make(map[string]string),
 	}
 	for i := range rn.logs {
@@ -199,15 +199,15 @@ func TestKnife3_SnapshotUpdatesNextIdxMatchIdx(t *testing.T) {
 	snapData, _ := json.Marshal(snapLogs)
 
 	rn := &RaftNode{
-		id:           "node-1",
-		state:        StateLeader,
-		term:         10,
-		logs:         make([]RaftLog, 10000),
-		commitIdx:    10000,
-		nextIdx:      make(map[string]int64),
-		matchIdx:     make(map[string]int64),
-		peers:        []PeerInfo{{ID: "node-2"}},
-		peerHttpAddrs: make(map[string]string),
+		id:                "node-1",
+		state:             StateLeader,
+		term:              10,
+		logs:              make([]RaftLog, 10000),
+		commitIdx:         10000,
+		nextIdx:           make(map[string]int64),
+		matchIdx:          make(map[string]int64),
+		peers:             []PeerInfo{{ID: "node-2"}},
+		peerHttpAddrs:     make(map[string]string),
 		degradedFollowers: make(map[string]bool),
 	}
 	for i := range rn.logs {

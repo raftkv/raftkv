@@ -10,14 +10,14 @@ import (
 // 新代码: nextIdx=lastLogIdx+1 → StartIdx=lastLogIdx+1（乐观估计，无需同步）
 func TestKnife1_StartIdxNotOneAfterElection(t *testing.T) {
 	rn := &RaftNode{
-		id:       "node-1",
-		state:    StateLeader,
-		term:     10,
-		logs:     make([]RaftLog, 10000),
+		id:        "node-1",
+		state:     StateLeader,
+		term:      10,
+		logs:      make([]RaftLog, 10000),
 		commitIdx: 10000,
-		nextIdx:  make(map[string]int64),
-		matchIdx: make(map[string]int64),
-		peers:    []PeerInfo{{ID: "node-2"}, {ID: "node-3"}, {ID: "node-4"}, {ID: "node-5"}},
+		nextIdx:   make(map[string]int64),
+		matchIdx:  make(map[string]int64),
+		peers:     []PeerInfo{{ID: "node-2"}, {ID: "node-3"}, {ID: "node-4"}, {ID: "node-5"}},
 	}
 	for i := range rn.logs {
 		rn.logs[i] = RaftLog{Index: int64(i + 1), Term: 10, Command: []byte("cmd")}
@@ -46,14 +46,14 @@ func TestKnife1_StartIdxNotOneAfterElection(t *testing.T) {
 // 刀一验证: follower落后100条时，StartIdx应为合理值（lastLogIdx-99），而非1
 func TestKnife1_FollowerBehind100Entries(t *testing.T) {
 	rn := &RaftNode{
-		id:       "node-1",
-		state:    StateLeader,
-		term:     10,
-		logs:     make([]RaftLog, 10000),
+		id:        "node-1",
+		state:     StateLeader,
+		term:      10,
+		logs:      make([]RaftLog, 10000),
 		commitIdx: 10000,
-		nextIdx:  make(map[string]int64),
-		matchIdx: make(map[string]int64),
-		peers:    []PeerInfo{{ID: "node-2"}},
+		nextIdx:   make(map[string]int64),
+		matchIdx:  make(map[string]int64),
+		peers:     []PeerInfo{{ID: "node-2"}},
 	}
 	for i := range rn.logs {
 		rn.logs[i] = RaftLog{Index: int64(i + 1), Term: 10, Command: []byte("cmd")}
@@ -87,14 +87,14 @@ func TestKnife1_FollowerBehind100Entries(t *testing.T) {
 // 刀一验证: 模拟3次连续选举，每次选举后StartIdx都不为1
 func TestKnife1_ElectionStormNoStartIdxOne(t *testing.T) {
 	rn := &RaftNode{
-		id:       "node-1",
-		state:    StateLeader,
-		term:     10,
-		logs:     make([]RaftLog, 50000),
+		id:        "node-1",
+		state:     StateLeader,
+		term:      10,
+		logs:      make([]RaftLog, 50000),
 		commitIdx: 50000,
-		nextIdx:  make(map[string]int64),
-		matchIdx: make(map[string]int64),
-		peers:    []PeerInfo{{ID: "node-2"}, {ID: "node-3"}},
+		nextIdx:   make(map[string]int64),
+		matchIdx:  make(map[string]int64),
+		peers:     []PeerInfo{{ID: "node-2"}, {ID: "node-3"}},
 	}
 	for i := range rn.logs {
 		rn.logs[i] = RaftLog{Index: int64(i + 1), Term: 10, Command: []byte("cmd")}
