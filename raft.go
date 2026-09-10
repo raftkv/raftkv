@@ -13,6 +13,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -22,6 +24,9 @@ import (
 
 	pb "daijin235/proto"
 )
+
+// ErrCompacted 日志已压缩：请求的索引 < logStartIndex，调用方应走快照路径
+var ErrCompacted = errors.New("log compacted: requested index < logStartIndex")
 
 // =========================================================================
 // 编译时常量
@@ -61,9 +66,10 @@ type RaftNode struct {
 	leaderID string       // 当前已知 Leader
 
 	// --- 日志 ---
-	logs        []RaftLog // 日志条目（索引从 1 开始，0 为哨兵）
-	commitIdx   int64     // 已提交的最高索引
-	lastApplied int64     // 已应用到状态机的最高索引
+	logs         []RaftLog // 日志条目（索引从 1 开始，0 为哨兵）
+	logStartIndex int64    // 日志压缩后的起始索引（< 此索引的条目已被压缩，Command/SM3Hash 为 nil）
+	commitIdx    int64     // 已提交的最高索引
+	lastApplied  int64     // 已应用到状态机的最高索引
 
 	// --- Leader 专用 ---
 	nextIdx  map[string]int64 // peerID → 下一条要发给该 peer 的日志索引
@@ -136,6 +142,11 @@ type RaftNode struct {
 
 	// --- R-04修复C: gap 持续告警 ---
 	gapSince map[string]time.Time // peerID → gap首次超过阈值的时间戳
+
+	// --- 刀三: 快照兜底路径 ---
+	peerHttpAddrs   map[string]string                    // peerID → HTTP address（快照传输用）
+	getSnapshotData func() ([]byte, int64, int64, error) // 回调：返回 (snapshotData, lastIncludedIndex, lastIncludedTerm, error)
+	installSnapshot func([]byte, int64, int64) error     // 回调：参数 (snapshotData, lastIncludedIndex, lastIncludedTerm)
 }
 
 type voteResult struct {
@@ -331,7 +342,15 @@ func (rn *RaftNode) IdentifyLaggingFollowers() []LaggingFollower {
 	var result []LaggingFollower
 	for _, p := range rn.peers {
 		matchIdx := rn.matchIdx[p.ID]
-		gap := rn.commitIdx - matchIdx
+		nextIdx := rn.nextIdx[p.ID]
+		// 刀一: 使用 nextIdx（乐观估计）而非 matchIdx+1 作为同步起点
+		// nextIdx 在 Leader 当选时初始化为 lastLogIdx+1（乐观假设 follower 已跟上）
+		// 心跳探测失败时递减，batch sync 失败时也递减，永不跳回 1
+		estimatedIdx := nextIdx - 1
+		if estimatedIdx < matchIdx {
+			estimatedIdx = matchIdx // matchIdx 是已确认的下界
+		}
+		gap := rn.commitIdx - estimatedIdx
 		if gap > threshold {
 			batchSize := int64(4096)
 			if rn.batchSyncMgr != nil {
@@ -340,11 +359,15 @@ func (rn *RaftNode) IdentifyLaggingFollowers() []LaggingFollower {
 			if gap < batchSize {
 				batchSize = gap
 			}
+			startIdx := nextIdx
+			if startIdx < 1 {
+				startIdx = 1
+			}
 			result = append(result, LaggingFollower{
 				PeerID:    p.ID,
 				Gap:       gap,
 				BatchSize: batchSize,
-				StartIdx:  matchIdx + 1,
+				StartIdx:  startIdx,
 				EndIdx:    rn.commitIdx,
 			})
 		}
@@ -362,9 +385,14 @@ type LaggingFollower struct {
 }
 
 // GetLogEntries 获取指定索引范围的日志条目（转换为proto格式）
-func (rn *RaftNode) GetLogEntries(startIdx, endIdx int64) []*pb.LogEntry {
+// 如果 startIdx < logStartIndex，返回 ErrCompacted，调用方应走快照路径
+func (rn *RaftNode) GetLogEntries(startIdx, endIdx int64) ([]*pb.LogEntry, error) {
 	rn.mu.RLock()
 	defer rn.mu.RUnlock()
+
+	if startIdx < rn.logStartIndex {
+		return nil, ErrCompacted
+	}
 
 	var entries []*pb.LogEntry
 	for i := startIdx; i <= endIdx; i++ {
@@ -377,7 +405,49 @@ func (rn *RaftNode) GetLogEntries(startIdx, endIdx int64) []*pb.LogEntry {
 			})
 		}
 	}
-	return entries
+	return entries, nil
+}
+
+// GetLogStartIndex 获取日志压缩后的起始索引
+func (rn *RaftNode) GetLogStartIndex() int64 {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return rn.logStartIndex
+}
+
+// GetPeerHttpAddr 获取指定 peer 的 HTTP 地址（快照传输用）
+func (rn *RaftNode) GetPeerHttpAddr(peerID string) (string, bool) {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	addr, ok := rn.peerHttpAddrs[peerID]
+	return addr, ok
+}
+
+// ReloadFromSnapshot 从快照数据重载日志
+// snapshotData 是 gzip(json([]RaftLog)) 格式
+// lastIncludedIndex/lastIncludedTerm 是快照中最后一条日志的索引和任期
+func (rn *RaftNode) ReloadFromSnapshot(snapshotData []byte, lastIncludedIndex int64, lastIncludedTerm int64) error {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	var logs []RaftLog
+	if err := json.Unmarshal(snapshotData, &logs); err != nil {
+		return fmt.Errorf("快照反序列化失败: %w", err)
+	}
+
+	if len(logs) == 0 {
+		return fmt.Errorf("快照为空")
+	}
+
+	rn.logs = logs
+	rn.commitIdx = lastIncludedIndex
+	rn.lastApplied = lastIncludedIndex
+	rn.logStartIndex = 1
+
+	rn.logf("[raft/%s] 快照重载: %d 条日志, commitIdx=%d, lastApplied=%d, logStartIndex=1",
+		rn.id, len(logs), lastIncludedIndex, lastIncludedIndex)
+
+	return nil
 }
 
 // GetLogTerm 获取指定索引日志的任期
@@ -405,6 +475,22 @@ func (rn *RaftNode) UpdateFollowerProgress(peerID string, lastMatch int64) {
 		rn.matchIdx[peerID] = lastMatch
 	}
 	rn.nextIdx[peerID] = lastMatch + 1
+}
+
+// DecrementNextIdx 刀一: 标准Raft回退探测 — follower拒绝时递减nextIdx，禁止跳回1
+func (rn *RaftNode) DecrementNextIdx(peerID string) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+	if rn.nextIdx[peerID] > 1 {
+		rn.nextIdx[peerID]--
+	}
+}
+
+// GetNextIdx 获取指定 follower 的 nextIdx
+func (rn *RaftNode) GetNextIdx(peerID string) int64 {
+	rn.mu.RLock()
+	defer rn.mu.RUnlock()
+	return rn.nextIdx[peerID]
 }
 
 // R-04修复A: UpdatePeerClient 更新指定 peer 的 gRPC 客户端（重连回调调用）
@@ -541,6 +627,7 @@ func (rn *RaftNode) SetOnCommit(fn func(RaftLog)) {
 // CompactLogs 快照后日志压缩：释放 Index <= upToIndex 的日志的 Command 和 SM3Hash
 // 保留 Index/Term 元数据（Raft 协议需要），仅释放大字段（Command/SM3Hash 占 99%+ 内存）
 // 不改变 logs 数组结构，不影响 1-based 索引 rn.logs[idx-1]
+// 设置 logStartIndex = upToIndex + 1，GetLogEntries 对 < logStartIndex 的请求返回 ErrCompacted
 func (rn *RaftNode) CompactLogs(upToIndex int64) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
@@ -557,7 +644,9 @@ func (rn *RaftNode) CompactLogs(upToIndex int64) {
 	}
 
 	if compacted > 0 {
-		rn.logf("[raft/%s] 日志压缩: 截断至 index=%d, 释放 %d 条日志的 Command/SM3Hash", rn.id, upToIndex, compacted)
+		rn.logStartIndex = upToIndex + 1
+		rn.logf("[raft/%s] 日志压缩: 截断至 index=%d, logStartIndex=%d, 释放 %d 条日志的 Command/SM3Hash",
+			rn.id, upToIndex, rn.logStartIndex, compacted)
 	}
 }
 
