@@ -178,8 +178,10 @@ func (es *EncryptedStorage) ReplayAll() ([]RaftLog, error) {
 
 // Snapshot 创建 gzip 压缩快照并重置 WAL
 //
-// V2.5-batch5 增量快照：仅读取 WAL 新条目，与现有快照字节级合并，
-// 消除 ReplayAll 全量装载 + json.Marshal 全量序列化的 O(N²) 分配风暴。
+// V2.5-batch7 流式快照：全链路固定 64KB 缓冲，峰值内存与快照总量无关。
+// 弃用 io.ReadAll（batch6 根因：占 heap 增长 72.95%），
+// 弃用 json.Marshal(newLogs) 全量序列化，
+// 弃用 bytes.Buffer 全量压缩。
 // 快照格式不变：gzip(json([log1, log2, ..., logN]))，旧代码 ReplayAll 可直接回放。
 func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 	es.wal.Flush()
@@ -204,55 +206,126 @@ func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 		newLogs = append(newLogs, log)
 	}
 
-	// 3. 读取现有快照（原始解压字节，不 json.Unmarshal）
+	// 3. 流式合并写入临时文件（gzip writer 直写文件，不经 bytes.Buffer）
 	snapshotPath := es.wal.path + ".snapshot.gz"
-	var existingJSON []byte
-	if data, err := os.ReadFile(snapshotPath); err == nil {
-		gz, err := gzip.NewReader(bytes.NewReader(data))
-		if err == nil {
-			existingJSON, err = io.ReadAll(gz)
-			gz.Close()
-			if err != nil {
-				return 0, 0, fmt.Errorf("快照解压失败: %w", err)
+	tmpPath := snapshotPath + ".tmp"
+
+	tmpFile, err := os.Create(tmpPath)
+	if err != nil {
+		return 0, 0, fmt.Errorf("快照临时文件创建失败: %w", err)
+	}
+
+	var commitOK bool
+	defer func() {
+		if !commitOK {
+			tmpFile.Close()
+			os.Remove(tmpPath)
+		}
+	}()
+
+	gzWriter := gzip.NewWriter(tmpFile)
+
+	// 写入 JSON 数组起始 '['
+	if _, err := gzWriter.Write([]byte{'['}); err != nil {
+		gzWriter.Close()
+		return 0, 0, fmt.Errorf("快照写入'['失败: %w", err)
+	}
+
+	// 4. 流式拷贝现有快照内容（去掉外层 [ ]，hold back 最后1字节']'）
+	existingContentWritten := false
+	existingFile, openErr := os.Open(snapshotPath)
+	if openErr == nil {
+		gzReader, gzErr := gzip.NewReader(existingFile)
+		if gzErr == nil {
+			// 跳过第一个字节 '['
+			firstByte := make([]byte, 1)
+			if _, readErr := io.ReadFull(gzReader, firstByte); readErr == nil && firstByte[0] == '[' {
+				buf := make([]byte, 64*1024) // 固定 64KB 缓冲
+				var pending byte
+				hasPending := false
+				for {
+					n, readErr := gzReader.Read(buf)
+					if n > 0 {
+						if hasPending {
+							if _, wErr := gzWriter.Write([]byte{pending}); wErr != nil {
+								gzReader.Close()
+								existingFile.Close()
+								gzWriter.Close()
+								return 0, 0, fmt.Errorf("快照流式写入失败: %w", wErr)
+							}
+							existingContentWritten = true
+						}
+						pending = buf[n-1]
+						hasPending = true
+						if n > 1 {
+							if _, wErr := gzWriter.Write(buf[:n-1]); wErr != nil {
+								gzReader.Close()
+								existingFile.Close()
+								gzWriter.Close()
+								return 0, 0, fmt.Errorf("快照流式写入失败: %w", wErr)
+							}
+							existingContentWritten = true
+						}
+					}
+					if readErr == io.EOF {
+						break
+					}
+					if readErr != nil {
+						gzReader.Close()
+						existingFile.Close()
+						gzWriter.Close()
+						return 0, 0, fmt.Errorf("快照流式读取失败: %w", readErr)
+					}
+				}
+				// 丢弃 pending（应为 ']'）
 			}
+			gzReader.Close()
+		}
+		existingFile.Close()
+	}
+
+	// 5. 逐条写入新日志（单条 json.Marshal，峰值 = 单条 RaftLog 大小）
+	for i, logEntry := range newLogs {
+		if existingContentWritten || i > 0 {
+			if _, err := gzWriter.Write([]byte{','}); err != nil {
+				gzWriter.Close()
+				return 0, 0, fmt.Errorf("快照写入','失败: %w", err)
+			}
+		}
+		logJSON, err := json.Marshal(logEntry)
+		if err != nil {
+			gzWriter.Close()
+			return 0, 0, fmt.Errorf("新日志序列化失败 index=%d: %w", logEntry.Index, err)
+		}
+		if _, err := gzWriter.Write(logJSON); err != nil {
+			gzWriter.Close()
+			return 0, 0, fmt.Errorf("快照写入日志失败: %w", err)
 		}
 	}
 
-	// 4. 字节级合并：existing[0:n-1] + "," + new[1:] （去掉 existing 的 ']' 和 new 的 '['）
-	newJSON, err := json.Marshal(newLogs)
-	if err != nil {
-		return 0, 0, fmt.Errorf("新日志序列化失败: %w", err)
+	// 6. 写入 JSON 数组结束 ']'
+	if _, err := gzWriter.Write([]byte{']'}); err != nil {
+		gzWriter.Close()
+		return 0, 0, fmt.Errorf("快照写入']'失败: %w", err)
 	}
 
-	var merged []byte
-	if len(existingJSON) > 0 && len(newLogs) > 0 {
-		merged = make([]byte, 0, len(existingJSON)+len(newJSON)+1)
-		merged = append(merged, existingJSON[:len(existingJSON)-1]...) // 去掉末尾 ']'
-		merged = append(merged, ',')
-		merged = append(merged, newJSON[1:]...) // 去掉开头 '['
-	} else if len(existingJSON) > 0 {
-		merged = existingJSON
-	} else {
-		merged = newJSON
+	// 7. 关闭 gzip writer + fsync + 原子重命名
+	if err := gzWriter.Close(); err != nil {
+		return 0, 0, fmt.Errorf("gzip 关闭失败: %w", err)
 	}
-
-	// 5. gzip 压缩 + 原子写入
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	if _, err := gz.Write(merged); err != nil {
-		return 0, 0, fmt.Errorf("快照压缩失败: %w", err)
+	if err := tmpFile.Sync(); err != nil {
+		return 0, 0, fmt.Errorf("快照 fsync 失败: %w", err)
 	}
-	gz.Close()
-
-	tmpPath := snapshotPath + ".tmp"
-	if err := os.WriteFile(tmpPath, buf.Bytes(), 0644); err != nil {
-		return 0, 0, fmt.Errorf("快照写入失败: %w", err)
+	if err := tmpFile.Close(); err != nil {
+		return 0, 0, fmt.Errorf("快照临时文件关闭失败: %w", err)
 	}
 	if err := os.Rename(tmpPath, snapshotPath); err != nil {
 		return 0, 0, fmt.Errorf("快照重命名失败: %w", err)
 	}
 
-	// 6. 重置 WAL
+	commitOK = true
+
+	// 8. 重置 WAL
 	oldSize := es.wal.offset
 
 	es.wal.Close()
@@ -263,7 +336,13 @@ func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 	}
 	es.wal = wal
 
-	log.Printf("[storage] 增量快照完成: 新增 %d 条, WAL %d → 0 字节, 快照 %d 字节", len(newLogs), oldSize, buf.Len())
+	snapStat, _ := os.Stat(snapshotPath)
+	snapSize := int64(0)
+	if snapStat != nil {
+		snapSize = snapStat.Size()
+	}
+
+	log.Printf("[storage] 流式快照完成: 新增 %d 条, WAL %d → 0 字节, 快照 %d 字节", len(newLogs), oldSize, snapSize)
 	return len(newLogs), oldSize, nil
 }
 
