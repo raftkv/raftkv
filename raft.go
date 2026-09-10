@@ -66,10 +66,10 @@ type RaftNode struct {
 	leaderID string       // 当前已知 Leader
 
 	// --- 日志 ---
-	logs         []RaftLog // 日志条目（索引从 1 开始，0 为哨兵）
-	logStartIndex int64    // 日志压缩后的起始索引（< 此索引的条目已被压缩，Command/SM3Hash 为 nil）
-	commitIdx    int64     // 已提交的最高索引
-	lastApplied  int64     // 已应用到状态机的最高索引
+	logs          []RaftLog // 日志条目（索引从 1 开始，0 为哨兵）
+	logStartIndex int64     // 日志压缩后的起始索引（< 此索引的条目已被压缩，Command/SM3Hash 为 nil）
+	commitIdx     int64     // 已提交的最高索引
+	lastApplied   int64     // 已应用到状态机的最高索引
 
 	// --- Leader 专用 ---
 	nextIdx  map[string]int64 // peerID → 下一条要发给该 peer 的日志索引
