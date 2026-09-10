@@ -330,7 +330,128 @@ note right of ProtoMod : wire 兼容：match_index 为\noptional int64 field 3\n
 
 本批次核心逻辑的设计说明，按任务一至任务四组织。每项标注触发条件、处理策略、红线遵守。
 
-#### 2.1.3.1 任务一：RPC 往返解剖（动刀前取证）
+#### 2.1.3.1 任务〇：已知 bug 修复（主体手术前清障）
+
+**目标**：在任务一取证与任务二主体手术前，修复两个已知 bug，避免 bug 污染性能验证与 TPS 绝对值。spec.md 1.1 已知风险背景明确：(1) pipeline c=8 挂起 bug 须在任务二主体手术中排查修复；(2) loadgen 4/5 误计 bug 须在任务四阶梯复测中修正。本任务〇将两个 bug 的定位与修复前置到主体手术之前，确保后续性能数据干净。
+
+**约束（红线）**：在修复 Bug A（c=8 挂起）前，禁止进行任何性能参数调优（in-flight 深度、攒批窗口、keepalive 等均不许动）。Bug A 为代码正确性 bug 而非性能问题，须先修 bug 再谈性能。
+
+##### 2.1.3.1.1 Bug A：c=8 fresh cluster 请求全挂起
+
+**现象**：c=8 fresh cluster（全新集群）下请求全挂起，无任何 entry 被复制。此为代码 bug 而非性能问题。
+
+**证据链**：
+- Leader logs=1：leader 日志仅 1 条（heartbeat entry），指向 propose 入口阻塞而非复制路径问题。
+- `proposeBatchFlush` 未被调用：攒批 flush 路径未触发，攒批层未产出。
+- `sendHeartbeats` 在跑但无新 entry：心跳正常但数据路径断流，排除网络/连接层。
+- 请求 0.1ms 失败：客户端请求极快返回失败，非超时形态，指向入口即被拒/阻塞。
+
+**已证伪根因**（排除项）：
+- `fireOnCommit`：已排查排除。
+- `notifyCommit`：已排查排除。
+
+**新怀疑**：`proposeBatchLoop` 卡住（propose 入口阻塞）。propose 请求进入 `proposeBatchLoop` 后因某条件未满足而阻塞，导致请求不进入 pipeline 复制路径。Leader logs=1 指向 propose 入口阻塞。
+
+**定位流程**：
+
+```plantuml
+@startuml
+title Bug A 定位流程
+start
+:复现 c=8 fresh cluster 请求全挂起;
+:确认 Leader logs=1 (仅 heartbeat);
+:确认 sendHeartbeats 在跑 (网络层正常);
+:确认 proposeBatchFlush 未被调用 (攒批未产出);
+:确认请求 0.1ms 失败 (入口即拒/阻塞);
+:排查 proposeBatchLoop 是否卡住;
+if (proposeBatchOn 通道被重置/关闭?) then (是)
+  :定位: proposeBatchOn 通道状态异常\n导致 proposeBatchLoop select 阻塞;
+  :修复: 修正 proposeBatchOn 生命周期管理;
+else (否)
+  if (proposeBatchLoop select 分支死锁?) then (是)
+    :定位: select 分支条件互斥死锁;
+    :修复: 修正 select 分支逻辑;
+  else (否)
+    if (攒批窗口条件永不满足?) then (是)
+      :定位: 攒批窗口触发条件 bug\n(fresh cluster 空日志场景);
+      :修复: 修正攒批窗口触发逻辑;
+    else (否)
+      :定位不到根因\nA 级停机等面审 (spec.md 5.2.3);
+    endif
+  endif
+endif
+:修复后验证: c=8 fresh cluster 请求不再挂起\nLeader logs 随请求增长;
+stop
+@enduml
+```
+
+**排查维度（按优先级）**：
+1. **`proposeBatchOn` 通道状态**：检查 `proposeBatchOn` 通道是否在集群初始化/leader 切换时被重置或关闭，导致 `proposeBatchLoop` 的 `select` 分支永久阻塞。这是首要怀疑点——Leader logs=1 + proposeBatchFlush 未调用共同指向 propose 入口断流。
+2. **`proposeBatchLoop` select 分支死锁**：检查 `select` 各分支条件是否存在互斥死锁（如等待 quorum 应答与等待攒批窗口同时满足但互为前提）。
+3. **攒批窗口触发条件**：检查攒批窗口触发条件是否在 fresh cluster（空日志）场景下永不满足（如窗口大小依赖已有日志长度）。
+
+**修复方案**：
+- 若 `proposeBatchOn` 通道状态异常：修正通道生命周期管理，确保 leader 切换/集群初始化时通道正确创建且不重复关闭。
+- 若 select 分支死锁：修正分支逻辑，消除互斥等待。
+- 若攒批窗口条件 bug：修正触发逻辑，确保 fresh cluster 场景下窗口可正常触发。
+- 修复须通过任务二单测（`test_log_match_chain` 等）+ c=8 fresh cluster 复测验证。
+
+**修复后验证**：
+- c=8 fresh cluster 请求不再挂起：Leader logs 随请求数增长，`proposeBatchFlush` 被正常调用。
+- 请求成功率 > 0（不再是 0.1ms 全失败）。
+- 不引入新回归：任务二 5 项正确性单测全部通过。
+
+**异常处理**：
+- 定位不到根因：A 级停机等面审（spec.md 5.2.3 异常场景），不继续主体手术。
+
+##### 2.1.3.1.2 Bug B：loadgen 误计成功
+
+**现象**：loadgen 按 `workerID % 5` 分配端点，4/5 请求发往 follower 被拒但被计为成功。
+
+**根因**：loadgen 成功判定仅检查 HTTP 200 状态码，未检查 response body 的 `success` 字段。follower 拒绝写请求时返回 HTTP 200 + `{"success":false}`，loadgen 误计为成功。
+
+**影响**：
+- 历史所有 TPS 绝对值失真：被计为"成功"的请求含 4/5 发往 follower 的拒绝请求。
+- 真实写 TPS 仅 ~1172（仅 1/5 发往 leader 的请求真正成功）。
+- 任务四阶梯复测的 TPS / 成功率指标全部失真，验收线判定无效。
+
+**修复方案**：
+
+```plantuml
+@startuml
+title Bug B 修复：loadgen 成功判定修正
+start
+:读取 loadgen 当前成功判定逻辑\n(仅 HTTP 200);
+:修正为双重判定:\n(1) HTTP 200\n(2) response.body.success == true;
+:修正端点分配:\n仅发 leader 端点 (移除 workerID % 5 分配);
+:复测: 阶梯压测验证 TPS/成功率指标干净;
+stop
+@enduml
+```
+
+**修复内容**：
+1. **成功判定修正**：loadgen 收到响应后，除 HTTP 200 外，须解析 response body 并校验 `success` 字段为 `true`，否则计为失败。
+2. **端点分配修正**：移除 `workerID % 5` 轮询端点逻辑，所有请求仅发往 leader 端点（spec.md 1.1 已知风险背景明确"须在任务四阶梯复测中修正 loadgen 仅发 leader 端点"）。
+3. **历史数据标注**：在 `decisions.md` 标注历史 TPS 失真，真实写 TPS 仅 ~1172，历史数据不作为 batch12 对照基线（仅 batch10/11 阶梯对照基线的相对趋势可参考）。
+
+**修复后验证**：
+- loadgen 成功率统计仅含真正成功的写请求（leader 接受且持久化）。
+- 阶梯复测 TPS 反映真实写吞吐，不再含 follower 拒绝请求。
+- 修复后 c=8 fresh cluster 成功率与 TPS 可作为有效指标。
+
+**红线遵守**：Bug B 修复仅改 loadgen 客户端判定逻辑与端点分配，不动服务端 fsync / quorum / 选举超时。
+
+##### 2.1.3.1.3 任务〇执行顺序与门禁
+
+**执行顺序**：先 Bug A 后 Bug B。Bug A 修复前禁止性能调优；Bug A 修复后 c=8 不再挂起，方可进入 Bug B 修正 loadgen 指标，再进入任务一取证。
+
+**门禁**：任务〇完成后须满足：
+- c=8 fresh cluster 请求不再挂起（Bug A 修复验证通过）。
+- loadgen 成功判定含 response body `success` 字段（Bug B 修复验证通过）。
+- 任务二 5 项正确性单测全部通过（Bug A 修复未引入回归）。
+- 全部决策落盘 `decisions.md`。
+
+#### 2.1.3.2 任务一：RPC 往返解剖（动刀前取证）
 
 **目标**：对 leader→follower AppendEntries 单次往返做耗时分解，核查连接复用，修便宜嫌疑。
 
@@ -378,7 +499,7 @@ stop
 
 **红线遵守**：任务一仅取证与修连接复用（便宜嫌疑），不动 fsync / quorum / 选举超时。
 
-#### 2.1.3.2 任务二：pipeline AppendEntries（主体手术）
+#### 2.1.3.3 任务二：pipeline AppendEntries（主体手术）
 
 **目标**：leader 对每个 follower 维护 in-flight 深度 8 的流水线，乱序应答按 term/index 对账，正确性不变。
 
@@ -447,7 +568,7 @@ note right of Resetting : nextIdx 重置为 matchIdx+1\n新 leader 选出后按 
 - 不缩选举超时：选举超时配置不动。
 - 术式同源：etcd 3.x 同源方案（per-follower pipeline + in-flight + 乱序对账 + 选举打断）。
 
-#### 2.1.3.3 任务三：成功率回归定性（还 batch11 的账）
+#### 2.1.3.4 任务三：成功率回归定性（还 batch11 的账）
 
 **目标**：定位 batch11 成功率 99.40%~99.97%（首破 99.9% 线）的失败形态，定位到则修复，定位不到则回滚 group commit 攒批层。
 
@@ -490,7 +611,7 @@ stop
 
 **红线遵守**：任务三仅定位与修复/回滚攒批层，不动 fsync / quorum / 选举超时。
 
-#### 2.1.3.4 任务四：阶梯复测 + 对照验收
+#### 2.1.3.5 任务四：阶梯复测 + 对照验收
 
 **目标**：按 8→16→32→64→128→256 并发、每级 3min 阶梯复测，逐级报 8 指标，判定验收线，达标则稳态浸泡，未达标则败报 + 新瓶颈定位。
 
@@ -935,6 +1056,28 @@ note right of PipelineConfig : InFlightDepth 默认 8\n其余字段沿用 Defaul
 | P99/P50/P95 缺席 | 中 | harness 采集遗漏 | 验收线无法判定 | A 级停机项；连续两批缺失纪律升格（spec.md 5.4.3.6） |
 | 调参刷数诱惑 | 低 | 未达标时人为调参 | 虚假达标 | 红线 5.4.1.6 禁止；败报照交不追责 |
 | 自行开始新优化 | 低 | commit + tag 后继续优化 | 越界 | 红线 1.4.4 禁止；签发后停机等晨间面审 |
+| bundle 备份失败 | 高 | git bundle create 失败或 bundle 不可读 | 无全量回滚安全垫，后续操作无保护 | A 级停机项（spec.md 5.0.1）；禁止在备份未验证前执行任何改动操作 |
+| 工作树无法回归干净态 | 高 | 验尸 stash 后工作树仍有未提交改动 | batch12 基线不干净，来历不明代码可能混入手术 | A 级停机项（spec.md 5.0.2 异常 2）；停机等面审 |
+| SDD 产物文件缺失 | 高 | .codeartsdoer/specs/raft_pipeline_append/ 下缺少任一文件 | SDD 产物无法迁移入仓库 | A 级停机项（spec.md 5.0.3 异常）；停机等面审 |
+| 验尸无法判定来历 | 中 | 某文件改动无法明确判定属于哪一类 | 来历不明代码风险 | B 级记录绕行（spec.md 5.0.2 异常 1）；保守 stash 保存并标注"来历不明" |
+| Bug A 定位不到根因 | 高 | c=8 挂起三个排查维度均未命中 | 主体手术无法进行（bug 污染性能验证） | A 级停机等面审（spec.md 5.2.3）；不继续主体手术 |
+| Bug B loadgen 误计未修正 | 中 | loadgen 成功判定仍仅检查 HTTP 200 | 任务四 TPS/成功率指标失真，验收线判定无效 | 任务〇修正为双重判定 + 仅发 leader 端点；历史数据标注失真 |
+| 在修复 Bug A 前进行性能调优 | 高 | Bug A 未修复即调 in-flight 深度/攒批窗口等 | bug 污染性能数据，虚假达标 | 红线：修复 Bug A 前禁止任何性能参数调优 |
+
+#### 2.5.1.1 分级授权总览（spec.md 6.5）
+
+本批次 A/B/C 分级授权沿用既有分级体系，本批次 A 级追加 bundle 备份失败 / 工作树无法回归干净态 / SDD 产物文件缺失三项。全部决策逐条落盘 `decisions.md`（spec.md 6.5.4）。
+
+| 级别 | 适用场景 | 系统行为 | spec.md 依据 |
+|------|---------|---------|-------------|
+| A 级停机等面审 | OOM / 节点死亡 / 数据正确性问题 / 任务一分解数据与模型对不上（瓶颈在已列嫌疑外）/ bundle 备份失败 / 工作树无法回归干净态 / SDD 产物文件缺失 / Bug A 定位不到根因 / P99/P50/P95 缺席 / 崩溃恢复语义变化 / 选举打断遗漏在途批次 / 乱序对账错误 | 落盘 decisions.md，停机等晨间面审，不继续后续操作 | 6.5.1 / 5.0.1 / 5.0.2 / 5.0.3 / 5.1.3 / 5.2.3 / 5.4.3 |
+| B 级记录绕行 | 单级异常降级续跑 / flaky 单测重跑 / 分支决策按任务一路径执行 / 验尸无法判定来历（保守 stash）/ 连接复用核查无法判定 / 失败形态无法定性 | 落盘 decisions.md，记录绕行，继续执行 | 6.5.2 / 5.0.2 / 5.1.3 / 5.3.3 |
+| C 级忽略记档 | 日志格式 / 统计小数等小毛病 | 落盘 decisions.md 记档，忽略 | 6.5.3 |
+
+分级授权与红线对照：
+- A 级覆盖全部正确性红线（4.2.3 乱序应答 / 4.2.4 更高 term / 4.2.5 选举打断 / 4.2.6 commit 推进 / 4.2.7 崩溃恢复）与前置安全红线（4.2.8 bundle 备份 / 4.2.9 D 盘唯一活仓库）。
+- B 级覆盖非正确性的执行分支决策与保守路径选择。
+- C 级仅覆盖不影响验收线判定的小毛病。
 
 ### 2.5.2 回滚锚点
 
@@ -967,4 +1110,157 @@ note right of PipelineConfig : InFlightDepth 默认 8\n其余字段沿用 Defaul
 | 4.3.2 禁止去 fsync / 跳 quorum / 缩选举超时 | v2.4-pre-batch12 | 代码审查发现触碰 fsync/quorum/选举超时 |
 | 5.4.1.6 禁止调参刷数 | 不回滚，交败报 | 未达标时人为调参 |
 | 1.4.4 禁止自行开始新优化 | 不回滚，停机 | 签发后继续优化 |
+
+## 2.6 复工前置流程设计
+
+本节覆盖 spec.md 5.0 前置安全与基线统一的三项工作：(1) git bundle 全量备份并验证可读；(2) 三个未提交改动验尸与处置；(3) SDD 产物迁移。三项前置完成后方从 tag v2.4-post-batch11 干净锚点开工执行任务〇至任务四。本节为 batch12 夜间全自主复工的安全前提，任一前置失败即 A 级停机。
+
+### 2.6.1 复工前置流程总览
+
+```plantuml
+@startuml
+title 复工前置流程（spec.md 5.0）
+start
+:切换工作目录至 D 盘仓库 (唯一活仓库, spec.md 4.2.9);
+partition "5.0.1 bundle 全量备份" {
+  :git bundle create ../daijin235-v24-backup-pre-batch12.bundle --all;
+  :git bundle verify 验证可读;
+  if (bundle 验证通过?) then (否)
+    :A 级停机项 (spec.md 5.0.1 异常)\n落盘 decisions.md, 停机等面审;
+    stop
+  else (是)
+  endif
+}
+partition "5.0.2 三个未提交改动验尸" {
+  :git diff raft.go / raft_batch11_test.go / tools/loadgen/main.go;
+  :逐文件回答验尸三问\n(改了什么 / 是否 batch11 已验证范围 / 是否与回归相关);
+  :处置: 一律 stash 保存并标注 (不许 commit 不许丢弃);
+  if (工作树回归 tag v2.4-post-batch11 干净态?) then (否)
+    :A 级停机项 (spec.md 5.0.2 异常 2)\n落盘 decisions.md, 停机等面审;
+    stop
+  else (是)
+  endif
+}
+partition "5.0.3 SDD 产物迁移" {
+  :复制 .codeartsdoer/specs/raft_pipeline_append/\n  => docs/specs/raft_pipeline_append/;
+  :commit "D3-batch12-sdd-artifacts";
+  if (迁移文件齐全?) then (否)
+    :A 级停机项 (spec.md 5.0.3 异常)\n落盘 decisions.md, 停机等面审;
+    stop
+  else (是)
+  endif
+}
+:从 tag v2.4-post-batch11 干净锚点开工 (spec.md 6.7.1);
+:打 tag v2.4-pre-batch12 (回滚锚点, spec.md 6.7.2);
+:执行任务〇 (已知 bug 修复) -> 任务一 -> 任务二 -> 任务三 -> 任务四;
+stop
+@enduml
+```
+
+前置门禁（spec.md 5.0.1 业务规则 3）：bundle 备份未完成或未验证前，禁止执行任何后续操作（验尸 / SDD 迁移 / 打 tag / 任务〇至四）。三项前置依次串行，任一环节失败即终止流程。
+
+### 2.6.2 bundle 全量备份与验证（spec.md 5.0.1）
+
+**目标**：开工前在 D 盘仓库执行 git bundle 全量备份，验证可读后作为全量回滚安全垫。
+
+**备份命令**：
+- `git bundle create ../daijin235-v24-backup-pre-batch12.bundle --all`：落盘全量备份至仓库上级目录，包含全量分支与 tag。
+- 备份产物：`../daijin235-v24-backup-pre-batch12.bundle`（spec.md 1.3.1 核心输出）。
+
+**验证可读**：
+- `git bundle verify ../daijin235-v24-backup-pre-batch12.bundle`：验证 bundle 可读。
+- 或 `git clone ../daijin235-v24-backup-pre-batch12.bundle /tmp/verify-bundle`：clone 测试验证可读。
+
+**验收条件**（spec.md 5.0.1）：
+- bundle 文件已生成且包含全量分支与 tag。
+- bundle 验证通过（可读）。
+- 未验证通过则禁止后续所有操作。
+
+**异常处理**（spec.md 5.0.1 异常场景）：
+- bundle 备份失败（`git bundle create` 失败或 bundle 不可读）：判定为 A 级停机项，落盘 `decisions.md`，停机等面审，不继续任何后续操作。
+
+**红线遵守**（spec.md 4.2.8 / 4.2.9）：
+- bundle 备份失败为 A 级停机项，禁止在备份未验证前执行任何改动操作。
+- D 盘仓库为唯一活仓库，所有改动操作仅在 D 盘仓库执行；禁止在非 D 盘仓库执行任何改动操作。
+
+### 2.6.3 三个未提交改动验尸与处置（spec.md 5.0.2 + 6.8）
+
+**目标**：对三个未提交改动文件逐文件验尸，判定来历后统一 stash，工作树回归 tag v2.4-post-batch11 干净态，确保 batch12 手术不混入来历不明代码。
+
+**验尸对象**（spec.md 6.8.1）：
+- `raft.go`：group commit 攒批层改动。
+- `raft_batch11_test.go`：7 个单测。
+- `tools/loadgen/main.go`：Go 并发压测客户端。
+
+**验尸三问**（spec.md 6.8.2）：
+1. **改了什么**：逐 hunk 概述（`git diff <file>` 逐 hunk 查看）。
+2. **是否属于 batch11 已验证范围**：对照 batch11 证据与 commit 552a247 已含内容，判定为以下三类之一：
+   - 遗留 WIP（batch11 开发中未提交的工作进度）。
+   - 漏提交残片（batch11 验收态应含但 commit 552a247 漏提交的片段）。
+   - tag 之后的新改动（tag v2.4-post-batch11 之后产生的新改动）。
+3. **是否可能与 batch11 成功率回归 99.40% 相关**：结合改动内容与 batch11 成功率回归形态判定相关性。
+
+**判定标准**：
+- 来历明确且属于 batch11 已验证范围（漏提交残片，无害）→ 标注"漏提交残片，无害"。
+- 来历明确但与 batch11 验收态无关/可疑 → 标注"无关/可疑"。
+- 来历无法明确判定 → 标注"来历不明"（B 级绕行，保守 stash）。
+
+**处置规则**（spec.md 6.8.3 + 1.4.9）：
+- **不许 commit 不许丢弃**：验尸过程仅查看与判定，不许 `git commit` 也不许 `git checkout -- <file>` 丢弃，处置仅限 `git stash` 保存并标注说明。
+- 一律 stash 保存并标注说明：
+  - 与 batch11 验收态无关/可疑 → stash。
+  - 判定为 batch11 漏提交且无害 → 也先 stash 留待面审（不让来历不明代码混入手术）。
+- stash 标注：`git stash push -m "验尸: <file> | 判定: <来历判定> | 与回归相关性: <相关/无关/可疑>"`。
+
+**干净态确认**（spec.md 6.8.4）：
+- 所有 stash 完成后，工作树必须回归 tag v2.4-post-batch11 干净态（`git status` 无未提交改动，`git describe` == v2.4-post-batch11）。
+- 若 stash 后工作树仍有未提交改动：A 级停机项（spec.md 5.0.2 异常场景 2），停机等面审。
+
+**落盘要求**（spec.md 6.8.5 + 4.4.6）：
+- 全部验尸结论（改了什么 / 是否属于 batch11 已验证范围 / 是否与回归相关 / 处置方式）落盘 `tests\evidence\d3-batch12\decisions.md`，留待晨间面审。
+- 验尸记录含三个文件的逐 hunk 概述、来历判定、与 batch11 成功率回归相关性判定、stash 处置说明（spec.md 1.3.2）。
+
+**异常处理**（spec.md 5.0.2 异常场景）：
+- 无法判定来历：B 级记录绕行，保守 stash 保存并标注"来历不明"，落盘 `decisions.md`，该改动不进基线。
+- 工作树无法回归干净态：A 级停机项，落盘 `decisions.md`，停机等面审。
+
+**与任务三的联动**（spec.md 5.3.1.2）：
+- 若验尸判定 `raft.go` 未提交改动与 batch11 成功率回归 99.40% 相关，该改动的验尸结论一并纳入任务三的定性证据。
+
+### 2.6.4 SDD 产物迁移（spec.md 5.0.3）
+
+**目标**：将 `.codeartsdoer/specs/raft_pipeline_append/` 下的 SDD 产物迁移入仓库 `docs/specs/raft_pipeline_append/`，commit "D3-batch12-sdd-artifacts"。
+
+**迁移内容**（spec.md 5.0.3 业务规则 1）：
+- 源：`.codeartsdoer/specs/raft_pipeline_append/`
+- 目标：`docs/specs/raft_pipeline_append/`
+- 文件：`spec.md` / `design.md` / `tasks.md` 三个文件复制。
+
+**提交规则**（spec.md 5.0.3 业务规则 2）：
+- 迁移后 commit "D3-batch12-sdd-artifacts"，含三个 SDD 产物文件。
+
+**验收条件**：
+- 仓库 `docs/specs/raft_pipeline_append/` 下存在 `spec.md` / `design.md` / `tasks.md` 三个文件。
+- 产生 commit "D3-batch12-sdd-artifacts" 且含三个 SDD 产物文件。
+
+**异常处理**（spec.md 5.0.3 异常场景）：
+- SDD 产物文件缺失（`.codeartsdoer/specs/raft_pipeline_append/` 下缺少任一文件）：A 级停机项，落盘 `decisions.md`，停机等面审。
+
+**执行时机**：在 bundle 备份验证通过 + 验尸处置完成 + 工作树回归干净态之后执行。迁移 commit 在 tag v2.4-pre-batch12 打 tag 之前完成（迁移属前置安全，不属 batch12 主体改动）。
+
+### 2.6.5 复工前置与任务流的衔接
+
+复工前置流程（2.6.1~2.6.4）完成后，工作树处于 tag v2.4-post-batch11 干净态，此时方可：
+
+1. 打 tag v2.4-pre-batch12（回滚锚点，spec.md 6.7.2）。
+2. 执行任务〇（已知 bug 修复，2.1.3.1）——先 Bug A 后 Bug B，Bug A 修复前禁止性能调优。
+3. 执行任务一（RPC 往返解剖，2.1.3.2）。
+4. 执行任务二（pipeline 主体手术，2.1.3.3）。
+5. 执行任务三（成功率回归定性，2.1.3.4）——若验尸判定 raft.go 改动与回归相关，纳入定性证据。
+6. 执行任务四（阶梯复测 + 对照验收，2.1.3.5）——loadgen 已在任务〇修正，指标干净。
+
+衔接约束：
+- 前置任一环节失败（bundle / 验尸 / SDD 迁移）→ A 级停机，不进入任务流。
+- 任务〇 Bug A 定位不到根因 → A 级停机，不进入任务一。
+- 全流程完成后签发 commit D3-batch12-pipeline + tag v2.4-post-batch12，停机等晨间面审（spec.md 6.7.3）。
 
