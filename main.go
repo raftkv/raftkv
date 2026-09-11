@@ -160,8 +160,12 @@ func main() {
 	} else {
 		node.SetOnCommit(pipeline.OnCommit)
 		pipeline.SetOnSnapshotCompact(node.CompactLogs)
+		scheduler := NewSnapshotScheduler(pipeline.Storage(), node.CompactLogs, node, log.New(os.Stderr, "[snapshot-sched] ", log.LstdFlags))
+		scheduler.Start()
+		pipeline.SetScheduler(scheduler)
 		sinkOn := pipelineCfg.EnableSink && pipelineCfg.SinkConfig.Enable
-		fmt.Printf("[启动] Raft 管线已接入 (WAL=%v, Sink=%v)\n", pipelineCfg.EnableWAL, sinkOn)
+		fmt.Printf("[启动] Raft 管线已接入 (WAL=%v, Sink=%v, 异步快照=启用)\n", pipelineCfg.EnableWAL, sinkOn)
+		defer scheduler.Stop()
 		defer pipeline.Close()
 	}
 
