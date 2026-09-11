@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -92,19 +91,19 @@ type WorkerStats struct {
 }
 
 type LoadGen struct {
-	concurrency int
-	duration    time.Duration
-	endpoints   []string
-	mode        string
-	writeRatio  int
-	client      *http.Client
-	stats       []*WorkerStats
-	totalReq    int64
+	concurrency  int
+	duration     time.Duration
+	endpoints    []string
+	mode         string
+	writeRatio   int
+	client       *http.Client
+	stats        []*WorkerStats
+	totalReq     int64
 	totalSuccess int64
 	totalFail    int64
-	leaderEP    string
-	leaderAt    time.Time
-	leaderMu    sync.Mutex
+	leaderEP     string
+	leaderAt     time.Time
+	leaderMu     sync.Mutex
 }
 
 func NewLoadGen(concurrency int, duration time.Duration, endpoints []string, mode string, writeRatio int) *LoadGen {
@@ -156,25 +155,41 @@ func (lg *LoadGen) findLeader() string {
 	return lg.endpoints[0]
 }
 
+func (lg *LoadGen) invalidateLeader() {
+	lg.leaderMu.Lock()
+	lg.leaderEP = ""
+	lg.leaderAt = time.Time{}
+	lg.leaderMu.Unlock()
+}
+
 func (lg *LoadGen) doWrite(workerID int, keyIdx int64) bool {
-	ep := lg.findLeader()
 	body := fmt.Sprintf(`{"key":"loadgen_%d_%d","value":"v%d"}`, workerID, keyIdx, keyIdx)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("http://%s/raft/propose", ep), bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
 	start := time.Now()
-	resp, err := lg.client.Do(req)
+	ep := lg.findLeader()
+
+	for attempt := 0; attempt < 3; attempt++ {
+		req, _ := http.NewRequest("POST", fmt.Sprintf("http://%s/raft/propose", ep), bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := lg.client.Do(req)
+		if err != nil {
+			lg.invalidateLeader()
+			ep = lg.findLeader()
+			continue
+		}
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == 200 && !bytes.Contains(respBody, []byte(`"success":false`)) {
+			latency := float64(time.Since(start).Microseconds()) / 1000.0
+			lg.stats[workerID].histogram.Record(latency)
+			atomic.AddInt64(&lg.stats[workerID].success, 1)
+			return true
+		}
+		lg.invalidateLeader()
+		ep = lg.findLeader()
+	}
+
 	latency := float64(time.Since(start).Microseconds()) / 1000.0
 	lg.stats[workerID].histogram.Record(latency)
-	if err != nil {
-		atomic.AddInt64(&lg.stats[workerID].fail, 1)
-		return false
-	}
-	respBody, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode == 200 && !bytes.Contains(respBody, []byte(`"success":false`)) {
-		atomic.AddInt64(&lg.stats[workerID].success, 1)
-		return true
-	}
 	atomic.AddInt64(&lg.stats[workerID].fail, 1)
 	return false
 }
@@ -279,17 +294,17 @@ func (lg *LoadGen) Run() Result {
 }
 
 type Result struct {
-	Concurrency int     `json:"concurrency"`
-	Duration    float64 `json:"duration_sec"`
-	TotalReq    int64   `json:"total_req"`
-	Success     int64   `json:"success"`
-	Fail        int64   `json:"fail"`
-	TPS         float64 `json:"tps"`
-	SuccessRate float64 `json:"success_rate"`
-	P50         float64 `json:"p50_ms"`
-	P95         float64 `json:"p95_ms"`
-	P99         float64 `json:"p99_ms"`
-	MaxMs       float64 `json:"max_ms"`
+	Concurrency int               `json:"concurrency"`
+	Duration    float64           `json:"duration_sec"`
+	TotalReq    int64             `json:"total_req"`
+	Success     int64             `json:"success"`
+	Fail        int64             `json:"fail"`
+	TPS         float64           `json:"tps"`
+	SuccessRate float64           `json:"success_rate"`
+	P50         float64           `json:"p50_ms"`
+	P95         float64           `json:"p95_ms"`
+	P99         float64           `json:"p99_ms"`
+	MaxMs       float64           `json:"max_ms"`
 	Histogram   *LatencyHistogram `json:"-"`
 }
 
