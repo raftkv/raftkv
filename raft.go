@@ -12,11 +12,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -1044,14 +1046,20 @@ func (rn *RaftNode) sendHeartbeats() {
 	// 锁内为每个 peer 构造增量 entries 切片 + prevLog 快照，构造完立即解锁再发送（持锁不做网络 IO）。
 	logEnd := int64(len(rn.logs))
 	type peerPlan struct {
-		prevIdx  int64
-		prevTerm int64
-		entries  []*pb.LogEntry
+		prevIdx       int64
+		prevTerm      int64
+		entries       []*pb.LogEntry
+		needsSnapshot bool // follower nextIdx < logStartIndex，需走快照路径
 	}
 	plans := make(map[string]*peerPlan, len(peers))
 	for _, p := range peers {
 		pp := &peerPlan{}
 		start := nextIdxSnapshot[p.ID]
+		if start < rn.logStartIndex {
+			pp.needsSnapshot = true
+			plans[p.ID] = pp
+			continue
+		}
 		if start > 1 {
 			pp.prevIdx = start - 1
 			if pp.prevIdx-1 >= 0 && int(pp.prevIdx-1) < len(rn.logs) {
@@ -1093,6 +1101,49 @@ func (rn *RaftNode) sendHeartbeats() {
 			}
 
 			plan := plans[p.ID]
+
+			if plan.needsSnapshot {
+				if rn.batchSyncMgr != nil {
+					rn.batchSyncMgr.sendSnapshot(p.ID)
+				} else if rn.getSnapshotData != nil {
+					snapshotData, lastIdx, lastTerm, err := rn.getSnapshotData()
+					if err != nil {
+						rn.logf("[raft/%s] follower=%s 快照读取失败: %v", rn.id, p.ID, err)
+						return
+					}
+					httpAddr, ok := rn.GetPeerHttpAddr(p.ID)
+					if !ok {
+						return
+					}
+					req := struct {
+						SnapshotData      []byte `json:"snapshot_data"`
+						LastIncludedIndex int64  `json:"last_included_index"`
+						LastIncludedTerm  int64  `json:"last_included_term"`
+						LeaderCommit      int64  `json:"leader_commit"`
+					}{snapshotData, lastIdx, lastTerm, leaderCommit}
+					body, _ := json.Marshal(req)
+					url := fmt.Sprintf("http://%s/raft/install-snapshot", httpAddr)
+					ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
+					defer cancel2()
+					httpReq, _ := http.NewRequestWithContext(ctx2, "POST", url, bytes.NewReader(body))
+					httpReq.Header.Set("Content-Type", "application/json")
+					resp2, err := http.DefaultClient.Do(httpReq)
+					if err == nil {
+						resp2.Body.Close()
+						if resp2.StatusCode == http.StatusOK {
+							rn.mu.Lock()
+							if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
+								rn.matchIdx[p.ID] = lastIdx
+								rn.nextIdx[p.ID] = lastIdx + 1
+							}
+							rn.mu.Unlock()
+							rn.advanceCommit(term)
+						}
+					}
+				}
+				return
+			}
+
 			prevLogIdx := plan.prevIdx
 			prevLogTerm := plan.prevTerm
 
@@ -1713,7 +1764,9 @@ func (rn *RaftNode) HandleAppendEntries(
 		return resp, nil
 	}
 	if req.PrevLogIndex > 0 {
-		if rn.logs[req.PrevLogIndex-1].Term != req.PrevLogTerm {
+		if req.PrevLogIndex < rn.logStartIndex {
+			// 压缩感知：follower 已通过快照拥有该前缀，视为匹配成功
+		} else if rn.logs[req.PrevLogIndex-1].Term != req.PrevLogTerm {
 			rn.mu.Unlock()
 			return resp, nil
 		}

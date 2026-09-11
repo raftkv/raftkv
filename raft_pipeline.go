@@ -104,7 +104,8 @@ type RaftPipeline struct {
 	snapshotMinInterval time.Duration // 快照最小间隔（节流，防止选举风暴期间频繁快照）
 	lastSnapshotTime    time.Time     // 上次快照时间
 	snapshotMu          sync.Mutex
-	onSnapshotCompact   func(int64) // 快照后日志压缩回调（参数=快照包含的最大 Index）
+	onSnapshotCompact   func(int64)        // 快照后日志压缩回调（参数=快照包含的最大 Index）
+	scheduler           *SnapshotScheduler // 异步快照调度器
 }
 
 // NewRaftPipeline 创建 Raft 处理管线
@@ -116,14 +117,14 @@ func NewRaftPipeline(cfg PipelineConfig) (*RaftPipeline, error) {
 		logger:     log.New(os.Stderr, "[pipeline] ", log.LstdFlags),
 	}
 
-	p.snapshotThreshold = 10000
+	p.snapshotThreshold = 50000
 	if v := os.Getenv("WAL_SNAPSHOT_THRESHOLD"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			p.snapshotThreshold = int64(n)
 		}
 	}
 
-	p.snapshotMinInterval = 60 * time.Second
+	p.snapshotMinInterval = 10 * time.Second
 	if v := os.Getenv("WAL_SNAPSHOT_MIN_INTERVAL_MS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			p.snapshotMinInterval = time.Duration(n) * time.Millisecond
@@ -265,6 +266,11 @@ func (p *RaftPipeline) SetOnSnapshotCompact(cb func(int64)) {
 	p.onSnapshotCompact = cb
 }
 
+// SetScheduler 注入异步快照调度器
+func (p *RaftPipeline) SetScheduler(s *SnapshotScheduler) {
+	p.scheduler = s
+}
+
 // OnCommit Raft 日志提交回调
 //
 // 当 Raft 日志被提交（commitIdx 前进）时由 RaftNode 调用:
@@ -288,17 +294,24 @@ func (p *RaftPipeline) OnCommit(log RaftLog) {
 			p.snapshotMu.Lock()
 			if p.totalCommitted.Load() >= p.snapshotThreshold && time.Since(p.lastSnapshotTime) >= p.snapshotMinInterval {
 				p.lastSnapshotTime = time.Now()
-				n, oldBytes, err := p.storage.Snapshot()
-				if err != nil {
-					p.walErrors++
-					p.logger.Printf("快照失败: %v", err)
-				} else {
-					p.logger.Printf("快照触发: %d 条, WAL 释放 %d 字节", n, oldBytes)
+				if p.scheduler != nil {
+					p.scheduler.Request(&snapshotRequest{
+						lastIdx:  log.Index,
+						lastTerm: log.Term,
+						term:     0,
+					})
 					p.totalCommitted.Store(0)
-
-					// 快照后日志压缩：释放已快照日志的 Command/SM3Hash
-					if p.onSnapshotCompact != nil {
-						p.onSnapshotCompact(log.Index)
+				} else {
+					n, oldBytes, err := p.storage.Snapshot()
+					if err != nil {
+						p.walErrors++
+						p.logger.Printf("快照失败: %v", err)
+					} else {
+						p.logger.Printf("快照触发: %d 条, WAL 释放 %d 字节", n, oldBytes)
+						p.totalCommitted.Store(0)
+						if p.onSnapshotCompact != nil {
+							p.onSnapshotCompact(log.Index)
+						}
 					}
 				}
 			}
@@ -480,4 +493,94 @@ func PipelineConfigFromEnv() PipelineConfig {
 	}
 
 	return cfg
+}
+
+// =========================================================================
+// SnapshotScheduler — 异步快照调度器
+// =========================================================================
+
+// snapshotRequest 快照请求
+type snapshotRequest struct {
+	lastIdx  int64 // 快照包含的最大日志 Index
+	lastTerm int64 // 快照包含的最大日志 Term
+	term     int64 // 发起快照时的 Raft term（用于校验 leader 身份）
+}
+
+// SnapshotScheduler 异步快照调度器
+// 将同步快照改为异步执行，消除 OnCommit 阻塞导致的 TPS 退化
+type SnapshotScheduler struct {
+	snapshotCh chan *snapshotRequest // 容量 1，非阻塞投递
+	storage    *EncryptedStorage
+	onCompact  func(int64) // 快照后日志压缩回调
+	node       *RaftNode
+	wg         sync.WaitGroup
+	stopCh     chan struct{}
+	logger     *log.Logger
+}
+
+// NewSnapshotScheduler 创建异步快照调度器
+func NewSnapshotScheduler(storage *EncryptedStorage, onCompact func(int64), node *RaftNode, logger *log.Logger) *SnapshotScheduler {
+	return &SnapshotScheduler{
+		snapshotCh: make(chan *snapshotRequest, 1),
+		storage:    storage,
+		onCompact:  onCompact,
+		node:       node,
+		stopCh:     make(chan struct{}),
+		logger:     logger,
+	}
+}
+
+// Start 启动异步快照消费 goroutine
+func (s *SnapshotScheduler) Start() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		for {
+			select {
+			case <-s.stopCh:
+				return
+			case req := <-s.snapshotCh:
+				s.executeSnapshot(req)
+			}
+		}
+	}()
+	s.logger.Printf("异步快照调度器已启动")
+}
+
+// Stop 停止调度器，等待消费 goroutine 退出
+func (s *SnapshotScheduler) Stop() {
+	close(s.stopCh)
+	s.wg.Wait()
+	s.logger.Printf("异步快照调度器已停止")
+}
+
+// Request 非阻塞投递快照请求（channel 满时跳过，不阻塞调用方）
+func (s *SnapshotScheduler) Request(req *snapshotRequest) {
+	select {
+	case s.snapshotCh <- req:
+	default:
+		s.logger.Printf("快照请求跳过（前次快照仍在执行）")
+	}
+}
+
+// executeSnapshot 执行快照（在消费 goroutine 中调用）
+func (s *SnapshotScheduler) executeSnapshot(req *snapshotRequest) {
+	// 快照是本地状态机持久化操作，leader 和 follower 均可执行
+	// req.term > 0 时校验 term 未变更（防止旧 term 的过期快照请求）
+	if req.term > 0 && s.node.Term() != req.term {
+		s.logger.Printf("快照跳过: term 变更 (reqTerm=%d, curTerm=%d)", req.term, s.node.Term())
+		return
+	}
+
+	n, oldBytes, err := s.storage.Snapshot()
+	if err != nil {
+		s.logger.Printf("异步快照失败: %v", err)
+		return
+	}
+
+	s.logger.Printf("异步快照完成: %d 条, WAL 释放 %d 字节", n, oldBytes)
+
+	if s.onCompact != nil {
+		s.onCompact(req.lastIdx)
+	}
 }
