@@ -102,6 +102,9 @@ type LoadGen struct {
 	totalReq    int64
 	totalSuccess int64
 	totalFail    int64
+	leaderEP    string
+	leaderAt    time.Time
+	leaderMu    sync.Mutex
 }
 
 func NewLoadGen(concurrency int, duration time.Duration, endpoints []string, mode string, writeRatio int) *LoadGen {
@@ -130,6 +133,11 @@ func NewLoadGen(concurrency int, duration time.Duration, endpoints []string, mod
 }
 
 func (lg *LoadGen) findLeader() string {
+	lg.leaderMu.Lock()
+	defer lg.leaderMu.Unlock()
+	if lg.leaderEP != "" && time.Since(lg.leaderAt) < 1*time.Second {
+		return lg.leaderEP
+	}
 	for _, ep := range lg.endpoints {
 		resp, err := lg.client.Get(fmt.Sprintf("http://%s/raft/stats", ep))
 		if err != nil {
@@ -138,14 +146,18 @@ func (lg *LoadGen) findLeader() string {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if strings.Contains(string(body), "state=Leader") {
+			lg.leaderEP = ep
+			lg.leaderAt = time.Now()
 			return ep
 		}
 	}
+	lg.leaderEP = lg.endpoints[0]
+	lg.leaderAt = time.Now()
 	return lg.endpoints[0]
 }
 
 func (lg *LoadGen) doWrite(workerID int, keyIdx int64) bool {
-	ep := lg.endpoints[workerID%len(lg.endpoints)]
+	ep := lg.findLeader()
 	body := fmt.Sprintf(`{"key":"loadgen_%d_%d","value":"v%d"}`, workerID, keyIdx, keyIdx)
 	req, _ := http.NewRequest("POST", fmt.Sprintf("http://%s/raft/propose", ep), bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -157,8 +169,9 @@ func (lg *LoadGen) doWrite(workerID int, keyIdx int64) bool {
 		atomic.AddInt64(&lg.stats[workerID].fail, 1)
 		return false
 	}
+	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if resp.StatusCode == 200 {
+	if resp.StatusCode == 200 && !bytes.Contains(respBody, []byte(`"success":false`)) {
 		atomic.AddInt64(&lg.stats[workerID].success, 1)
 		return true
 	}
