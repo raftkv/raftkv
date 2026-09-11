@@ -120,6 +120,10 @@ type RaftNode struct {
 	consecutiveSuccess       int32
 	currentHeartbeatInterval time.Duration
 
+	// --- batch15 可观测性埋点（atomic，不进入写路径热区）---
+	heartbeatIntervalAtomic atomic.Int64 // 心跳间隔纳秒（镜像，供 metrics 采集）
+	electionEventCount      atomic.Int64 // 选举事件计数
+
 	// --- 选举风暴自愈：logCaughtUp 死锁突破 ---
 	candidateFailCount int32     // 连续选举失败次数
 	firstCandidateTime time.Time // 首次进入 Candidate 的时间窗口起点
@@ -784,6 +788,7 @@ func (rn *RaftNode) handleElectionTimeout() {
 
 	// 进入 Candidate 状态
 	rn.state = StateCandidate
+	rn.electionEventCount.Add(1)
 	currentTerm := atomic.AddInt64(&rn.term, 1)
 	rn.votedFor = rn.id
 	rn.leaderID = ""
@@ -1020,6 +1025,7 @@ func (rn *RaftNode) heartbeatLoop() {
 			newInterval := rn.adaptiveHeartbeatAdjust()
 			if newInterval != rn.currentHeartbeatInterval {
 				rn.currentHeartbeatInterval = newInterval
+				rn.heartbeatIntervalAtomic.Store(int64(newInterval))
 				ticker.Reset(newInterval)
 				rn.logf("[raft/%s] 自适应心跳调整: %v", rn.id, newInterval)
 			}

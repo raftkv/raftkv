@@ -270,6 +270,7 @@ func main() {
 	defer grpcServer.Stop()
 
 	httpMux := http.NewServeMux()
+	authMiddleware := NewAuthMiddleware()
 	httpMux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
@@ -443,6 +444,24 @@ func main() {
 	// gRPC 延迟统计端点（Histogram JSON + Prometheus 格式原生直采）
 	httpMux.HandleFunc("/latency/stats", handleLatencyStats)
 	httpMux.HandleFunc("/latency/metrics", handleLatencyPrometheus)
+
+	// batch15: 统一 Prometheus /metrics 端点 + 限流 + 鉴权
+	var metricsCollector *MetricsCollector
+	var rateLimiter *TokenBucketLimiter
+
+	rateLimiter = NewTokenBucketLimiter(256, 8000)
+	if v := os.Getenv("RATE_LIMIT_ENABLED"); v == "true" || v == "1" {
+		rateLimiter.Enable()
+	}
+	var snapSched *SnapshotScheduler
+	if pipeline != nil {
+		snapSched = pipeline.scheduler
+	}
+	metricsCollector = NewMetricsCollector(node, snapSched, rateLimiter)
+	httpMux.HandleFunc("/metrics", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+		fmt.Fprint(w, metricsCollector.RenderPrometheus())
+	}))
 
 	// V2.3: 动态成员变更 HTTP 端点
 	httpMux.HandleFunc("/cluster/add", HandleAddNode(node))
