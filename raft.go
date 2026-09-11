@@ -34,11 +34,11 @@ var ErrCompacted = errors.New("log compacted: requested index < logStartIndex")
 
 const (
 	// 选举超时范围（毫秒）— Fix #7: 增大至 >rpcTimeout，防止投票期间其他节点触发新选举
-	electionTimeoutMin = 1000 // 最小选举超时
-	electionTimeoutMax = 2000 // 最大选举超时
+	electionTimeoutMin = 5000 // 最小选举超时
+	electionTimeoutMax = 7000 // 最大选举超时
 
 	// Leader 心跳间隔
-	heartbeatIntervalMin = 50 * time.Millisecond
+	heartbeatIntervalMin = 20 * time.Millisecond
 	heartbeatIntervalMax = 500 * time.Millisecond
 
 	// 弱网自适应阈值
@@ -151,6 +151,7 @@ type RaftNode struct {
 	// --- batch11: group commit 攒批层 ---
 	proposeBatchCh    chan *proposeRequest // Propose 请求通道
 	replicateCh       chan struct{}        // 立即复制触发信号
+	sendHBInFlight    int32                // sendHeartbeats 防重入标志
 	proposeBatchClose chan struct{}        // 攒批循环关闭信号
 	proposeBatchWg    sync.WaitGroup       // 攒批循环 WaitGroup
 	proposeBatchOn    bool                 // 攒批是否已启用
@@ -229,7 +230,7 @@ func NewRaftNode(
 		degradedFollowers:        make(map[string]bool),
 		gapSince:                 make(map[string]time.Time),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
-		replicateCh:              make(chan struct{}, 1),
+		replicateCh:              make(chan struct{}, 256),
 		proposeBatchClose:        make(chan struct{}),
 		proposeBatchSize:         64,
 		proposeBatchWin:          2 * time.Millisecond,
@@ -1025,6 +1026,8 @@ func (rn *RaftNode) heartbeatLoop() {
 }
 
 func (rn *RaftNode) sendHeartbeats() {
+
+
 	rn.mu.RLock()
 	if rn.state != StateLeader {
 		rn.mu.RUnlock()
@@ -1078,16 +1081,13 @@ func (rn *RaftNode) sendHeartbeats() {
 	var timeoutCount int32
 	var successCount int32
 
-	var wg sync.WaitGroup
 	for _, peer := range peers {
-		wg.Add(1)
 		go func(p PeerInfo) {
 			defer func() {
 				if r := recover(); r != nil {
 					rn.logf("[raft/%s] AppendEntries RPC panic recovered: %v", rn.id, r)
 				}
 			}()
-			defer wg.Done()
 			client, ok := rn.GetPeerClient(p.ID)
 			if !ok {
 				return
@@ -1126,17 +1126,18 @@ func (rn *RaftNode) sendHeartbeats() {
 			}
 
 			// V2.3: 根据响应更新 nextIdx / matchIdx
-			if resp.Success {
-				rn.mu.Lock()
-				if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
-					newMatch := logEnd
-					if newMatch > rn.matchIdx[p.ID] {
-						rn.matchIdx[p.ID] = newMatch
-					}
-					rn.nextIdx[p.ID] = newMatch + 1
+		if resp.Success {
+			rn.mu.Lock()
+			if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
+				newMatch := logEnd
+				if newMatch > rn.matchIdx[p.ID] {
+					rn.matchIdx[p.ID] = newMatch
 				}
-				rn.mu.Unlock()
-			} else {
+				rn.nextIdx[p.ID] = newMatch + 1
+			}
+			rn.mu.Unlock()
+			rn.advanceCommit(term)
+		} else {
 				rn.mu.Lock()
 				if rn.nextIdx[p.ID] > 1 {
 					rn.nextIdx[p.ID]--
@@ -1145,9 +1146,21 @@ func (rn *RaftNode) sendHeartbeats() {
 			}
 		}(peer)
 	}
-	wg.Wait()
 
-	// V2.3: 推进 commitIdx（联合共识需 C_old 和 C_new 各自多数派）
+	// advanceCommit 兜底（follower goroutine 中已调用，此处防止竞态遗漏）
+	rn.advanceCommit(term)
+
+	if timeoutCount > 0 {
+		atomic.AddInt32(&rn.consecutiveTimeouts, int32(timeoutCount))
+		atomic.StoreInt32(&rn.consecutiveSuccess, 0)
+	} else {
+		atomic.AddInt32(&rn.consecutiveSuccess, 1)
+		atomic.StoreInt32(&rn.consecutiveTimeouts, 0)
+	}
+}
+
+// advanceCommit 尝试推进 commitIdx（每个 follower 应答后调用，不等所有 follower）
+func (rn *RaftNode) advanceCommit(term int64) {
 	var committedLogs []RaftLog
 	rn.mu.Lock()
 	if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
@@ -1157,7 +1170,7 @@ func (rn *RaftNode) sendHeartbeats() {
 			oldOK := true
 			newOK := true
 			if len(oldPeers) > 0 {
-				oldCount := 1 // Leader 自己
+				oldCount := 1
 				for _, p := range rn.peers {
 					if stringInSlice(p.ID, oldPeers) && rn.matchIdx[p.ID] >= N {
 						oldCount++
@@ -1180,21 +1193,15 @@ func (rn *RaftNode) sendHeartbeats() {
 				rn.applyConfigChangesLocked(oldCommit, N)
 				committedLogs = rn.collectCommittedLogs(oldCommit)
 				rn.lastApplied = rn.commitIdx
-				rn.notifyCommit() // V2.5.1 B1: 唤醒等待提交的 Propose
+				rn.notifyCommit()
 				break
 			}
 		}
 		rn.updateStats()
 	}
 	rn.mu.Unlock()
-	rn.fireOnCommit(committedLogs)
-
-	if timeoutCount > 0 {
-		atomic.AddInt32(&rn.consecutiveTimeouts, int32(timeoutCount))
-		atomic.StoreInt32(&rn.consecutiveSuccess, 0)
-	} else {
-		atomic.AddInt32(&rn.consecutiveSuccess, 1)
-		atomic.StoreInt32(&rn.consecutiveTimeouts, 0)
+	if len(committedLogs) > 0 {
+		rn.fireOnCommit(committedLogs)
 	}
 }
 
@@ -1247,25 +1254,28 @@ func (rn *RaftNode) proposeBatchLoop() {
 	defer timer.Stop()
 
 	flush := func() {
-		if len(batch) == 0 {
-			return
+		if len(batch) > 0 {
+			rn.proposeBatchFlush(batch)
+			batch = make([]*proposeRequest, 0, rn.proposeBatchSize)
 		}
-		rn.proposeBatchFlush(batch)
-		batch = make([]*proposeRequest, 0, rn.proposeBatchSize)
 		timer.Reset(rn.proposeBatchWin)
 	}
 
 	for {
 		select {
 		case <-rn.proposeBatchClose:
-			for req := range rn.proposeBatchCh {
-				batch = append(batch, req)
-				if len(batch) >= rn.proposeBatchSize {
+			for {
+				select {
+				case req := <-rn.proposeBatchCh:
+					batch = append(batch, req)
+					if len(batch) >= rn.proposeBatchSize {
+						flush()
+					}
+				default:
 					flush()
+					return
 				}
 			}
-			flush()
-			return
 		case req := <-rn.proposeBatchCh:
 			batch = append(batch, req)
 			if len(batch) >= rn.proposeBatchSize {
@@ -1340,9 +1350,9 @@ func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 
 // waitForCommit 等待指定 index 被 commit 后返回结果
 func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult) {
-	commitTimer := time.NewTimer(time.Second)
+	commitTimer := time.NewTimer(3 * time.Second)
 	defer commitTimer.Stop()
-	pollTicker := time.NewTicker(50 * time.Millisecond)
+	pollTicker := time.NewTicker(2 * time.Millisecond)
 	defer pollTicker.Stop()
 
 	for {
@@ -1350,7 +1360,7 @@ func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult) {
 		case <-rn.commitNotify:
 		case <-pollTicker.C:
 		case <-commitTimer.C:
-			resultCh <- proposeResult{err: fmt.Errorf("commit timeout: index=%d not committed after 1s", index)}
+			resultCh <- proposeResult{err: fmt.Errorf("commit timeout: index=%d not committed after 3s", index)}
 			return
 		case <-rn.shutdownCh:
 			resultCh <- proposeResult{err: fmt.Errorf("node shutdown while waiting for commit at index=%d", index)}
@@ -1437,16 +1447,16 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 	// E08 OOM 主放大器）。commit 由心跳 ticker(50ms) 的 sendHeartbeats 自然推进并 notifyCommit；
 	// 此处 select: notify 快速路径 + 50ms ticker 兜底（纯 O(1) commitIdx 检查，不触发任何拷贝），
 	// 1s timer 保留原 ~1s 等待上限语义。
-	commitTimer := time.NewTimer(time.Second)
+	commitTimer := time.NewTimer(3 * time.Second)
 	defer commitTimer.Stop()
-	pollTicker := time.NewTicker(50 * time.Millisecond)
+	pollTicker := time.NewTicker(2 * time.Millisecond)
 	defer pollTicker.Stop()
 	for {
 		select {
 		case <-rn.commitNotify: // commit 推进信号（快速路径）
-		case <-pollTicker.C: // 兜底轮询（防 notify 被并发等待者消费后饿死）
+		case <-pollTicker.C: // 兜底轮询（防 notify 被并发等待者饿死）
 		case <-commitTimer.C:
-			return 0, fmt.Errorf("commit timeout: index=%d not committed after 1s", index)
+			return 0, fmt.Errorf("commit timeout: index=%d not committed after 3s", index)
 		}
 
 		rn.mu.RLock()
