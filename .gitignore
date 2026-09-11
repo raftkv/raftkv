@@ -75,6 +75,9 @@ tests/evidence/*
 !tests/evidence/d3-batch1/
 !tests/evidence/d3-batch2-p1/
 
+# --- batch16 证书（含私钥，不入git）---
+tests/deploy/certs/
+
 # --- D2-batch1 部署配置（修正B: 不入git）---
 tests/deploy/deploy.env
 tests/deploy/.sm4_key

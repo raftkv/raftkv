@@ -107,6 +107,7 @@ func main() {
 	}
 
 	peerAddrs := parsePeerAddrs(peerList)
+	InitStructuredLogger(nodeID)
 	fmt.Printf("[启动] 节点 ID: %s, gRPC: %s, HTTP: %s\n", nodeID, grpcPort, httpListen)
 	fmt.Printf("[启动] Peer 列表 (%d 个):\n", len(peerAddrs))
 	for pid, addr := range peerAddrs {
@@ -332,10 +333,28 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"success":true}`))
 	})
+	// batch16: 限流器 + metrics 采集器（在 /raft/propose 之前创建，供写路径引用）
+	rateLimiter := NewTokenBucketLimiter(1024, 10000)
+	if v := os.Getenv("RATE_LIMIT_ENABLED"); v == "true" || v == "1" {
+		rateLimiter.Enable()
+	}
+	var snapSched *SnapshotScheduler
+	if pipeline != nil {
+		snapSched = pipeline.scheduler
+	}
+	metricsCollector := NewMetricsCollector(node, snapSched, rateLimiter)
+
 	idemTable := NewIdemTokenTable()
 	httpMux.HandleFunc("/raft/propose", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		// batch16: 限流器检查（启用时拒绝超限请求）
+		if !rateLimiter.Allow() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "rate limited"})
 			return
 		}
 		body, err := io.ReadAll(r.Body)
@@ -357,7 +376,10 @@ func main() {
 				}
 				return
 			}
+			proposeStart := time.Now()
 			index, perr := node.Propose(body)
+			rateLimiter.RecordLatency(time.Since(proposeStart).Microseconds())
+			metricsCollector.RecordPropose()
 			idemTable.SetResult(token, index, perr)
 			if perr != nil {
 				idemTable.Remove(token)
@@ -367,7 +389,10 @@ func main() {
 			}
 			return
 		}
+		proposeStart := time.Now()
 		index, err := node.Propose(body)
+		rateLimiter.RecordLatency(time.Since(proposeStart).Microseconds())
+		metricsCollector.RecordPropose()
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 		} else {
@@ -445,19 +470,7 @@ func main() {
 	httpMux.HandleFunc("/latency/stats", handleLatencyStats)
 	httpMux.HandleFunc("/latency/metrics", handleLatencyPrometheus)
 
-	// batch15: 统一 Prometheus /metrics 端点 + 限流 + 鉴权
-	var metricsCollector *MetricsCollector
-	var rateLimiter *TokenBucketLimiter
-
-	rateLimiter = NewTokenBucketLimiter(256, 8000)
-	if v := os.Getenv("RATE_LIMIT_ENABLED"); v == "true" || v == "1" {
-		rateLimiter.Enable()
-	}
-	var snapSched *SnapshotScheduler
-	if pipeline != nil {
-		snapSched = pipeline.scheduler
-	}
-	metricsCollector = NewMetricsCollector(node, snapSched, rateLimiter)
+	// batch15: 统一 Prometheus /metrics 端点 + 鉴权
 	httpMux.HandleFunc("/metrics", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		fmt.Fprint(w, metricsCollector.RenderPrometheus())

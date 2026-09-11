@@ -306,8 +306,15 @@ func (p *RaftPipeline) OnCommit(log RaftLog) {
 					if err != nil {
 						p.walErrors++
 						p.logger.Printf("快照失败: %v", err)
+						slogError("snapshot_failed", "快照失败", map[string]interface{}{
+							"error": err.Error(),
+						})
 					} else {
 						p.logger.Printf("快照触发: %d 条, WAL 释放 %d 字节", n, oldBytes)
+						slogInfo("snapshot_compact", "快照触发", map[string]interface{}{
+							"entries":   n,
+							"wal_bytes": oldBytes,
+						})
 						p.totalCommitted.Store(0)
 						if p.onSnapshotCompact != nil {
 							p.onSnapshotCompact(log.Index)
@@ -581,6 +588,11 @@ func (s *SnapshotScheduler) executeSnapshot(req *snapshotRequest) {
 	}
 
 	s.logger.Printf("异步快照完成: %d 条, WAL 释放 %d 字节", n, oldBytes)
+	slogInfo("snapshot_async_done", "异步快照完成", map[string]interface{}{
+		"entries":   n,
+		"wal_bytes": oldBytes,
+		"last_idx":  req.lastIdx,
+	})
 
 	if s.onCompact != nil {
 		s.onCompact(req.lastIdx)

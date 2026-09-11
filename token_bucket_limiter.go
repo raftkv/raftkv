@@ -15,6 +15,7 @@ type TokenBucketLimiter struct {
 	enabled       atomic.Int32
 	avgLatencyUs  atomic.Int64
 	latencyWindow atomic.Int64
+	adjustCounter atomic.Int64
 }
 
 func NewTokenBucketLimiter(maxTokens int64, initialRate int64) *TokenBucketLimiter {
@@ -40,16 +41,18 @@ func (l *TokenBucketLimiter) Allow() bool {
 	elapsed := now - last
 	if elapsed > 0 {
 		refill := (elapsed * l.refillRate.Load()) / int64(time.Second)
-		if refill > 0 {
+		if refill > 0 && l.lastRefill.CompareAndSwap(last, now) {
 			cur := l.tokens.Add(refill)
 			if cur > l.maxTokens {
 				l.tokens.Store(l.maxTokens)
 			}
-			l.lastRefill.Store(now)
 		}
 	}
-	if l.tokens.Load() > 0 {
-		l.tokens.Add(-1)
+	if l.tokens.Load() <= 0 {
+		l.rejectedCount.Add(1)
+		return false
+	}
+	if l.tokens.Add(-1) >= 0 {
 		return true
 	}
 	l.rejectedCount.Add(1)
@@ -63,6 +66,10 @@ func (l *TokenBucketLimiter) RecordLatency(latencyUs int64) {
 	if l.enabled.Load() == 0 {
 		return
 	}
+	if l.adjustCounter.Add(1) < 200 {
+		return
+	}
+	l.adjustCounter.Store(0)
 	avg := l.avgLatencyUs.Load()
 	if avg > 100000 {
 		newRate := l.refillRate.Load() * 90 / 100

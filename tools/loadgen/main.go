@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"runtime/debug"
 
 	"strings"
 	"sync"
@@ -178,6 +179,11 @@ func (lg *LoadGen) doWrite(workerID int, keyIdx int64) bool {
 		}
 		respBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		if resp.StatusCode == 429 {
+
+			atomic.AddInt64(&lg.stats[workerID].fail, 1)
+			return false
+		}
 		if resp.StatusCode == 200 && !bytes.Contains(respBody, []byte(`"success":false`)) {
 			latency := float64(time.Since(start).Microseconds()) / 1000.0
 			lg.stats[workerID].histogram.Record(latency)
@@ -333,6 +339,7 @@ func (r Result) JSON() string {
 }
 
 func main() {
+	debug.SetMaxThreads(50000)
 	concurrency := flag.Int("concurrency", 64, "并发 goroutine 数")
 	duration := flag.Duration("duration", 30*time.Second, "测试时长")
 	endpointsStr := flag.String("endpoints", "127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005", "目标端点列表(逗号分隔)")
