@@ -509,13 +509,15 @@ type snapshotRequest struct {
 // SnapshotScheduler 异步快照调度器
 // 将同步快照改为异步执行，消除 OnCommit 阻塞导致的 TPS 退化
 type SnapshotScheduler struct {
-	snapshotCh chan *snapshotRequest // 容量 1，非阻塞投递
-	storage    *EncryptedStorage
-	onCompact  func(int64) // 快照后日志压缩回调
-	node       *RaftNode
-	wg         sync.WaitGroup
-	stopCh     chan struct{}
-	logger     *log.Logger
+	snapshotCh       chan *snapshotRequest
+	storage          *EncryptedStorage
+	onCompact        func(int64)
+	node             *RaftNode
+	wg               sync.WaitGroup
+	stopCh           chan struct{}
+	logger           *log.Logger
+	compactionCount  atomic.Int64
+	snapshotProgress atomic.Int32
 }
 
 // NewSnapshotScheduler 创建异步快照调度器
@@ -583,4 +585,6 @@ func (s *SnapshotScheduler) executeSnapshot(req *snapshotRequest) {
 	if s.onCompact != nil {
 		s.onCompact(req.lastIdx)
 	}
+	s.compactionCount.Add(1)
+	s.snapshotProgress.Store(1000)
 }
