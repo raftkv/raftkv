@@ -132,6 +132,22 @@ func (s *GRPCServer) Start() error {
 				Certificates: []tls.Certificate{cert},
 				MinVersion:   tls.VersionTLS12,
 			}
+			caFile := os.Getenv("TLS_CA_FILE")
+			if caFile != "" {
+				caData, err := os.ReadFile(caFile)
+				if err != nil {
+					fmt.Printf("[mTLS] CA证书读取失败，降级为明文传输: %v\n", err)
+				} else {
+					caPool := x509.NewCertPool()
+					if !caPool.AppendCertsFromPEM(caData) {
+						fmt.Printf("[mTLS] CA证书解析失败，降级为明文传输\n")
+					} else {
+						tlsConfig.ClientCAs = caPool
+						tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+						fmt.Printf("[mTLS] 客户端证书验证已启用 (CA: %s)\n", caFile)
+					}
+				}
+			}
 			opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 			fmt.Printf("[mTLS] TLS 已启用 (证书: %s)\n", certFile)
 		}
@@ -229,6 +245,11 @@ func (m *PeerClientManager) ConnectAll() map[string]pb.RaftServiceClient {
 					result[id] = client
 					mu.Unlock()
 					fmt.Printf("[peer-client] 已连接 peer: %s @ %s (重试=%d)\n", id, a, retry)
+					slogInfo("peer_connected", "peer连接成功", map[string]interface{}{
+						"peer":  id,
+						"addr":  a,
+						"retry": retry,
+					})
 					return
 				}
 				if retry == 0 {
@@ -237,6 +258,10 @@ func (m *PeerClientManager) ConnectAll() map[string]pb.RaftServiceClient {
 				time.Sleep(2 * time.Second)
 			}
 			fmt.Printf("[peer-client] 连接 %s (%s) 最终失败 (已重试30次)\n", peerID, addr)
+			slogError("peer_connect_failed", "peer连接最终失败", map[string]interface{}{
+				"peer": peerID,
+				"addr": addr,
+			})
 		}(peerID, addr)
 	}
 

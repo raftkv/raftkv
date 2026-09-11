@@ -875,6 +875,12 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 		atomic.LoadInt64(&rn.term) == term {
 		rn.logf("[raft/%s] 赢得选举！得票 %d/%d (term=%d, elapsed=%v)",
 			rn.id, votesGranted, peersCount+1, term, time.Since(rn.electionStart))
+		slogInfo("leader_elected", "赢得选举", map[string]interface{}{
+			"votes_granted": votesGranted,
+			"votes_needed":  peersCount + 1,
+			"term":          term,
+			"elapsed_ms":    time.Since(rn.electionStart).Milliseconds(),
+		})
 
 		// 切换到 Leader
 		rn.state = StateLeader
@@ -918,6 +924,11 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 	} else {
 		rn.logf("[raft/%s] 选举失败 (得票 %d/%d, term=%d)",
 			rn.id, votesGranted, peersCount+1, term)
+		slogWarn("election_lost", "选举失败", map[string]interface{}{
+			"votes_granted": votesGranted,
+			"votes_needed":  peersCount + 1,
+			"term":          term,
+		})
 
 		// 选举风暴自愈：连续3次以上选举失败且在60秒窗口内，强制突破 logCaughtUp 死锁
 		rn.candidateFailCount++
@@ -1837,6 +1848,11 @@ func (rn *RaftNode) transitionTo(newState NodeState) {
 	rn.mu.Unlock()
 
 	rn.logf("[raft/%s] 状态转换: %s → %s", rn.id, oldState, newState)
+	slogInfo("state_transition", fmt.Sprintf("%s→%s", oldState, newState), map[string]interface{}{
+		"from": oldState.String(),
+		"to":   newState.String(),
+		"term": rn.Term(),
+	})
 }
 
 // =========================================================================
