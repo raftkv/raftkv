@@ -1027,7 +1027,6 @@ func (rn *RaftNode) heartbeatLoop() {
 
 func (rn *RaftNode) sendHeartbeats() {
 
-
 	rn.mu.RLock()
 	if rn.state != StateLeader {
 		rn.mu.RUnlock()
@@ -1126,18 +1125,18 @@ func (rn *RaftNode) sendHeartbeats() {
 			}
 
 			// V2.3: 根据响应更新 nextIdx / matchIdx
-		if resp.Success {
-			rn.mu.Lock()
-			if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
-				newMatch := logEnd
-				if newMatch > rn.matchIdx[p.ID] {
-					rn.matchIdx[p.ID] = newMatch
+			if resp.Success {
+				rn.mu.Lock()
+				if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
+					newMatch := logEnd
+					if newMatch > rn.matchIdx[p.ID] {
+						rn.matchIdx[p.ID] = newMatch
+					}
+					rn.nextIdx[p.ID] = newMatch + 1
 				}
-				rn.nextIdx[p.ID] = newMatch + 1
-			}
-			rn.mu.Unlock()
-			rn.advanceCommit(term)
-		} else {
+				rn.mu.Unlock()
+				rn.advanceCommit(term)
+			} else {
 				rn.mu.Lock()
 				if rn.nextIdx[p.ID] > 1 {
 					rn.nextIdx[p.ID]--
@@ -1227,7 +1226,6 @@ func (rn *RaftNode) startProposeBatchLocked() {
 	go rn.proposeBatchLoop()
 	rn.logf("[raft/%s] group commit 攒批已启动 (batchSize=%d, batchWindow=%v)", rn.id, rn.proposeBatchSize, rn.proposeBatchWin)
 }
-
 
 // StopProposeBatch 停止 group commit 攒批循环
 func (rn *RaftNode) StopProposeBatch() {
