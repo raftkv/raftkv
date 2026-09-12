@@ -25,6 +25,9 @@ func TestBatch11_ProposeBatch_ReducedLockAcquisition(t *testing.T) {
 		},
 
 		commitNotify:             make(chan struct{}, 1),
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 		shutdownCh:               make(chan struct{}),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 1),
@@ -104,6 +107,9 @@ func TestBatch11_SinglePropose_LatencyNotDegrade(t *testing.T) {
 		stats:     &RaftStats{ID: "node-1", State: "Leader", Term: 10, PeerCount: 1},
 
 		commitNotify:             make(chan struct{}, 1),
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 		shutdownCh:               make(chan struct{}),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 1),
@@ -165,6 +171,9 @@ func TestBatch11_BatchFlush_TriggersImmediateReplication(t *testing.T) {
 		stats:     &RaftStats{ID: "node-1", State: "Leader", Term: 10, PeerCount: 4},
 
 		commitNotify:             make(chan struct{}, 1),
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 		shutdownCh:               make(chan struct{}),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 1),
@@ -185,9 +194,9 @@ func TestBatch11_BatchFlush_TriggersImmediateReplication(t *testing.T) {
 	rn.proposeBatchFlush(batch)
 
 	select {
-	case <-rn.replicateCh:
+	case <-rn.replicateTrigger:
 	default:
-		t.Error("proposeBatchFlush 后应触发 replicateCh")
+		t.Error("proposeBatchFlush 后应触发 replicateTrigger")
 	}
 
 	if len(rn.logs) != 10 {
@@ -208,6 +217,9 @@ func TestBatch11_BatchFlush_NotLeader_ReturnsError(t *testing.T) {
 		stats:    &RaftStats{ID: "node-1", State: "Follower", Term: 10, PeerCount: 1},
 
 		commitNotify:             make(chan struct{}, 1),
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 		shutdownCh:               make(chan struct{}),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 1),
@@ -242,6 +254,9 @@ func TestBatch11_BatchStats_TracksHistogram(t *testing.T) {
 		stats:    &RaftStats{ID: "node-1", State: "Leader", Term: 10, PeerCount: 4},
 
 		commitNotify:             make(chan struct{}, 1),
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 		shutdownCh:               make(chan struct{}),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 1),
@@ -287,6 +302,9 @@ func TestBatch11_WaitForCommit_CommitAdvances(t *testing.T) {
 		stats:     &RaftStats{ID: "node-1", State: "Leader", Term: 10, PeerCount: 1},
 
 		commitNotify:             make(chan struct{}, 1),
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 		shutdownCh:               make(chan struct{}),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 1),
@@ -330,6 +348,9 @@ func TestBatch11_WaitForCommit_LostLeadership(t *testing.T) {
 		stats:     &RaftStats{ID: "node-1", State: "Leader", Term: 10, PeerCount: 1},
 
 		commitNotify:             make(chan struct{}, 1),
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 		shutdownCh:               make(chan struct{}),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 1),

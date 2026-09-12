@@ -168,6 +168,47 @@ type RaftNode struct {
 	batchSizeTotal    int64                // 总攒批条数
 	batchSizeHist     [65]int64            // 批大小直方图 (0=1条, 63=64条, 64=溢出)
 	inFlightUtilFn    func() float64       // batch18: 在途利用率查询（自适应 flush 用）
+
+	// --- batch19: 组提交广播 + 专用复制循环 ---
+	commitBroadcast  *commitBroadcaster // 提交广播通知（替换 commitNotify 的 cap=1 限制）
+	replicateTrigger chan struct{}      // 专用复制循环信号（替换 per-batch CAS 触发）
+	replicateStop    chan struct{}      // 专用复制循环停止信号
+	replicateWg      sync.WaitGroup     // 专用复制循环 WaitGroup
+}
+
+type commitBroadcaster struct {
+	mu        sync.RWMutex
+	commitIdx int64
+	notifyCh  chan struct{}
+}
+
+func newCommitBroadcaster() *commitBroadcaster {
+	return &commitBroadcaster{notifyCh: make(chan struct{})}
+}
+
+func (cb *commitBroadcaster) Notify(newCommitIdx int64) {
+	cb.mu.Lock()
+	if newCommitIdx > cb.commitIdx {
+		cb.commitIdx = newCommitIdx
+		old := cb.notifyCh
+		cb.notifyCh = make(chan struct{})
+		close(old)
+	}
+	cb.mu.Unlock()
+}
+
+func (cb *commitBroadcaster) CurrentCommitIdx() int64 {
+	cb.mu.RLock()
+	idx := cb.commitIdx
+	cb.mu.RUnlock()
+	return idx
+}
+
+func (cb *commitBroadcaster) WaitCh() chan struct{} {
+	cb.mu.RLock()
+	ch := cb.notifyCh
+	cb.mu.RUnlock()
+	return ch
 }
 
 type proposeRequest struct {
@@ -244,6 +285,9 @@ func NewRaftNode(
 		proposeBatchClose:        make(chan struct{}),
 		proposeBatchSize:         64,
 		proposeBatchWin:          2 * time.Millisecond,
+		commitBroadcast:          newCommitBroadcaster(),
+		replicateTrigger:         make(chan struct{}, 256),
+		replicateStop:            make(chan struct{}),
 	}
 
 	// V2.3: 初始化集群配置（自身 + 所有 peer）
@@ -1265,6 +1309,7 @@ func (rn *RaftNode) advanceCommit(term int64) {
 				committedLogs = rn.collectCommittedLogs(oldCommit)
 				rn.lastApplied = rn.commitIdx
 				rn.notifyCommit()
+				rn.commitBroadcast.Notify(rn.commitIdx)
 				break
 			}
 		}
@@ -1296,6 +1341,8 @@ func (rn *RaftNode) startProposeBatchLocked() {
 
 	rn.proposeBatchWg.Add(1)
 	go rn.proposeBatchLoop()
+	rn.replicateWg.Add(1)
+	go rn.replicateLoop()
 	rn.logf("[raft/%s] group commit 攒批已启动 (batchSize=%d, batchWindow=%v)", rn.id, rn.proposeBatchSize, rn.proposeBatchWin)
 }
 
@@ -1312,7 +1359,33 @@ func (rn *RaftNode) StopProposeBatch() {
 	close(rn.proposeBatchClose)
 	rn.proposeBatchWg.Wait()
 	rn.proposeBatchClose = make(chan struct{})
+	close(rn.replicateStop)
+	rn.replicateWg.Wait()
+	rn.replicateStop = make(chan struct{})
 	rn.logf("[raft/%s] group commit 攒批已停止", rn.id)
+}
+
+// replicateLoop batch19: 专用复制循环（仅信号触发，heartbeatLoop 50ms ticker 兜底）
+func (rn *RaftNode) replicateLoop() {
+	defer rn.replicateWg.Done()
+	for {
+		select {
+		case <-rn.shutdownCh:
+			return
+		case <-rn.replicateStop:
+			return
+		case <-rn.replicateTrigger:
+			for {
+				select {
+				case <-rn.replicateTrigger:
+				default:
+					goto send
+				}
+			}
+		send:
+			rn.sendHeartbeats()
+		}
+	}
 }
 
 // proposeBatchLoop group commit 攒批主循环
@@ -1429,18 +1502,10 @@ func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 
 	// 立即触发复制（不等 50ms 心跳 ticker）
 	tRepl := time.Now().UnixMicro()
-	// batch18 T3: 直接触发 sendHeartbeats，消除 replicateCh → heartbeatLoop 调度延迟
-	if rn.config != nil && atomic.CompareAndSwapInt32(&rn.sendHBInFlight, 0, 1) {
-		go func() {
-			defer atomic.StoreInt32(&rn.sendHBInFlight, 0)
-			rn.sendHeartbeats()
-		}()
-	} else {
-		// sendHeartbeats 已在运行或节点未初始化，退回 replicateCh 信号
-		select {
-		case rn.replicateCh <- struct{}{}:
-		default:
-		}
+	// batch19: 专用复制循环信号（替换 batch18 T3 的 CAS 触发）
+	select {
+	case rn.replicateTrigger <- struct{}{}:
+	default:
 	}
 
 	// 记录批统计
@@ -1467,21 +1532,10 @@ func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult, req *proposeRequest) {
 	commitTimer := time.NewTimer(3 * time.Second)
 	defer commitTimer.Stop()
-	pollTicker := time.NewTicker(2 * time.Millisecond)
-	defer pollTicker.Stop()
+	fallbackTicker := time.NewTicker(2 * time.Millisecond)
+	defer fallbackTicker.Stop()
 
 	for {
-		select {
-		case <-rn.commitNotify:
-		case <-pollTicker.C:
-		case <-commitTimer.C:
-			resultCh <- proposeResult{err: fmt.Errorf("commit timeout: index=%d not committed after 3s", index)}
-			return
-		case <-rn.shutdownCh:
-			resultCh <- proposeResult{err: fmt.Errorf("node shutdown while waiting for commit at index=%d", index)}
-			return
-		}
-
 		rn.mu.RLock()
 		committed := rn.commitIdx >= index
 		stillLeader := rn.state == StateLeader
@@ -1509,6 +1563,18 @@ func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult, req 
 		}
 		if !stillLeader {
 			resultCh <- proposeResult{err: fmt.Errorf("lost leadership while waiting for commit at index=%d", index)}
+			return
+		}
+
+		commitCh := rn.commitBroadcast.WaitCh()
+		select {
+		case <-commitCh:
+		case <-fallbackTicker.C:
+		case <-commitTimer.C:
+			resultCh <- proposeResult{err: fmt.Errorf("commit timeout: index=%d not committed after 3s", index)}
+			return
+		case <-rn.shutdownCh:
+			resultCh <- proposeResult{err: fmt.Errorf("node shutdown while waiting for commit at index=%d", index)}
 			return
 		}
 	}
@@ -1581,16 +1647,9 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 	// 1s timer 保留原 ~1s 等待上限语义。
 	commitTimer := time.NewTimer(3 * time.Second)
 	defer commitTimer.Stop()
-	pollTicker := time.NewTicker(2 * time.Millisecond)
-	defer pollTicker.Stop()
+	fallbackTicker := time.NewTicker(2 * time.Millisecond)
+	defer fallbackTicker.Stop()
 	for {
-		select {
-		case <-rn.commitNotify: // commit 推进信号（快速路径）
-		case <-pollTicker.C: // 兜底轮询（防 notify 被并发等待者饿死）
-		case <-commitTimer.C:
-			return 0, fmt.Errorf("commit timeout: index=%d not committed after 3s", index)
-		}
-
 		rn.mu.RLock()
 		committed := rn.commitIdx >= index
 		stillLeader := rn.state == StateLeader
@@ -1601,6 +1660,14 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 		}
 		if !stillLeader {
 			return 0, fmt.Errorf("lost leadership while waiting for commit at index=%d", index)
+		}
+
+		commitCh := rn.commitBroadcast.WaitCh()
+		select {
+		case <-commitCh:
+		case <-fallbackTicker.C:
+		case <-commitTimer.C:
+			return 0, fmt.Errorf("commit timeout: index=%d not committed after 3s", index)
 		}
 	}
 }
