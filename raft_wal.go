@@ -29,6 +29,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -44,6 +45,22 @@ const (
 var (
 	walMaxBatch      = 256                  // 批量 fsync 最大条数
 	walFlushInterval = 5 * time.Millisecond // 批量 fsync 时间窗口
+)
+
+// batch20: 全局 fsync 取证计数器（跨 WAL 重建持久化，原子操作不进写路径热区）
+var (
+	globalFsyncCount        atomic.Int64 // fsync 调用总次数
+	globalFsyncTotalEntries atomic.Int64 // fsync 覆盖的总 entry 数
+	globalFsyncTotalUs      atomic.Int64 // fsync 总耗时（微秒）
+	globalFsyncMaxUs        atomic.Int64 // fsync 单次最大耗时（微秒）
+	globalFlushCount        atomic.Int64 // doFlush 调用总次数（含空 flush）
+	globalBatchSize1        atomic.Int64 // batch size = 1
+	globalBatchSize2_4      atomic.Int64 // batch size 2-4
+	globalBatchSize5_16     atomic.Int64 // batch size 5-16
+	globalBatchSize17_64    atomic.Int64 // batch size 17-64
+	globalBatchSize65_128   atomic.Int64 // batch size 65-128
+	globalBatchSize129_256  atomic.Int64 // batch size 129-256
+	globalBatchSize257Plus  atomic.Int64 // batch size > 256
 )
 
 func init() {
@@ -243,10 +260,12 @@ func (w *WAL) doFlush() error {
 	w.batchMu.Lock()
 	if len(w.batch) == 0 {
 		w.batchMu.Unlock()
+		globalFlushCount.Add(1)
 		return nil
 	}
 	batch := w.batch
 	w.batch = make([]walEntry, 0, walMaxBatch)
+	batchLen := len(batch)
 	w.batchMu.Unlock()
 
 	w.mu.Lock()
@@ -276,7 +295,40 @@ func (w *WAL) doFlush() error {
 	}
 
 	// 单次 fsync 批量持久化（N 次 write → 1 次 fsync）
-	return w.file.Sync()
+	// batch20: fsync 取证——记录次数、batch size、耗时（后台 goroutine，非写路径热区）
+	fsyncStart := time.Now()
+	err := w.file.Sync()
+	fsyncUs := time.Since(fsyncStart).Microseconds()
+
+	globalFsyncCount.Add(1)
+	globalFsyncTotalEntries.Add(int64(batchLen))
+	globalFsyncTotalUs.Add(fsyncUs)
+	globalFlushCount.Add(1)
+	for {
+		old := globalFsyncMaxUs.Load()
+		if fsyncUs <= old || globalFsyncMaxUs.CompareAndSwap(old, fsyncUs) {
+			break
+		}
+	}
+
+	switch {
+	case batchLen == 1:
+		globalBatchSize1.Add(1)
+	case batchLen <= 4:
+		globalBatchSize2_4.Add(1)
+	case batchLen <= 16:
+		globalBatchSize5_16.Add(1)
+	case batchLen <= 64:
+		globalBatchSize17_64.Add(1)
+	case batchLen <= 128:
+		globalBatchSize65_128.Add(1)
+	case batchLen <= 256:
+		globalBatchSize129_256.Add(1)
+	default:
+		globalBatchSize257Plus.Add(1)
+	}
+
+	return err
 }
 
 // rotateLocked 轮转 WAL：关闭当前文件 → rename 为 .closed.NNN → 创建新文件
@@ -551,4 +603,67 @@ func (w *WAL) RemoveClosedWALs() error {
 	}
 	w.closedWALs = nil
 	return nil
+}
+
+// WALStatsSnapshot WAL fsync 取证快照
+type WALStatsSnapshot struct {
+	FsyncCount        int64   `json:"fsync_count"`
+	FlushCount        int64   `json:"flush_count"`
+	FsyncTotalEntries int64   `json:"fsync_total_entries"`
+	FsyncTotalUs      int64   `json:"fsync_total_us"`
+	FsyncAvgUs        int64   `json:"fsync_avg_us"`
+	FsyncMaxUs        int64   `json:"fsync_max_us"`
+	AvgBatchSize      float64 `json:"avg_batch_size"`
+	BatchSize1        int64   `json:"batch_size_1"`
+	BatchSize2_4      int64   `json:"batch_size_2_4"`
+	BatchSize5_16     int64   `json:"batch_size_5_16"`
+	BatchSize17_64    int64   `json:"batch_size_17_64"`
+	BatchSize65_128   int64   `json:"batch_size_65_128"`
+	BatchSize129_256  int64   `json:"batch_size_129_256"`
+	BatchSize257Plus  int64   `json:"batch_size_257_plus"`
+}
+
+// Stats 返回 WAL fsync 取证快照
+func (w *WAL) Stats() WALStatsSnapshot {
+	fc := globalFsyncCount.Load()
+	te := globalFsyncTotalEntries.Load()
+	tu := globalFsyncTotalUs.Load()
+	var avgUs int64
+	var avgBatch float64
+	if fc > 0 {
+		avgUs = tu / fc
+		avgBatch = float64(te) / float64(fc)
+	}
+	return WALStatsSnapshot{
+		FsyncCount:        fc,
+		FlushCount:        globalFlushCount.Load(),
+		FsyncTotalEntries: te,
+		FsyncTotalUs:      tu,
+		FsyncAvgUs:        avgUs,
+		FsyncMaxUs:        globalFsyncMaxUs.Load(),
+		AvgBatchSize:      avgBatch,
+		BatchSize1:        globalBatchSize1.Load(),
+		BatchSize2_4:      globalBatchSize2_4.Load(),
+		BatchSize5_16:     globalBatchSize5_16.Load(),
+		BatchSize17_64:    globalBatchSize17_64.Load(),
+		BatchSize65_128:   globalBatchSize65_128.Load(),
+		BatchSize129_256:  globalBatchSize129_256.Load(),
+		BatchSize257Plus:  globalBatchSize257Plus.Load(),
+	}
+}
+
+// ResetGlobalStats 重置全局 fsync 取证计数器
+func ResetGlobalStats() {
+	globalFsyncCount.Store(0)
+	globalFsyncTotalEntries.Store(0)
+	globalFsyncTotalUs.Store(0)
+	globalFsyncMaxUs.Store(0)
+	globalFlushCount.Store(0)
+	globalBatchSize1.Store(0)
+	globalBatchSize2_4.Store(0)
+	globalBatchSize5_16.Store(0)
+	globalBatchSize17_64.Store(0)
+	globalBatchSize65_128.Store(0)
+	globalBatchSize129_256.Store(0)
+	globalBatchSize257Plus.Store(0)
 }
