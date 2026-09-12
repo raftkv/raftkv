@@ -197,15 +197,15 @@ func TestBatch11_BatchFlush_TriggersImmediateReplication(t *testing.T) {
 
 func TestBatch11_BatchFlush_NotLeader_ReturnsError(t *testing.T) {
 	rn := &RaftNode{
-		id:        "node-1",
-		state:     StateFollower,
-		term:      10,
-		logs:      make([]RaftLog, 0),
-		leaderID:  "node-2",
-		nextIdx:   make(map[string]int64),
-		matchIdx:  make(map[string]int64),
-		peers:     []PeerInfo{{ID: "node-2"}},
-		stats:     &RaftStats{ID: "node-1", State: "Follower", Term: 10, PeerCount: 1},
+		id:       "node-1",
+		state:    StateFollower,
+		term:     10,
+		logs:     make([]RaftLog, 0),
+		leaderID: "node-2",
+		nextIdx:  make(map[string]int64),
+		matchIdx: make(map[string]int64),
+		peers:    []PeerInfo{{ID: "node-2"}},
+		stats:    &RaftStats{ID: "node-1", State: "Follower", Term: 10, PeerCount: 1},
 
 		commitNotify:             make(chan struct{}, 1),
 		shutdownCh:               make(chan struct{}),
@@ -232,14 +232,14 @@ func TestBatch11_BatchFlush_NotLeader_ReturnsError(t *testing.T) {
 
 func TestBatch11_BatchStats_TracksHistogram(t *testing.T) {
 	rn := &RaftNode{
-		id:        "node-1",
-		state:     StateLeader,
-		term:      10,
-		logs:      make([]RaftLog, 0),
-		nextIdx:   make(map[string]int64),
-		matchIdx:  make(map[string]int64),
-		peers:     []PeerInfo{{ID: "node-2"}, {ID: "node-3"}, {ID: "node-4"}, {ID: "node-5"}},
-		stats:     &RaftStats{ID: "node-1", State: "Leader", Term: 10, PeerCount: 4},
+		id:       "node-1",
+		state:    StateLeader,
+		term:     10,
+		logs:     make([]RaftLog, 0),
+		nextIdx:  make(map[string]int64),
+		matchIdx: make(map[string]int64),
+		peers:    []PeerInfo{{ID: "node-2"}, {ID: "node-3"}, {ID: "node-4"}, {ID: "node-5"}},
+		stats:    &RaftStats{ID: "node-1", State: "Leader", Term: 10, PeerCount: 4},
 
 		commitNotify:             make(chan struct{}, 1),
 		shutdownCh:               make(chan struct{}),
@@ -297,7 +297,7 @@ func TestBatch11_WaitForCommit_CommitAdvances(t *testing.T) {
 	}
 
 	resultCh := make(chan proposeResult, 1)
-	go rn.waitForCommit(1, resultCh)
+	go rn.waitForCommit(1, resultCh, nil)
 
 	time.Sleep(20 * time.Millisecond)
 	rn.mu.Lock()
@@ -340,7 +340,7 @@ func TestBatch11_WaitForCommit_LostLeadership(t *testing.T) {
 	}
 
 	resultCh := make(chan proposeResult, 1)
-	go rn.waitForCommit(1, resultCh)
+	go rn.waitForCommit(1, resultCh, nil)
 
 	time.Sleep(20 * time.Millisecond)
 	rn.mu.Lock()

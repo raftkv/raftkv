@@ -348,6 +348,16 @@ func main() {
 	inFlightLimiter := NewInFlightLimiter(inFlightCap)
 	triStats := NewTriStats()
 	fmt.Printf("[batch17] 双层准入: in-flight cap=%d, 令牌桶 maxTokens=1024 rate=10000\n", inFlightCap)
+
+	// batch18: 延迟分解埋点
+	latencyDecomp := InitLatencyDecomp()
+	if v := os.Getenv("LATENCY_DECOMP"); v == "true" || v == "1" {
+		latencyDecomp.SetEnabled(true)
+		fmt.Println("[batch18] 延迟分解埋点已启用")
+	}
+
+	// batch18 T2: 注入在途利用率查询（自适应 flush 用）
+	node.inFlightUtilFn = inFlightLimiter.Utilization
 	var snapSched *SnapshotScheduler
 	if pipeline != nil {
 		snapSched = pipeline.scheduler
@@ -496,6 +506,16 @@ func main() {
 	// gRPC 延迟统计端点（Histogram JSON + Prometheus 格式原生直采）
 	httpMux.HandleFunc("/latency/stats", handleLatencyStats)
 	httpMux.HandleFunc("/latency/metrics", handleLatencyPrometheus)
+
+	// batch18: 延迟分解端点
+	httpMux.HandleFunc("/latency/decomp", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if globalLatencyDecomp == nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"error": "latency decomp not initialized"})
+			return
+		}
+		json.NewEncoder(w).Encode(globalLatencyDecomp.Snapshot())
+	})
 
 	// batch15: 统一 Prometheus /metrics 端点 + 鉴权
 	httpMux.HandleFunc("/metrics", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
