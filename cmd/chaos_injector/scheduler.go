@@ -135,12 +135,24 @@ func (s *Scheduler) executeUnderLoadKill(scenarioID string) (*ScenarioResult, er
 	}
 	timeline = append(timeline, TimelineEvent{Timestamp: killTS, EventType: "kill_leader_under_load", NodeID: leaderID, Role: "Leader"})
 
+	type electionResult struct {
+		metrics *ElectionMetrics
+		err     error
+	}
+	ecChan := make(chan electionResult, 1)
+	go func() {
+		m, e := s.collector.CollectElectionTimeline(killTS, 15*time.Second)
+		ecChan <- electionResult{metrics: m, err: e}
+	}()
+
 	time.Sleep(10 * time.Second)
 
-	electionMetrics, err := s.collector.CollectElectionTimeline(killTS, 10*time.Second)
-	result.ElectionMetrics = *electionMetrics
-	if err != nil {
-		log.Printf("election timeout for %s: %v", scenarioID, err)
+	ecRes := <-ecChan
+	if ecRes.metrics != nil {
+		result.ElectionMetrics = *ecRes.metrics
+	}
+	if ecRes.err != nil {
+		log.Printf("election timeout for %s: %v", scenarioID, ecRes.err)
 	}
 
 	splitBrain, _ := s.collector.DetectSplitBrain(5 * time.Second)

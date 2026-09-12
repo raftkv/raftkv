@@ -35,9 +35,10 @@ var ErrCompacted = errors.New("log compacted: requested index < logStartIndex")
 // =========================================================================
 
 const (
-	// 选举超时范围（毫秒）— Fix #7: 增大至 >rpcTimeout，防止投票期间其他节点触发新选举
-	electionTimeoutMin = 5000 // 最小选举超时
-	electionTimeoutMax = 7000 // 最大选举超时
+	// 选举超时范围（毫秒）— batch22: 降至 800-1200ms 以实现选举完成 ≤2s
+	// Fix #7 约束维持: 800ms > rpcTimeout(500ms)，防止投票期间其他节点触发新选举
+	electionTimeoutMin = 800  // 最小选举超时
+	electionTimeoutMax = 1200 // 最大选举超时
 
 	// Leader 心跳间隔
 	heartbeatIntervalMin = 20 * time.Millisecond
@@ -818,13 +819,13 @@ func (rn *RaftNode) handleElectionTimeout() {
 	// 新节点日志未追上 Leader 时，不发起选举，给 Leader 更多时间同步日志
 	// 豁免条件：
 	//   1. 从未见过 Leader（lastHeartbeat zero，全新集群）
-	//   2. Leader 心跳过期（>5s，需接任）
+	//   2. Leader 心跳过期（>2s，需接任）— batch22: 从 5s 降至 2s 匹配 800-1200ms 选举超时
 	//   3. 连续3次选举失败（选举风暴自愈，强制突破）
-	if !rn.logCaughtUp && !rn.lastHeartbeat.IsZero() && time.Since(rn.lastHeartbeat) < 5*time.Second &&
+	if !rn.logCaughtUp && !rn.lastHeartbeat.IsZero() && time.Since(rn.lastHeartbeat) < 2*time.Second &&
 		rn.candidateFailCount < 3 {
 		rn.mu.Unlock()
 		rn.logf("[raft/%s] 日志尚未追上 Leader，跳过选举 (logs=%d, failCount=%d)", rn.id, len(rn.logs), rn.candidateFailCount)
-		rn.electionTimer.Reset(randomElectionTimeout() * 3)
+		rn.electionTimer.Reset(randomElectionTimeout() * 2)
 		return
 	}
 

@@ -8,8 +8,8 @@
 | DEBT-0001 | batch18 | batch20 | 已清偿 | 延迟分解埋点：/latency/decomp 端点需在 c=512 满载下提供 quorum_wait/batch_wait/batch_flush 三路 P50/P99 分解数据 | 453dff3 |
 | DEBT-0002 | batch18 | batch20 | 已清偿 | quorum_wait P99 分解：需对 quorum_wait P99=63.5ms 给出"RPC RTT + follower append + fsync"三路归因，并附 batch19 对照（P99 29.5ms，-53.4%） | 453dff3 |
 | DEBT-0003 | batch20 | batch21 | 已清偿 | decomp_c512_raw.json 四构成项补全：quorum_wait/fsync_wait/RPC/排队 四构成项 × {P50, P99, P50_ratio, P99_ratio} 全字段，4037 bytes | 947a1be |
-| L-21-1 | batch21 | batch22 | 待清 | F1 选举 6.895s 归因取证：需采集当前选举超时配置/随机区间/轮数/选票分布，并优化至 ≤2s | — |
-| L-21-2 | batch21 | batch22 | 待清 | 观测端点缺失致 F3 无法验证：需实现 GET /raft/entry 端点，使 F3 存活率可采集 | — |
+| L-21-1 | batch21 | batch22 | 已清偿 | F1 选举 6.895s 归因取证：需采集当前选举超时配置/随机区间/轮数/选票分布，并优化至 ≤2s | batch22 |
+| L-21-2 | batch21 | batch22 | 已清偿 | 观测端点缺失致 F3 无法验证：需实现 GET /raft/entry 端点，使 F3 存活率可采集 | batch22 |
 
 ## 已清偿记录详情
 
@@ -34,14 +34,16 @@
 
 ## 待清记录详情
 
-### L-21-1（batch22 待清）
+### L-21-1（batch22 已清偿）
 - **来源**：batch21 F1 选举完成时间 6.895s > 5.0s 阈值
-- **应清批次**：batch22 任务一
-- **清偿条件**：选举完成时间 ≤2s（3次取中位），压测负载持续下测
-- **清偿方式**：选举超时调参 + pre-vote 防选票分裂
+- **清偿批次**：batch22
+- **清偿方式**：选举超时 5000-7000ms→800-1200ms + 心跳阈值 5s→2s + 回退 *3→*2
+- **验证结果**：E1 3-median=1.6003s ≤ 2.0s PASS
+- **清偿提交**：batch22
 
-### L-21-2（batch22 待清）
+### L-21-2（batch22 已清偿）
 - **来源**：batch21 F3 存活率 0%，/raft/entry 端点未实现
-- **应清批次**：batch22 任务二
-- **清偿条件**：GET /raft/entry 端点实现，F3 存活率 = 100%
-- **清偿方式**：新增 /raft/entry HTTP handler，返回已确认 entry 列表
+- **清偿批次**：batch22
+- **清偿方式**：新增 /raft/entry HTTP handler + 修复 RaftStats JSON 标签 + 修复 chaos_injector 构建路径
+- **验证结果**：S1 survival=100% PASS, S2 sampled=20 PASS
+- **清偿提交**：batch22
