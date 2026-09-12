@@ -81,3 +81,11 @@ tests/deploy/certs/
 # --- D2-batch1 部署配置（修正B: 不入git）---
 tests/deploy/deploy.env
 tests/deploy/.sm4_key
+# --- batch21 编译产物 ---
+cmd/chaos_injector/chaos_injector_arm64
+cmd/chaos_injector/chaos_injector
+tools/loadgen/loadgen_linux
+tools/loadgen/loadgen.exe
+
+# --- batch21 证据目录（显式排除，RL-08）---
+tests/evidence/d3-batch21/
