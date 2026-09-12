@@ -596,3 +596,27 @@ T15-CURVE-01 ~ T15-CURVE-04 (曲线模块) ───┤   依赖 T15-MET-01
 - 验收线 3（mTLS 正负路径）→ T15-ACC-03
 - 验收线 4（单测护栏）→ T15-UT-01 + T15-UT-02 + T15-UT-03
 - 验收线 5（阶梯复测）→ T15-ACC-04
+---
+
+## T15-* 状态回填（batch17 任务零，2026-09-12 07:10）
+
+> 以下为各任务实际交付状态回填。原标记 TODO 但实际已实现的标 DONE，未独立实现的标 SKIP。
+
+| 任务 | 回填状态 | 说明 |
+|------|---------|------|
+| T15-INFRA-01~03 | DONE | batch15 实现 |
+| T15-MET-01~05 | DONE | batch15 实现 |
+| T15-RL-01~06 | DONE | batch15+batch16 实现 |
+| T15-TLS-01,02,04,05,06 | DONE | batch16 实现 |
+| T15-TLS-03 | SKIP | verifyPeerCert 回调未实现，依赖 Go stdlib 隐式校验 |
+| T15-AUTH-01~02 | DONE | batch15 实现 |
+| T15-CURVE-01~03 | SKIP | loadgen 内置统计替代，未独立 OverloadCurveCollector |
+| T15-CURVE-04 | DONE | loadgen -output JSON 落盘 |
+| T15-UT-01~03 | DONE | batch15+batch16 单测 |
+| T15-DEPLOY-01~02 | DONE | batch16 部署配置 |
+| T15-DEPLOY-03 | SKIP | 密钥轮换文档未编写 |
+| T15-ACC-01,03,04 | DONE | batch16 验收 |
+| T15-ACC-02 | DONE(未达标) | c=512 P99=200ms > 100ms，留 batch17 |
+| T15-REV-01~02 | DONE | batch16 审查 |
+
+**统计**：DONE=31 / SKIP=4 / 未达标=1
