@@ -167,11 +167,15 @@ type RaftNode struct {
 	batchCountTotal   int64                // 总批次数
 	batchSizeTotal    int64                // 总攒批条数
 	batchSizeHist     [65]int64            // 批大小直方图 (0=1条, 63=64条, 64=溢出)
+	inFlightUtilFn    func() float64       // batch18: 在途利用率查询（自适应 flush 用）
 }
 
 type proposeRequest struct {
 	command  []byte
 	resultCh chan proposeResult
+	tEnqueue int64
+	tFlush   int64
+	tRepl    int64
 }
 
 type proposeResult struct {
@@ -1319,12 +1323,23 @@ func (rn *RaftNode) proposeBatchLoop() {
 	timer := time.NewTimer(rn.proposeBatchWin)
 	defer timer.Stop()
 
+	// batch18 T2: 自适应 flush 超时
+	adaptiveWin := func() time.Duration {
+		if rn.inFlightUtilFn != nil {
+			util := rn.inFlightUtilFn()
+			if util < 0.5 {
+				return 1 * time.Millisecond // 低负载快速 flush
+			}
+		}
+		return rn.proposeBatchWin // 高负载保持 2ms
+	}
+
 	flush := func() {
 		if len(batch) > 0 {
 			rn.proposeBatchFlush(batch)
 			batch = make([]*proposeRequest, 0, rn.proposeBatchSize)
 		}
-		timer.Reset(rn.proposeBatchWin)
+		timer.Reset(adaptiveWin())
 	}
 
 	for {
@@ -1356,9 +1371,38 @@ func (rn *RaftNode) proposeBatchLoop() {
 // proposeBatchFlush 批量追加日志 + 立即触发复制
 func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 	n := len(batch)
+	tFlush := time.Now().UnixMicro()
 
+	// batch18 T1: 锁外预构造日志切片，减少锁持有时间
+	rn.mu.RLock()
+	term := rn.term
+	isLeader := rn.state == StateLeader && !rn.walGateClosed
+	baseIdx := int64(len(rn.logs))
+	rn.mu.RUnlock()
+
+	if !isLeader {
+		rn.mu.RLock()
+		leader := rn.leaderID
+		rn.mu.RUnlock()
+		for _, req := range batch {
+			req.resultCh <- proposeResult{err: fmt.Errorf("not leader: current leader is %s", leader)}
+		}
+		return
+	}
+
+	// 预构造日志条目（锁外）
+	batchLogs := make([]RaftLog, n)
+	for i, req := range batch {
+		batchLogs[i] = RaftLog{
+			Index:   baseIdx + int64(i+1),
+			Term:    term,
+			Command: req.command,
+		}
+	}
+
+	// 锁内仅一次 append（O(1) 摊还）
 	rn.mu.Lock()
-	if rn.state != StateLeader {
+	if rn.state != StateLeader || rn.walGateClosed {
 		rn.mu.Unlock()
 		leader := rn.leaderID
 		for _, req := range batch {
@@ -1366,34 +1410,37 @@ func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 		}
 		return
 	}
-	if rn.walGateClosed {
-		rn.mu.Unlock()
-		for _, req := range batch {
-			req.resultCh <- proposeResult{err: fmt.Errorf("WAL gate closed")}
+	// 校正 baseIdx（锁内实际长度可能已变）
+	actualBase := int64(len(rn.logs))
+	if actualBase != baseIdx {
+		for i := range batchLogs {
+			batchLogs[i].Index = actualBase + int64(i+1)
 		}
-		return
+		baseIdx = actualBase
 	}
-
-	term := rn.term
-	baseIdx := int64(len(rn.logs))
-	for i, req := range batch {
-		index := baseIdx + int64(i+1)
-		rn.logs = append(rn.logs, RaftLog{
-			Index:   index,
-			Term:    term,
-			Command: req.command,
-		})
-	}
-
-	rn.stats.Lock()
-	rn.stats.LogCount = len(rn.logs)
-	rn.stats.Unlock()
+	rn.logs = append(rn.logs, batchLogs...)
+	logCount := len(rn.logs)
 	rn.mu.Unlock()
 
+	// stats 更新移出写锁
+	rn.stats.Lock()
+	rn.stats.LogCount = logCount
+	rn.stats.Unlock()
+
 	// 立即触发复制（不等 50ms 心跳 ticker）
-	select {
-	case rn.replicateCh <- struct{}{}:
-	default:
+	tRepl := time.Now().UnixMicro()
+	// batch18 T3: 直接触发 sendHeartbeats，消除 replicateCh → heartbeatLoop 调度延迟
+	if rn.config != nil && atomic.CompareAndSwapInt32(&rn.sendHBInFlight, 0, 1) {
+		go func() {
+			defer atomic.StoreInt32(&rn.sendHBInFlight, 0)
+			rn.sendHeartbeats()
+		}()
+	} else {
+		// sendHeartbeats 已在运行或节点未初始化，退回 replicateCh 信号
+		select {
+		case rn.replicateCh <- struct{}{}:
+		default:
+		}
 	}
 
 	// 记录批统计
@@ -1410,12 +1457,14 @@ func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 	// 各请求按 index 精确等待 commit
 	for i, req := range batch {
 		index := baseIdx + int64(i+1)
-		go rn.waitForCommit(index, req.resultCh)
+		req.tFlush = tFlush
+		req.tRepl = tRepl
+		go rn.waitForCommit(index, req.resultCh, req)
 	}
 }
 
 // waitForCommit 等待指定 index 被 commit 后返回结果
-func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult) {
+func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult, req *proposeRequest) {
 	commitTimer := time.NewTimer(3 * time.Second)
 	defer commitTimer.Stop()
 	pollTicker := time.NewTicker(2 * time.Millisecond)
@@ -1439,6 +1488,22 @@ func (rn *RaftNode) waitForCommit(index int64, resultCh chan proposeResult) {
 		rn.mu.RUnlock()
 
 		if committed {
+			if globalLatencyDecomp != nil && globalLatencyDecomp.enabled.Load() && req != nil {
+				tCommit := time.Now().UnixMicro()
+				batchWait := req.tFlush - req.tEnqueue
+				batchFlush := req.tRepl - req.tFlush
+				quorumWait := tCommit - req.tRepl
+				if batchWait < 0 {
+					batchWait = 0
+				}
+				if batchFlush < 0 {
+					batchFlush = 0
+				}
+				if quorumWait < 0 {
+					quorumWait = 0
+				}
+				globalLatencyDecomp.Record(batchWait, batchFlush, quorumWait, 0)
+			}
 			resultCh <- proposeResult{index: index}
 			return
 		}
@@ -1471,6 +1536,7 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 		req := &proposeRequest{
 			command:  command,
 			resultCh: make(chan proposeResult, 1),
+			tEnqueue: time.Now().UnixMicro(),
 		}
 		select {
 		case rn.proposeBatchCh <- req:
