@@ -7,7 +7,7 @@
 |---------|-------------|-------------|--------|-------------|------------|
 | DEBT-0001 | batch18 | batch20 | 已清偿 | 延迟分解埋点：/latency/decomp 端点需在 c=512 满载下提供 quorum_wait/batch_wait/batch_flush 三路 P50/P99 分解数据 | 453dff3 |
 | DEBT-0002 | batch18 | batch20 | 已清偿 | quorum_wait P99 分解：需对 quorum_wait P99=63.5ms 给出"RPC RTT + follower append + fsync"三路归因，并附 batch19 对照（P99 29.5ms，-53.4%） | 453dff3 |
-| DEBT-0003 | batch20 | batch21 | 待清 | decomp_c512_raw.json 四构成项补全：需将 batch18 埋点实测数据整理为 quorum_wait/fsync_wait/RPC/排队 四构成项 × {P50, P99, P50_ratio, P99_ratio} 全字段，KB 级完整数据 | — |
+| DEBT-0003 | batch20 | batch21 | 已清偿 | decomp_c512_raw.json 四构成项补全：quorum_wait/fsync_wait/RPC/排队 四构成项 × {P50, P99, P50_ratio, P99_ratio} 全字段，4037 bytes | 947a1be |
 
 ## 已清偿记录详情
 
