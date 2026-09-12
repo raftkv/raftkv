@@ -1,0 +1,114 @@
+{
+  "metadata": {
+    "source": "batch18埋点实测",
+    "source_file": "tests/evidence/d3-batch18/p99_decomp.json",
+    "concurrency": 512,
+    "sample_count": 69982,
+    "tps": 6447.6,
+    "shed_rate": "36.45%",
+    "client_p50_ms": 100,
+    "client_p99_ms": 200,
+    "config": {
+      "proposeBatchSize": 64,
+      "proposeBatchWin": "2ms",
+      "rpcTimeout": "500ms",
+      "heartbeatInterval": "50ms"
+    },
+    "note": "四构成项映射：quorum_wait→quorum_wait, fsync_wait→batch_flush, 排队→batch_wait, RPC→quorum_wait内含网络RTT（未独立埋点，估算标注）"
+  },
+  "server_total": {
+    "p50_us": 16723,
+    "p99_us": 78095,
+    "avg_us": 20751,
+    "max_us": 136853
+  },
+  "components": {
+    "quorum_wait": {
+      "description": "Raft quorum 复制等待时间，含 leader 发送 RPC + follower append + follower fsync + follower 回复",
+      "p50_us": 12436,
+      "p99_us": 63465,
+      "p50_ratio": "74.4%",
+      "p99_ratio": "81.3%",
+      "sub_components": {
+        "rpc": {
+          "description": "网络 RPC 往返时延（leader→follower→leader），未独立埋点",
+          "p50_us_estimated": 5000,
+          "p99_us_estimated": 25000,
+          "p50_ratio_estimated": "29.9%",
+          "p99_ratio_estimated": "32.0%",
+          "estimation_basis": "quorum_wait 约含 RPC + follower_append + follower_fsync，RPC 通常占 40% 左右"
+        },
+        "follower_append": {
+          "description": "follower 日志追加时间",
+          "p50_us_estimated": 5000,
+          "p99_us_estimated": 25000,
+          "estimation_basis": "quorum_wait 减去 RPC 和 follower_fsync 的余量"
+        },
+        "follower_fsync": {
+          "description": "follower WAL fsync 时间",
+          "p50_us_estimated": 2436,
+          "p99_us_estimated": 13465,
+          "estimation_basis": "与 leader batch_flush 同量级"
+        }
+      }
+    },
+    "fsync_wait": {
+      "description": "leader WAL fsync 等待时间（映射自 batch_flush）",
+      "p50_us": 47,
+      "p99_us": 18165,
+      "p50_ratio": "0.3%",
+      "p99_ratio": "23.3%",
+      "mapped_from": "batch_flush",
+      "note": "batch_flush 含锁内日志追加 + fsync，过载时锁竞争放大 P99"
+    },
+    "rpc": {
+      "description": "网络 RPC 往返时延（独立分量，嵌入 quorum_wait 内）",
+      "p50_us_estimated": 5000,
+      "p99_us_estimated": 25000,
+      "p50_ratio_estimated": "29.9%",
+      "p99_ratio_estimated": "32.0%",
+      "measurement_status": "未独立埋点，估算值",
+      "estimation_basis": "quorum_wait 的 ~40% 子分量"
+    },
+    "queue": {
+      "description": "攽批队列等待时间（映射自 batch_wait）",
+      "p50_us": 1563,
+      "p99_us": 32537,
+      "p50_ratio": "9.3%",
+      "p99_ratio": "41.7%",
+      "mapped_from": "batch_wait",
+      "note": "window=2ms, size=64，过载时队列堆积放大 P99"
+    }
+  },
+  "commit_notify": {
+    "p50_us": 0,
+    "p99_us": 0,
+    "note": "batch19 优化后 commit_notify 为 0"
+  },
+  "snapshot_io": {
+    "count": 0,
+    "wall_ms": 0,
+    "note": "独立 goroutine，不阻塞复制路径"
+  },
+  "attack_priority": [
+    "1. quorum_wait (P99 81.3%): Raft quorum 复制固有尾延迟，含网络 RTT + follower append + fsync",
+    "2. queue/batch_wait (P99 41.7%): 攽批队列等待时间，window=2ms, size=64",
+    "3. fsync_wait/batch_flush (P99 23.3%): 锁内日志追加 + fsync，过载时锁竞争放大",
+    "4. rpc (P99 ~32%): 网络 RPC 往返，嵌入 quorum_wait 内",
+    "5. snapshot_io (0%): 独立 goroutine，不阻塞复制路径"
+  ],
+  "p50_breakdown": {
+    "quorum_wait": "74.4%",
+    "fsync_wait": "0.3%",
+    "rpc_estimated": "29.9%",
+    "queue": "9.3%",
+    "commit_notify": "0.0%"
+  },
+  "p99_breakdown": {
+    "quorum_wait": "81.3%",
+    "fsync_wait": "23.3%",
+    "rpc_estimated": "32.0%",
+    "queue": "41.7%",
+    "commit_notify": "0.0%"
+  }
+}
