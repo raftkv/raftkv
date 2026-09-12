@@ -88,6 +88,7 @@ func (h *LatencyHistogram) Print() string {
 type WorkerStats struct {
 	success   int64
 	fail      int64
+	shed      int64
 	histogram *LatencyHistogram
 }
 
@@ -179,9 +180,8 @@ func (lg *LoadGen) doWrite(workerID int, keyIdx int64) bool {
 		}
 		respBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		if resp.StatusCode == 429 {
-
-			atomic.AddInt64(&lg.stats[workerID].fail, 1)
+		if resp.StatusCode == 429 || resp.StatusCode == 503 {
+			atomic.AddInt64(&lg.stats[workerID].shed, 1)
 			return false
 		}
 		if resp.StatusCode == 200 && !bytes.Contains(respBody, []byte(`"success":false`)) {
@@ -261,10 +261,15 @@ func (lg *LoadGen) Run() Result {
 	elapsed := time.Since(start)
 	elapsedSec := elapsed.Seconds()
 
+	var totalShed int64
 	for i := range lg.stats {
-		atomic.AddInt64(&lg.totalReq, atomic.LoadInt64(&lg.stats[i].success)+atomic.LoadInt64(&lg.stats[i].fail))
-		atomic.AddInt64(&lg.totalSuccess, atomic.LoadInt64(&lg.stats[i].success))
-		atomic.AddInt64(&lg.totalFail, atomic.LoadInt64(&lg.stats[i].fail))
+		s := atomic.LoadInt64(&lg.stats[i].success)
+		f := atomic.LoadInt64(&lg.stats[i].fail)
+		h := atomic.LoadInt64(&lg.stats[i].shed)
+		atomic.AddInt64(&lg.totalReq, s+f+h)
+		atomic.AddInt64(&lg.totalSuccess, s)
+		atomic.AddInt64(&lg.totalFail, f)
+		totalShed += h
 	}
 
 	mergedHist := NewLatencyHistogram()
@@ -279,8 +284,10 @@ func (lg *LoadGen) Run() Result {
 
 	tps := float64(lg.totalSuccess) / elapsedSec
 	successRate := 100.0
+	shedRate := 0.0
 	if lg.totalReq > 0 {
 		successRate = float64(lg.totalSuccess) * 100.0 / float64(lg.totalReq)
+		shedRate = float64(totalShed) * 100.0 / float64(lg.totalReq)
 	}
 
 	return Result{
@@ -289,8 +296,10 @@ func (lg *LoadGen) Run() Result {
 		TotalReq:    lg.totalReq,
 		Success:     lg.totalSuccess,
 		Fail:        lg.totalFail,
+		Shed:        totalShed,
 		TPS:         tps,
 		SuccessRate: successRate,
+		ShedRate:    shedRate,
 		P50:         mergedHist.Percentile(50),
 		P95:         mergedHist.Percentile(95),
 		P99:         mergedHist.Percentile(99),
@@ -305,8 +314,10 @@ type Result struct {
 	TotalReq    int64             `json:"total_req"`
 	Success     int64             `json:"success"`
 	Fail        int64             `json:"fail"`
+	Shed        int64             `json:"shed"`
 	TPS         float64           `json:"tps"`
 	SuccessRate float64           `json:"success_rate"`
+	ShedRate    float64           `json:"shed_rate"`
 	P50         float64           `json:"p50_ms"`
 	P95         float64           `json:"p95_ms"`
 	P99         float64           `json:"p99_ms"`
@@ -315,8 +326,8 @@ type Result struct {
 }
 
 func (r Result) Summary() string {
-	return fmt.Sprintf("concurrency=%d  duration=%.1fs  total=%d  success=%d  fail=%d  TPS=%.1f  successRate=%.2f%%  P50=%.1fms  P95=%.1fms  P99=%.1fms  Max=%.1fms",
-		r.Concurrency, r.Duration, r.TotalReq, r.Success, r.Fail, r.TPS, r.SuccessRate, r.P50, r.P95, r.P99, r.MaxMs)
+	return fmt.Sprintf("concurrency=%d  duration=%.1fs  total=%d  success=%d  shed=%d  fail=%d  TPS=%.1f  successRate=%.2f%%  shedRate=%.2f%%  P50=%.1fms  P95=%.1fms  P99=%.1fms  Max=%.1fms",
+		r.Concurrency, r.Duration, r.TotalReq, r.Success, r.Shed, r.Fail, r.TPS, r.SuccessRate, r.ShedRate, r.P50, r.P95, r.P99, r.MaxMs)
 }
 
 func (r Result) JSON() string {
@@ -325,15 +336,17 @@ func (r Result) JSON() string {
 		Duration    float64 `json:"duration_sec"`
 		TotalReq    int64   `json:"total_req"`
 		Success     int64   `json:"success"`
+		Shed        int64   `json:"shed"`
 		Fail        int64   `json:"fail"`
 		TPS         float64 `json:"tps"`
 		SuccessRate float64 `json:"success_rate"`
+		ShedRate    float64 `json:"shed_rate"`
 		P50         float64 `json:"p50_ms"`
 		P95         float64 `json:"p95_ms"`
 		P99         float64 `json:"p99_ms"`
 		MaxMs       float64 `json:"max_ms"`
 	}{
-		r.Concurrency, r.Duration, r.TotalReq, r.Success, r.Fail, r.TPS, r.SuccessRate, r.P50, r.P95, r.P99, r.MaxMs,
+		r.Concurrency, r.Duration, r.TotalReq, r.Success, r.Shed, r.Fail, r.TPS, r.SuccessRate, r.ShedRate, r.P50, r.P95, r.P99, r.MaxMs,
 	})
 	return string(b)
 }

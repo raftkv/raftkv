@@ -338,6 +338,16 @@ func main() {
 	if v := os.Getenv("RATE_LIMIT_ENABLED"); v == "true" || v == "1" {
 		rateLimiter.Enable()
 	}
+	// batch17: 双层准入 — 在途并发限制器（信号量，约束 L）+ 三口径统计
+	inFlightCap := int64(600)
+	if v := os.Getenv("IN_FLIGHT_CAP"); v != "" {
+		if cap, err := strconv.ParseInt(v, 10, 64); err == nil && cap > 0 {
+			inFlightCap = cap
+		}
+	}
+	inFlightLimiter := NewInFlightLimiter(inFlightCap)
+	triStats := NewTriStats()
+	fmt.Printf("[batch17] 双层准入: in-flight cap=%d, 令牌桶 maxTokens=1024 rate=10000\n", inFlightCap)
 	var snapSched *SnapshotScheduler
 	if pipeline != nil {
 		snapSched = pipeline.scheduler
@@ -350,15 +360,26 @@ func main() {
 			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 			return
 		}
-		// batch16: 限流器检查（启用时拒绝超限请求）
+		// batch17: 双层准入 — 信号量先判（约束在途并发 L）
+		if !inFlightLimiter.TryAcquire() {
+			triStats.IncShed()
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "in-flight cap exceeded", "shed": true, "reason": "in_flight_cap"})
+			return
+		}
+		defer inFlightLimiter.Release()
+		// batch17: 令牌桶后判（约束速率 λ）
 		if !rateLimiter.Allow() {
+			triStats.IncShed()
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "rate limited"})
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "rate limited", "shed": true, "reason": "rate_limited"})
 			return
 		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
+			triStats.IncFail()
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 			return
@@ -370,8 +391,10 @@ func main() {
 			if duplicate {
 				<-entry.done
 				if entry.err != nil {
+					triStats.IncFail()
 					json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": entry.err.Error(), "duplicate": true})
 				} else {
+					triStats.IncSuccess()
 					json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "index": entry.index, "duplicate": true})
 				}
 				return
@@ -382,9 +405,11 @@ func main() {
 			metricsCollector.RecordPropose()
 			idemTable.SetResult(token, index, perr)
 			if perr != nil {
+				triStats.IncFail()
 				idemTable.Remove(token)
 				json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": perr.Error()})
 			} else {
+				triStats.IncSuccess()
 				json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "index": index})
 			}
 			return
@@ -394,8 +419,10 @@ func main() {
 		rateLimiter.RecordLatency(time.Since(proposeStart).Microseconds())
 		metricsCollector.RecordPropose()
 		if err != nil {
+			triStats.IncFail()
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 		} else {
+			triStats.IncSuccess()
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "index": index})
 		}
 	})
@@ -474,6 +501,11 @@ func main() {
 	httpMux.HandleFunc("/metrics", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		fmt.Fprint(w, metricsCollector.RenderPrometheus())
+		// batch17: 三口径 + 在途并发指标
+		fmt.Fprint(w, triStats.RenderPrometheus())
+		fmt.Fprintf(w, "# HELP raft_in_flight Current in-flight requests\n# TYPE raft_in_flight gauge\nraft_in_flight %d\n", inFlightLimiter.InFlight())
+		fmt.Fprintf(w, "# HELP raft_in_flight_cap In-flight capacity limit\n# TYPE raft_in_flight_cap gauge\nraft_in_flight_cap %d\n", inFlightLimiter.Cap())
+		fmt.Fprintf(w, "# HELP raft_in_flight_utilization In-flight utilization ratio\n# TYPE raft_in_flight_utilization gauge\nraft_in_flight_utilization %.6f\n", inFlightLimiter.Utilization())
 	}))
 
 	// V2.3: 动态成员变更 HTTP 端点
