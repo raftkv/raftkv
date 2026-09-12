@@ -466,6 +466,21 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(stats)
 		})
+		// batch20: WAL fsync 取证端点
+		httpMux.HandleFunc("/wal/stats", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			storage := pipeline.Storage()
+			if storage == nil || storage.WAL() == nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"error": "WAL not initialized"})
+				return
+			}
+			json.NewEncoder(w).Encode(storage.WAL().Stats())
+		})
+		httpMux.HandleFunc("/wal/reset", func(w http.ResponseWriter, r *http.Request) {
+			ResetGlobalStats()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+		})
 	}
 
 	httpMux.HandleFunc("/replay/stats", func(w http.ResponseWriter, r *http.Request) {
