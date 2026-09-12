@@ -303,6 +303,75 @@ func main() {
 		degraded := node.DegradedFollowers()
 		fmt.Fprintf(w, " gaps=%v degraded=%v", gaps, degraded)
 	})
+	// batch22: /raft/entry 端点 — 返回已确认 entry（F3 存活率验证用）
+	// 模式1: GET /raft/entry?index=N → 返回单个 entry {index,term,value,commit_index}
+	// 模式2: GET /raft/entry?index=N&count=C → 返回 entry 列表
+	httpMux.HandleFunc("/raft/entry", func(w http.ResponseWriter, r *http.Request) {
+		s := node.Stats()
+		s.RLock()
+		commitIdx := s.CommitIndex
+		s.RUnlock()
+
+		var index int64 = commitIdx
+		if v := r.URL.Query().Get("index"); v != "" {
+			fmt.Sscanf(v, "%d", &index)
+		}
+		if index > commitIdx {
+			index = commitIdx
+		}
+		if index < 1 {
+			index = 1
+		}
+
+		countStr := r.URL.Query().Get("count")
+		if countStr == "" {
+			entries, err := node.GetLogEntries(index, index)
+			if err != nil || len(entries) == 0 {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"index":        index,
+					"term":         0,
+					"value":        "",
+					"commit_index": commitIdx,
+				})
+				return
+			}
+			e := entries[0]
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"index":        e.Index,
+				"term":         e.Term,
+				"value":        string(e.Command),
+				"commit_index": commitIdx,
+			})
+			return
+		}
+
+		var count int64 = 20
+		fmt.Sscanf(countStr, "%d", &count)
+		if count < 1 {
+			count = 1
+		}
+		startIdx := index - count + 1
+		if startIdx < 1 {
+			startIdx = 1
+		}
+
+		entries, err := node.GetLogEntries(startIdx, index)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"commit_index": commitIdx,
+			"start_index":  startIdx,
+			"end_index":    index,
+			"count":        len(entries),
+			"entries":      entries,
+		})
+	})
 	// 刀三: 快照兜底路径 — follower 接收 leader 发来的快照
 	httpMux.HandleFunc("/raft/install-snapshot", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

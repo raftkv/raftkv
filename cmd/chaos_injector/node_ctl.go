@@ -20,7 +20,7 @@ func NewNodeController(prefix string, portBase int) *NodeController {
 		containerPrefix: prefix,
 		httpPortBase:    portBase,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: 500 * time.Millisecond,
 		},
 	}
 }

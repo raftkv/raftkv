@@ -79,12 +79,15 @@ type ResumeState struct {
 }
 
 type RaftStats struct {
-	ID      string `json:"id"`
-	State   string `json:"state"`
-	Term    int64  `json:"term"`
-	Leader  string `json:"leader"`
-	Commit  int64  `json:"commit"`
-	Applied int64  `json:"applied"`
+	ID        string `json:"id"`
+	State     string `json:"state"`
+	Term      int64  `json:"term"`
+	Leader    string `json:"leader_id"`
+	Commit    int64  `json:"commit_index"`
+	Applied   int64  `json:"last_applied"`
+	LogCount  int64  `json:"log_count"`
+	PeerCount int64  `json:"peer_count"`
+	VotedFor  string `json:"voted_for"`
 }
 
 type SurvivalResult struct {
