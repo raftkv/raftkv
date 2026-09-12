@@ -26,7 +26,7 @@ func NewNodeController(prefix string, portBase int) *NodeController {
 }
 
 func (nc *NodeController) containerName(nodeID string) string {
-	return nc.containerPrefix + nodeID
+	return nc.containerPrefix + strings.TrimPrefix(nodeID, "node-")
 }
 
 func (nc *NodeController) httpPort(nodeID string) int {
