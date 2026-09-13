@@ -30,6 +30,16 @@ import (
 // ErrCompacted 日志已压缩：请求的索引 < logStartIndex，调用方应走快照路径
 var ErrCompacted = errors.New("log compacted: requested index < logStartIndex")
 
+// batch24: pre-vote 共享 HTTP 客户端（连接池 + 200ms 超时，减少选举开销）
+var preVoteHTTPClient = &http.Client{
+	Timeout: 200 * time.Millisecond,
+	Transport: &http.Transport{
+		MaxIdleConns:        5,
+		MaxIdleConnsPerHost: 1,
+		IdleConnTimeout:     30 * time.Second,
+	},
+}
+
 // =========================================================================
 // 编译时常量
 // =========================================================================
@@ -1039,7 +1049,7 @@ func (rn *RaftNode) preVoteProbe(term int64, lastLogIdx int64, lastLogTm int64, 
 				"last_log_term":  lastLogTm,
 			})
 
-			client := &http.Client{Timeout: rpcTimeout}
+			client := preVoteHTTPClient
 			resp, err := client.Post("http://"+addr+"/raft/pre_vote", "application/json", bytes.NewReader(reqBody))
 			if err != nil {
 				return

@@ -1,0 +1,63 @@
+# regression.yaml — 回归门契约
+# 版本: v2.4-batch24-governance
+# 用途: 每批先跑回归门再跑本批门，收编各批已达成核心线 ≤5 条
+
+contract:
+  name: regression-gate
+  version: "1.0"
+  description: "跨批回归门：5 条核心线，任一 FAIL 即冻结"
+
+acceptance_criteria:
+  REG-1:
+    name: tps_baseline
+    description: "Pipeline TPS 基线：c=128 TPS ≥ 8000"
+    metric: tps
+    threshold: 8000
+    unit: req/s
+    operator: ">="
+    source: batch16 c=128 TPS=13664.9
+    judgment: "pipeline c=128 压测 TPS ≥ 8000"
+
+  REG-2:
+    name: p99_baseline
+    description: "P99 延迟基线：c=128 P99 ≤ 50ms"
+    metric: p99
+    threshold: 50
+    unit: ms
+    operator: "<="
+    source: batch16 c=128 P99=50ms
+    judgment: "pipeline c=128 压测 P99 ≤ 50ms"
+
+  REG-3:
+    name: no_split_brain
+    description: "无脑裂：max_concurrent_leaders ≤ 1"
+    metric: max_concurrent_leaders
+    threshold: 1
+    operator: "<="
+    source: batch22-23 F4/E2 全 PASS
+    judgment: "故障注入场景 max_concurrent_leaders ≤ 1"
+
+  REG-4:
+    name: reject_rate
+    description: "拒载率 ≤ 30%"
+    metric: max_reject_rate
+    threshold: 30.0
+    unit: percent
+    operator: "<="
+    source: batch22-23 F2/E3 全 PASS
+    judgment: "max(reject_rate) ≤ 30%"
+
+  REG-5:
+    name: write_survival
+    description: "写入存活率 = 100%"
+    metric: min_survival_rate
+    threshold: 100.0
+    unit: percent
+    operator: "=="
+    source: batch22-23 F3/S1 全 PASS
+    judgment: "min(survival_rate) == 100%"
+
+execution:
+  pre_batch: "每批本批门之前先跑回归门"
+  on_fail: "任一 REG-1~5 FAIL → 冻结，不再跑本批门"
+  evidence_dir: "tests/evidence/regression/"
