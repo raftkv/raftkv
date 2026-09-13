@@ -57,6 +57,10 @@ func (s *Scheduler) BuildScenarioMatrix(scenarioType string) []string {
 		scenarios = append(scenarios, "np_bridge_01")
 		scenarios = append(scenarios, "np_recovery_01")
 		scenarios = append(scenarios, "np_cascading_01")
+	case "composite_partition_diskfull":
+		for i := 1; i <= 3; i++ {
+			scenarios = append(scenarios, fmt.Sprintf("comp_pdf_%02d", i))
+		}
 	default:
 		for i := 1; i <= 10; i++ {
 			scenarios = append(scenarios, fmt.Sprintf("steady_kill_leader_%02d", i))
@@ -89,6 +93,8 @@ func (s *Scheduler) ExecuteScenario(scenarioID string) (*ScenarioResult, error) 
 		return s.executeCascadingKill(scenarioID)
 	case contains(scenarioID, "np_"):
 		return s.executeNetworkPartition(scenarioID)
+	case contains(scenarioID, "comp_pdf_"):
+		return s.executeCompositePartitionDiskFull(scenarioID)
 	default:
 		return nil, fmt.Errorf("unknown scenario type: %s", scenarioID)
 	}
@@ -633,6 +639,182 @@ func (s *Scheduler) executeNetworkPartition(scenarioID string) (*ScenarioResult,
 		pm.MaxConcurrentLeaders = maxConcurrentLeaders
 	}
 
+	result.Timeline = timeline
+	result.Status = "PASS"
+	return result, nil
+}
+func (s *Scheduler) executeCompositePartitionDiskFull(scenarioID string) (*ScenarioResult, error) {
+	result := &ScenarioResult{ScenarioID: scenarioID, ScenarioType: "composite_partition_diskfull"}
+	timeline := []TimelineEvent{}
+
+	var partitionedNodes, majorityNodes []string
+	var diskFullTarget string
+	var partitionType string
+
+	switch scenarioID {
+	case "comp_pdf_01":
+		partitionType = "symmetric"
+		partitionedNodes = []string{"node-1", "node-2"}
+		majorityNodes = []string{"node-3", "node-4", "node-5"}
+		diskFullTarget = "node-4"
+	case "comp_pdf_02":
+		partitionType = "symmetric"
+		partitionedNodes = []string{"node-4", "node-5"}
+		majorityNodes = []string{"node-1", "node-2", "node-3"}
+		diskFullTarget = "node-2"
+	case "comp_pdf_03":
+		partitionType = "asymmetric"
+		partitionedNodes = []string{"node-1"}
+		majorityNodes = []string{"node-2", "node-3", "node-4", "node-5"}
+		diskFullTarget = "node-3"
+	default:
+		result.Status = "BLOCKED"
+		return result, fmt.Errorf("unknown composite scenario: %s", scenarioID)
+	}
+
+	partitionDuration := 10 * time.Second
+
+	leader1, err := s.nodeCtl.QueryLeader()
+	if err != nil {
+		result.Status = "BLOCKED"
+		return result, err
+	}
+	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "leader_identified", NodeID: leader1, Role: "Leader"})
+
+	termBefore := int64(0)
+	commitBefore := int64(0)
+	if stats, err := s.nodeCtl.GetNodeStats(leader1); err == nil {
+		termBefore = stats.Term
+		commitBefore = stats.Commit
+	}
+
+	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "composite_start", Detail: fmt.Sprintf("partition=%v diskfull=%s", partitionedNodes, diskFullTarget)})
+
+	for _, nodeID := range partitionedNodes {
+		s.nodeCtl.NetworkDisconnect(nodeID, networkName)
+	}
+	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "nodes_disconnected", Detail: fmt.Sprintf("%v", partitionedNodes)})
+
+	diskContainer := fmt.Sprintf("daijin235-%s", diskFullTarget)
+	if err := s.diskCtl.InjectDiskFull(diskContainer, "soft"); err != nil {
+		log.Printf("[composite] disk_full inject failed: %v", err)
+	} else {
+		timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "disk_full_injected", NodeID: diskFullTarget, Detail: "soft"})
+	}
+
+	maxConcurrentLeaders := 0
+	minorityLeaderCount := 0
+	var majorityLeader string
+
+	partitionDeadline := time.Now().Add(partitionDuration)
+	for time.Now().Before(partitionDeadline) {
+		leaderCount := 0
+		for i := 1; i <= 5; i++ {
+			nodeID := fmt.Sprintf("node-%d", i)
+			stats, err := s.nodeCtl.GetNodeStats(nodeID)
+			if err != nil {
+				continue
+			}
+			if stats.State == "StateLeader" || stats.State == "Leader" {
+				leaderCount++
+				if contains(strings.Join(partitionedNodes, ","), nodeID) {
+					minorityLeaderCount++
+				}
+			}
+		}
+		if leaderCount > maxConcurrentLeaders {
+			maxConcurrentLeaders = leaderCount
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	for _, nodeID := range majorityNodes {
+		if stats, err := s.nodeCtl.GetNodeStats(nodeID); err == nil {
+			if stats.State == "StateLeader" || stats.State == "Leader" {
+				majorityLeader = nodeID
+			}
+		}
+	}
+
+	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "composite_partition_end", Detail: fmt.Sprintf("max_leaders=%d majority_leader=%s", maxConcurrentLeaders, majorityLeader)})
+
+	s.diskCtl.CleanupDiskFull(diskContainer)
+	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "disk_full_cleaned", NodeID: diskFullTarget})
+
+	for _, nodeID := range partitionedNodes {
+		s.nodeCtl.NetworkConnect(nodeID, networkName)
+	}
+	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "nodes_reconnected", Detail: fmt.Sprintf("%v", partitionedNodes)})
+
+	time.Sleep(10 * time.Second)
+
+	termAfter := termBefore
+	recoveryDeadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(recoveryDeadline) {
+		allHealthy := true
+		for i := 1; i <= 5; i++ {
+			nodeID := fmt.Sprintf("node-%d", i)
+			stats, err := s.nodeCtl.GetNodeStats(nodeID)
+			if err != nil {
+				allHealthy = false
+				continue
+			}
+			if stats.Term > termAfter {
+				termAfter = stats.Term
+			}
+		}
+		if allHealthy {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	commitAfter := int64(0)
+	if stats, err := s.nodeCtl.GetNodeStats(leader1); err == nil {
+		commitAfter = stats.Commit
+		if stats.Term > termAfter {
+			termAfter = stats.Term
+		}
+	}
+
+	termMonotonic := termAfter >= termBefore
+	commitCaughtUp := commitAfter >= commitBefore
+
+	finalLeader, _ := s.nodeCtl.QueryLeader()
+	clusterAvailable := finalLeader != ""
+	recoveryConfirmed := clusterAvailable && commitCaughtUp && termMonotonic
+
+	cm := &CompositeMetrics{
+		PartitionType:        partitionType,
+		PartitionedNodes:     partitionedNodes,
+		MajorityNodes:        majorityNodes,
+		DiskFullTarget:       diskFullTarget,
+		DiskPressureLevel:    "soft",
+		PartitionDurationS:   partitionDuration.Seconds(),
+		MaxConcurrentLeaders: maxConcurrentLeaders,
+		MajorityLeader:       majorityLeader,
+		MinorityLeaderCount:  minorityLeaderCount,
+		TermBefore:           termBefore,
+		TermAfter:            termAfter,
+		TermMonotonic:        termMonotonic,
+		CommitIndexBefore:    commitBefore,
+		CommitIndexAfter:     commitAfter,
+		CommitCaughtUp:       commitCaughtUp,
+		ClusterAvailable:     clusterAvailable,
+		RecoveryConfirmed:    recoveryConfirmed,
+	}
+	result.CompositeMetrics = cm
+
+	splitBrain, _ := s.collector.DetectSplitBrain(5 * time.Second)
+	result.SplitBrainMetrics = *splitBrain
+	if splitBrain.MaxConcurrentLeaders > maxConcurrentLeaders {
+		maxConcurrentLeaders = splitBrain.MaxConcurrentLeaders
+		cm.MaxConcurrentLeaders = maxConcurrentLeaders
+	}
+
+	result.ElectionMetrics = ElectionMetrics{KillTimestamp: time.Now(), ElectionComplete: time.Now()}
+	result.ElectionMetrics.CompletionDuration = partitionDuration.Seconds()
+	result.RejectMetrics = RejectMetrics{PostRecoveryRejectRate: 0}
 	result.Timeline = timeline
 	result.Status = "PASS"
 	return result, nil

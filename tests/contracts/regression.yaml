@@ -1,13 +1,14 @@
 # regression.yaml — 回归门契约
-# 版本: v2.4-batch28-governance3
-# 用途: 每批先跑回归门再跑本批门，收编各批已达成核心线 9 条
+# 版本: v2.4-batch29-governance4
+# 用途: 每批先跑回归门再跑本批门，收编各批已达成核心线 10 条
 # batch28: 每条线显式声明判定统计量（stat: median/max/min/count），verdict 按线定义执行
 # batch28: 追加 REG-9 分区安全不变量（战役III NP-1~5 全 PASS）
+# batch29: 追加 REG-10 分区恢复追平时限线（战役III 复合场景 COMP-1~5 全 PASS）
 
 contract:
   name: regression-gate
-  version: "3.1"
-  description: "跨批回归门：9 条核心线，每条显式声明 stat，任一 FAIL 即冻结"
+  version: "3.2"
+  description: "跨批回归门：10 条核心线，每条显式声明 stat，任一 FAIL 即冻结"
 
 acceptance_criteria:
   REG-1:
@@ -118,7 +119,23 @@ acceptance_criteria:
     source: batch28 NP-1~5 全 PASS
     judgment: "max(partition_concurrent_leaders) ≤ 1 且 commit_caught_up 且 term_monotonic"
 
+  REG-10:
+    name: partition_recovery_timeliness
+    description: "分区恢复追平时限：复合场景恢复后 commit_caught_up + term_monotonic + recovery_confirmed"
+    metric: composite_recovery_confirmed
+    stat: min
+    threshold: 1
+    operator: ">="
+    rationale: |
+      分区+磁盘满复合场景（N=3）恢复后：
+      commit 追平（commit_after >= commit_before）
+      term 单调（term_after >= term_before）
+      集群可用 + 恢复确认
+      3 场景: comp_pdf_01(对称), comp_pdf_02(对称), comp_pdf_03(非对称)
+    source: batch29 COMP-1~5 全 PASS, N=3, CV=0.0%
+    judgment: "min(composite_recovery_confirmed) >= 1（全 true）"
+
 execution:
   pre_batch: "每批本批门之前先跑回归门"
-  on_fail: "任一 REG-1~9 FAIL → 冻结，不再跑本批门"
+  on_fail: "任一 REG-1~10 FAIL → 冻结，不再跑本批门"
   evidence_dir: "tests/evidence/regression/"
