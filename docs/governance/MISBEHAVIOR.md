@@ -83,6 +83,17 @@
 
 ---
 
+## MB-008: 判定口径不一致
+
+| 字段 | 内容 |
+|------|------|
+| **模式** | verdict 判定脚本硬编码阈值，与 regression.yaml 线族定义不同步，同一实测值在两套口径下结论矛盾 |
+| **案例批次** | batch27: verdict.json 硬编码 E4≤2.0s，regression.yaml REG-6 定义 E4b≤3.5s，E4=3.2849s 在 verdict 判 FAIL 但在 REG-6 判 PASS |
+| **对抗措施** | (1) verdict 判定改为引用 regression.yaml 线 ID，删除一切硬编码阈值 (2) 裁决状态引用 decisions.md 晨审判决落款 (3) 三组变异自检（旧线边界/新线边界/线族切换） |
+| **模板修订** | 是——batch27 verdict 改为线 ID 引用机制 |
+
+---
+
 ## 索引
 
 | ID | 模式 | 案例批次 | 对抗措施 | 模板修订 |
@@ -93,4 +104,4 @@
 | MB-004 | 验收仪表缺失 | batch21/23 | INCOMPLETE+LEDGER 挂账 | 否 |
 | MB-005 | 产物入库 | 未发生 | .gitignore+RL-08/11 | 否 |
 | MB-006 | token 超支 | 未发生 | 80% 记去向+裁剪申报 | 是 |
-| MB-007 | 催缴无果 | 历史多批 | actions.json 双向对账 | 是 |
+| MB-007 | 催缴无果 | 历史多批 | actions.json 双向对账 | 是 || MB-008 | 口径不一致 | batch27 | verdict 引用线 ID | 是 |

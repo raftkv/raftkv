@@ -57,6 +57,24 @@ func (nc *NodeController) RestartNode(nodeID string) error {
 	return nil
 }
 
+func (nc *NodeController) NetworkDisconnect(nodeID string, networkName string) error {
+	cmd := exec.Command("docker", "network", "disconnect", networkName, nc.containerName(nodeID))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("docker network disconnect %s: %v: %s", nodeID, err, string(output))
+	}
+	return nil
+}
+
+func (nc *NodeController) NetworkConnect(nodeID string, networkName string) error {
+	cmd := exec.Command("docker", "network", "connect", networkName, nc.containerName(nodeID))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("docker network connect %s: %v: %s", nodeID, err, string(output))
+	}
+	return nil
+}
+
 func (nc *NodeController) WaitNodeHealthy(nodeID string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	port := nc.httpPort(nodeID)

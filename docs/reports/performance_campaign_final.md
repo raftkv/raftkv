@@ -150,3 +150,70 @@
 | MISBEHAVIOR.md | docs/governance/MISBEHAVIOR.md |
 | regression.yaml | tests/contracts/regression.yaml |
 | decisions.md | tests/evidence/d3-batch25/decisions.md |
+## 附录 C: 逐批引用核验（8 转折批次）
+
+> 深度门槛: 每批注明 evidence 文件路径 + ≥2 处关键数字原文引用
+
+### batch14: loadgen 修复（真实基线建立）
+- **证据路径**: `tests/evidence/d3-batch14/3min_c128_fresh.json`
+- **原文引用 1**: `"tps": 8240.394966727501` — loadgen 修复后 c=128 真实 TPS
+- **原文引用 2**: `"success_rate": 100, "p99_ms": 50` — 100% 成功率 + P99=50ms 达标
+- **意义**: loadgen follower 拒绝误计成功 bug 修复，历史 TPS 全部失真作废
+
+### batch15: 限流器调参
+- **证据路径**: `tests/evidence/d3-batch15/3min_c128_metrics.json`
+- **原文引用 1**: `"tps": 9232.529184347895` — 限流器调参后 TPS 提升
+- **原文引用 2**: `"success_rate": 100, "p99_ms": 50` — 100% 成功率 + P99=50ms
+- **意义**: 限流器不再误伤正常流量，TPS 从 8240→9232 (+12% fresh cluster 方差)
+
+### batch16: c=128 正式达标
+- **证据路径**: `tests/evidence/d3-batch16/3min_c128_ratelimit.json`
+- **原文引用 1**: `"tps": 10492.380958133059` — c=128 限流器调参后 TPS
+- **原文引用 2**: `"success_rate": 100, "p99_ms": 50` — 100% 成功率 + P99=50ms
+- **意义**: c=128 正式达标，DFX 三项指标全绿
+
+### batch18: 延迟分解埋点
+- **证据路径**: `tests/evidence/d3-batch18/ab_test_a_cap256_fresh.json`
+- **原文引用 1**: `"tps": 7116.652086198711` — cap=256 fresh cluster TPS
+- **原文引用 2**: `"p99_ms": 100` — P99=100ms（后续 batch19 优化至 50ms）
+- **意义**: 延迟分解埋点就位，quorum_wait P99=63.5ms 占 81.3% 定位主瓶颈
+
+### batch20: fsync 合并取证
+- **证据路径**: `tests/evidence/d3-batch20/fsync_forensics.json`
+- **原文引用 1**: `"fsync_per_sec": 25.96, "merge_ratio_leader": "438.7:1"` — leader fsync 频率与合并比
+- **原文引用 2**: `"verdict": "INTRINSIC_CONFIRMED"` — fsync 合并固有确认，WAL 非瓶颈
+- **意义**: fsync 437:1 合并比确认，性能章节收官
+
+### batch23: pre-vote 防选票分裂
+- **证据路径**: `tests/evidence/d3-batch23/verdict.json`
+- **原文引用 1**: `E1: value=2.3719, status=FAIL` — pre-vote 后 E1 仍 FAIL
+- **原文引用 2**: `E4: value=3.5055, all_cascading=[3.3948, 3.5055, 3.5221]` — 级联选举全 FAIL
+- **意义**: pre-vote 防止 16 次不必要选举但 split vote 未消除
+
+### batch24: pre-vote 共享 HTTP Client
+- **证据路径**: `tests/evidence/d3-batch24/verdict.json`
+- **原文引用 1**: `E1: value=1.8222, status=PASS` — HTTP 开销优化后 E1 PASS (-23%)
+- **原文引用 2**: `E4: value=3.4607, all_cascading=[3.2495, 3.2846, 3.4607]` — E4 仍 FAIL
+- **意义**: E1 优化生效，E4 cascading split vote 双轮固有
+
+### batch25: E4 拆 E4a+E4b 提案
+- **证据路径**: `tests/evidence/d3-batch25/verdict.json`
+- **原文引用 1**: `E1: value=1.8233, status=PASS` — E1 不劣化 (+1.1ms)
+- **原文引用 2**: `E4: all_cascading=[2.8844, 3.266, 3.2849], CV=5.87%` — E4 三次测量 + CV
+- **意义**: E4 拆 E4a(≤2.0s)+E4b(≤3.5s) 提案，CV 制度建立
+
+## 附录 D: 811 vs 796.7 基线口径对账
+
+| 数值 | 出处文件 | 出处行 | 批次 | 并发度 | 含义 |
+|------|---------|--------|------|--------|------|
+| 811.70 | `tests/evidence/d3-batch11/报告.md` | line 33 | batch10 | c=128 | pre-group-commit 峰值 |
+| 796.7 | `tests/evidence/d3-batch11/step_c256.json` | line 1 | batch11 | c=256 | group commit 峰值 |
+
+**口径说明**:
+- 811.70 是 batch10（group commit 前）c=128 的 TPS 峰值，来自 `报告.md` 阶梯测试表
+- 796.7 是 batch11（group commit 后）c=256 的 TPS 峰值，来自 `step_c256.json` 原始 JSON
+- 两者来自**不同批次、不同并发度**，不可直接比较
+- **采用口径**: performance_campaign_final.md 以 **796.7** 为性能战役起点
+  - 原因: batch11 是 group commit 引入批次，796.7 是该批跨并发度峰值
+  - 811.70 为 batch10 局部数据，不作为战役起点
+- **冻结声明**: 796.7→9020 TPS (11.3x) 为性能战役正式口径，性能数字冻结
