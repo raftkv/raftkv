@@ -143,3 +143,17 @@
   - 晨审改判 PASS（中位数口径）→ L-27-1 销账 (batch28 执行)
 - **合规结论**: 全部按授权表执行，无越权决策，无红线触发
 - **状态**: 采信
+### 判例 AUDIT-015: E4b 定案 PASS，3.5s 冻结，性能战役终结
+- **批次**: batch14~28
+- **历程**: batch14 性能战役启动 → batch16 c=128 TPS=13664.9 突破 → batch20 fsync 合并取证 → batch24 pre-vote 优化 E1 PASS → batch25 D-24-1 提案 E4b≤3.5s → batch27 E4b 复测 max=3.5166s 挂账 → batch28 晨审改判 median 口径 PASS + N=5 扩测 median=3.4696s 确认 PASS
+- **定案**: E4b stat=median threshold=3.5s 冻结，L-27-1 终结
+- **性能战役终态**: 796.7→9020 TPS (11.3x), P99 50ms, E1=1.8233s PASS, E4b median=3.4696s PASS
+- **状态**: 采信
+
+### 判例 AUDIT-016: 申报纪律连续两批滑坡（失败模式）
+- **批次**: batch27~28
+- **现象**: batch27 首屏六追问中 decisions.md E4b 推导原文第三次催缴未答入（入 MISBEHAVIOR MB-007）；batch28 首屏二追问中 E4b N=5 五原始值未在首屏完整列出（仅在正文表格）
+- **根因**: 夜批长程执行中，首屏申报纪律随任务推进松弛，必答项遗漏
+- **对策**: batch29 引入推导机器催缴（judge_batch29 校验 decisions.md 推导段含量化内容）+ 首屏必答三项齐备检查位
+- **MISBEHAVIOR**: MB-010 收录此模式
+- **状态**: 采信
