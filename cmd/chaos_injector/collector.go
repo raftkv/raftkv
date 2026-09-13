@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -107,4 +108,46 @@ func (c *Collector) CollectStructuredLog(startTS, endTS time.Time) (*LogMetrics,
 	_ = startTS
 	_ = endTS
 	return metrics, nil
+}
+func (c *Collector) CollectPreVoteForensics(scenarioID string) (*PreVoteForensics, error) {
+	forensics := &PreVoteForensics{
+		ScenarioID:       scenarioID,
+		VoteDistribution: make(map[string]int),
+		Timestamp:        time.Now(),
+		Batch22Baseline:  "E1_all_steady=[2.78,3.19,1.60] term_inflation=cascading",
+	}
+
+	maxTerm := int64(0)
+	for i := 1; i <= 5; i++ {
+		stats, err := c.nodeCtl.GetNodeStats(fmt.Sprintf("node-%d", i))
+		if err == nil && stats.Term > maxTerm {
+			maxTerm = stats.Term
+		}
+	}
+	forensics.TermBefore = maxTerm
+
+	return forensics, nil
+}
+
+func (c *Collector) CollectPreVoteRounds() (int, int) {
+	prevoteRounds := 0
+	formalRounds := 0
+	for i := 1; i <= 5; i++ {
+		nodeID := fmt.Sprintf("node-%d", i)
+		container := fmt.Sprintf("daijin235-%s", nodeID)
+		out, err := exec.Command("docker", "logs", container).CombinedOutput()
+		if err != nil {
+			continue
+		}
+		lines := strings.Split(string(out), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "pre-vote 探测") {
+				prevoteRounds++
+			}
+			if strings.Contains(line, "选举超时触发") {
+				formalRounds++
+			}
+		}
+	}
+	return prevoteRounds, formalRounds
 }
