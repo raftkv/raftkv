@@ -29,6 +29,9 @@ def main():
     parser.add_argument("--ide-metrics-unavailable", action="store_true", help="IDE 计量不可程序化读取")
     parser.add_argument("--barrier-detail", default="", help="IDE 计量不可读的具体障碍说明")
     parser.add_argument("--threshold-percent", type=float, default=10.0, help="diff 阈值（百分比，默认 10%%）")
+    parser.add_argument("--equation-check", action="store_true", help="等式校验模式: 截图差值=自报之和")
+    parser.add_argument("--screenshot-diff", type=float, default=None, help="IDE 截图差值（等式校验模式）")
+    parser.add_argument("--prior-batch-tokens", type=float, default=0, help="前批自报 token（等式校验模式）")
     parser.add_argument("--output", required=True, help="输出路径")
     args = parser.parse_args()
 
@@ -38,7 +41,25 @@ def main():
         "threshold_percent": args.threshold_percent,
     }
 
-    if args.ide_metrics_unavailable:
+    if args.equation_check and args.screenshot_diff is not None:
+        sum_self_report = args.prior_batch_tokens + args.self_report_tokens
+        diff_abs = abs(args.screenshot_diff - sum_self_report)
+        precision = 0.1
+        result["mode"] = "equation_check"
+        result["screenshot_diff"] = args.screenshot_diff
+        result["prior_batch_tokens"] = args.prior_batch_tokens
+        result["sum_self_report"] = sum_self_report
+        result["diff_abs"] = round(diff_abs, 1)
+        result["precision"] = precision
+        if diff_abs <= precision:
+            result["status"] = "PASS"
+            result["misbehavior"] = None
+            result["detail"] = f"截图差值={args.screenshot_diff} == 自报之和={sum_self_report}（精度{precision}K）"
+        else:
+            result["status"] = "FAIL"
+            result["misbehavior"] = "MB-006: 等式校验不通过"
+            result["detail"] = f"截图差值={args.screenshot_diff} != 自报之和={sum_self_report}（差{diff_abs}K）"
+    elif args.ide_metrics_unavailable:
         result["mode"] = "manual_dual_number"
         result["ide_tokens"] = None
         result["diff_percent"] = None

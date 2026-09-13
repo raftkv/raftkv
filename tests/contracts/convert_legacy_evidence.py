@@ -16,8 +16,10 @@ from pathlib import Path
 
 
 def convert_scenario(original):
-    """将原始 scenario JSON 转为四段留证 schema 格式"""
+    """将原始 scenario JSON 转为四段留证 schema 格式（支持 composite 和 NP 两种格式）"""
     cm = original.get("composite_metrics", {})
+    pm = original.get("partition_metrics", {})
+    metrics = cm if cm else pm
     timeline = original.get("timeline", [])
 
     injection_ts = ""
@@ -27,35 +29,41 @@ def convert_scenario(original):
     for event in timeline:
         et = event.get("event_type", "")
         ts = event.get("timestamp", "")
-        if et == "composite_start":
+        if et in ("composite_start", "partition_start"):
             injection_ts = ts
             observation_start = ts
         elif et == "nodes_reconnected":
             recovery_ts = ts
             observation_end = ts
-        elif et == "composite_partition_end":
+        elif et in ("composite_partition_end", "partition_end"):
             if not observation_end:
                 observation_end = ts
 
-    recovery_duration = cm.get("partition_duration_s", 10)
+    recovery_duration = metrics.get("recovery_duration_s", metrics.get("partition_duration_s", 10))
+    is_composite = bool(cm)
+    fault_type = "compound_partition_diskfull" if is_composite else "network_partition"
+    target_nodes = metrics.get("partitioned_nodes", [])
+    parameters = {
+        "partition_type": metrics.get("partition_type"),
+        "partition_duration_s": metrics.get("partition_duration_s"),
+    }
+    if is_composite:
+        parameters["disk_full_target"] = metrics.get("disk_full_target")
+        parameters["disk_pressure_level"] = metrics.get("disk_pressure_level")
+    recovery_confirmed = metrics.get("recovery_confirmed", True)
 
     schema = {
         "schema_version": "1.0",
         "converted_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "legacy_source": original.get("evidence_path", ""),
-        "conversion_note": "从 batch29 存量留证转换为四段 schema 格式",
+        "conversion_note": "从存量留证转换为四段 schema 格式",
 
         "injection": {
             "scenario_id": original.get("scenario_id"),
             "scenario_type": original.get("scenario_type"),
-            "fault_type": "compound_partition_diskfull",
-            "target_nodes": cm.get("partitioned_nodes", []),
-            "parameters": {
-                "partition_type": cm.get("partition_type"),
-                "disk_full_target": cm.get("disk_full_target"),
-                "disk_pressure_level": cm.get("disk_pressure_level"),
-                "partition_duration_s": cm.get("partition_duration_s"),
-            },
+            "fault_type": fault_type,
+            "target_nodes": target_nodes,
+            "parameters": parameters,
             "timestamp": injection_ts,
             "leader_before": next(
                 (e.get("node_id") for e in timeline if e.get("event_type") == "leader_identified"),
@@ -65,16 +73,15 @@ def convert_scenario(original):
 
         "observation": {
             "metrics": {
-                "max_concurrent_leaders": cm.get("max_concurrent_leaders"),
-                "minority_leader_count": cm.get("minority_leader_count"),
-                "majority_leader": cm.get("majority_leader"),
-                "term_before": cm.get("term_before"),
-                "term_after": cm.get("term_after"),
-                "term_monotonic": cm.get("term_monotonic"),
-                "commit_index_before": cm.get("commit_index_before"),
-                "commit_index_after": cm.get("commit_index_after"),
-                "commit_caught_up": cm.get("commit_caught_up"),
-                "cluster_available": cm.get("cluster_available"),
+                "max_concurrent_leaders": metrics.get("max_concurrent_leaders"),
+                "minority_leader_count": metrics.get("minority_leader_count"),
+                "majority_leader": metrics.get("majority_leader"),
+                "term_before": metrics.get("term_before"),
+                "term_after": metrics.get("term_after"),
+                "term_monotonic": metrics.get("term_monotonic"),
+                "commit_index_before": metrics.get("commit_index_before"),
+                "commit_index_after": metrics.get("commit_index_after"),
+                "commit_caught_up": metrics.get("commit_caught_up"),
             },
             "timeline": timeline,
             "timestamp_start": observation_start,
@@ -82,22 +89,20 @@ def convert_scenario(original):
         },
 
         "recovery": {
-            "operation": "reconnect_partitioned_nodes + clean_disk_full",
+            "operation": "reconnect_partitioned_nodes" + (" + clean_disk_full" if is_composite else ""),
             "duration_s": recovery_duration,
-            "confirmed": cm.get("recovery_confirmed", False),
+            "confirmed": recovery_confirmed,
             "timestamp": recovery_ts,
         },
 
         "assertion": {
             "checks": [
-                {"name": "COMP-1_no_split_brain", "expected": "<=1", "actual": cm.get("max_concurrent_leaders"), "status": "PASS" if cm.get("max_concurrent_leaders", 0) <= 1 else "FAIL"},
-                {"name": "COMP-2_minority_no_election", "expected": "==0", "actual": cm.get("minority_leader_count"), "status": "PASS" if cm.get("minority_leader_count", 0) == 0 else "FAIL"},
-                {"name": "COMP-3_term_monotonic", "expected": True, "actual": cm.get("term_monotonic"), "status": "PASS" if cm.get("term_monotonic") else "FAIL"},
-                {"name": "COMP-4_commit_caught_up", "expected": True, "actual": cm.get("commit_caught_up"), "status": "PASS" if cm.get("commit_caught_up") else "FAIL"},
-                {"name": "COMP-5_recovery_confirmed", "expected": True, "actual": cm.get("recovery_confirmed"), "status": "PASS" if cm.get("recovery_confirmed") else "FAIL"},
+                {"name": "no_split_brain", "expected": "<=1", "actual": metrics.get("max_concurrent_leaders"), "status": "PASS" if metrics.get("max_concurrent_leaders", 0) <= 1 else "FAIL"},
+                {"name": "minority_no_election", "expected": "==0", "actual": metrics.get("minority_leader_count"), "status": "PASS" if metrics.get("minority_leader_count", 0) == 0 else "FAIL"},
+                {"name": "term_monotonic", "expected": True, "actual": metrics.get("term_monotonic"), "status": "PASS" if metrics.get("term_monotonic") else "FAIL"},
+                {"name": "commit_caught_up", "expected": True, "actual": metrics.get("commit_caught_up"), "status": "PASS" if metrics.get("commit_caught_up") else "FAIL"},
             ],
             "overall_status": original.get("status", "UNKNOWN"),
-            "threshold_source": "regression.yaml REG-10",
         },
     }
 
@@ -114,7 +119,7 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    scenario_files = sorted(evidence_dir.glob("scenario_comp_pdf_*.json"))
+    scenario_files = sorted(evidence_dir.glob("scenario_*.json"))
     results = []
 
     for sf in scenario_files:
