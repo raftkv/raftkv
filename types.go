@@ -61,17 +61,20 @@ type VoteRecord struct {
 
 // RaftStats 节点运行时统计（通过 HTTP API 暴露）
 type RaftStats struct {
-	ID           string `json:"id"`
-	State        string `json:"state"`
-	Term         int64  `json:"term"`
-	LeaderID     string `json:"leader_id"`
-	CommitIndex  int64  `json:"commit_index"`
-	LastApplied  int64  `json:"last_applied"`
-	LogCount     int    `json:"log_count"`
-	PeerCount    int    `json:"peer_count"`
-	VotedFor     string `json:"voted_for"`
-	ElectionTime string `json:"election_time"`
-	mu           sync.RWMutex
+	ID                 string `json:"id"`
+	State              string `json:"state"`
+	Term               int64  `json:"term"`
+	LeaderID           string `json:"leader_id"`
+	CommitIndex        int64  `json:"commit_index"`
+	LastApplied        int64  `json:"last_applied"`
+	LogCount           int    `json:"log_count"`
+	PeerCount          int    `json:"peer_count"`
+	VotedFor           string `json:"voted_for"`
+	ElectionTime       string `json:"election_time"`
+	ElectionRoundCount int64  `json:"election_round_count"`
+	HeartbeatLostCount int64  `json:"heartbeat_lost_count"`
+	PreVoteRoundCount  int64  `json:"prevote_round_count"`
+	mu                 sync.RWMutex
 }
 
 func (s *RaftStats) RLock()   { s.mu.RLock() }
@@ -100,15 +103,18 @@ func (s *RaftStats) Snapshot() map[string]any {
 	s.RLock()
 	defer s.RUnlock()
 	return map[string]any{
-		"id":           s.ID,
-		"state":        s.State,
-		"term":         s.Term,
-		"leader_id":    s.LeaderID,
-		"commit_index": s.CommitIndex,
-		"last_applied": s.LastApplied,
-		"log_count":    s.LogCount,
-		"peer_count":   s.PeerCount,
-		"voted_for":    s.VotedFor,
+		"id":                   s.ID,
+		"state":                s.State,
+		"term":                 s.Term,
+		"leader_id":            s.LeaderID,
+		"commit_index":         s.CommitIndex,
+		"last_applied":         s.LastApplied,
+		"log_count":            s.LogCount,
+		"peer_count":           s.PeerCount,
+		"voted_for":            s.VotedFor,
+		"election_round_count": s.ElectionRoundCount,
+		"heartbeat_lost_count": s.HeartbeatLostCount,
+		"prevote_round_count":  s.PreVoteRoundCount,
 	}
 }
 

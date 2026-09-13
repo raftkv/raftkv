@@ -1,11 +1,11 @@
 # regression.yaml — 回归门契约
-# 版本: v2.4-batch24-governance
-# 用途: 每批先跑回归门再跑本批门，收编各批已达成核心线 ≤5 条
+# 版本: v2.4-batch26-governance2
+# 用途: 每批先跑回归门再跑本批门，收编各批已达成核心线 8 条
 
 contract:
   name: regression-gate
-  version: "1.0"
-  description: "跨批回归门：5 条核心线，任一 FAIL 即冻结"
+  version: "2.0"
+  description: "跨批回归门：8 条核心线，任一 FAIL 即冻结"
 
 acceptance_criteria:
   REG-1:
@@ -57,7 +57,43 @@ acceptance_criteria:
     source: batch22-23 F3/S1 全 PASS
     judgment: "min(survival_rate) == 100%"
 
+  REG-6:
+    name: cascading_election
+    description: "级联选举收敛：E4a 单轮 ≤2.0s（不放松）+ E4b 双轮 ≤3.5s（机制下限+余量）"
+    metric: cascading_election
+    threshold_e4a: 2.0
+    threshold_e4b: 3.5
+    unit: seconds
+    operator: "<="
+    rationale: |
+      E4a: 单轮级联收敛，与 E1 同机制，不放松
+      E4b: 双轮级联收敛，两轮机制下限 3.4s + 100ms 余量 = 3.5s
+      pre-vote 无法阻止 cascading split vote（日志相同→预支持全通过）
+    source: batch24-25 E4 实测
+    judgment: "E4a max ≤ 2.0s 且 E4b max ≤ 3.5s"
+
+  REG-7:
+    name: disk_full_survival
+    description: "磁盘满存活率 = 100%（soft 90% + hard 99%）"
+    metric: disk_full_survival_rate
+    threshold: 100.0
+    unit: percent
+    operator: "=="
+    rationale: "磁盘满注入 follower 不影响 leader 可用性，清理后集群恢复"
+    source: batch23 DF1-DF4 全 PASS
+    judgment: "磁盘满场景存活率 == 100%"
+
+  REG-8:
+    name: prevote_effective
+    description: "pre-vote 拦截有效：prevote_round_count > 0 且 term_inflation ≤ 5"
+    metric: prevote_round_count
+    threshold: 0
+    operator: ">"
+    rationale: "pre-vote 防日志落后节点发起选举，85 次探测中 16 次阻止选举"
+    source: batch23-25 PV1/PV2 全 PASS
+    judgment: "prevote_round_count > 0 且 term_inflation ≤ 5"
+
 execution:
   pre_batch: "每批本批门之前先跑回归门"
-  on_fail: "任一 REG-1~5 FAIL → 冻结，不再跑本批门"
+  on_fail: "任一 REG-1~8 FAIL → 冻结，不再跑本批门"
   evidence_dir: "tests/evidence/regression/"

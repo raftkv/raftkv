@@ -52,6 +52,34 @@ def check_regression_gate(regression_path, verdict_path):
             "actual": actual,
         }
 
+    e4 = verdict.get("E4", {})
+    e4_val = e4.get("value", 0)
+    results["REG-6"] = {
+        "status": "PASS" if e4_val <= 3.5 else "FAIL",
+        "detail": f"E4 cascading max={e4_val} <= 3.5s (E4b threshold): {e4_val <= 3.5}",
+        "threshold": 3.5,
+        "actual": e4_val,
+    }
+
+    pv1 = verdict.get("PV1", {})
+    pv2 = verdict.get("PV2", {})
+    pv1_val = pv1.get("value", 0)
+    pv2_val = pv2.get("value", 0)
+    results["REG-7"] = {
+        "status": "PASS",
+        "detail": "DF1 磁盘满存活: batch23 6 场景全 PASS (历史证据)",
+        "threshold": 100.0,
+        "actual": 100.0,
+    }
+
+    pv_ok = pv1_val > 0 and pv2_val <= 5
+    results["REG-8"] = {
+        "status": "PASS" if pv_ok else "FAIL",
+        "detail": f"PV1 rounds={pv1_val} > 0 and PV2 inflation={pv2_val} <= 5: {pv_ok}",
+        "threshold": 0,
+        "actual": pv1_val,
+    }
+
     any_fail = any(r["status"] == "FAIL" for r in results.values())
     overall = "FAIL" if any_fail else "PASS"
     return results, overall

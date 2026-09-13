@@ -303,6 +303,15 @@ func main() {
 		degraded := node.DegradedFollowers()
 		fmt.Fprintf(w, " gaps=%v degraded=%v", gaps, degraded)
 	})
+	// batch26: /raft/election_metrics 端点 — 选举/心跳可观测性（战役III 预置仪表）
+	httpMux.HandleFunc("/raft/election_metrics", func(w http.ResponseWriter, r *http.Request) {
+		s := node.Stats()
+		s.RLock()
+		fmt.Fprintf(w,
+			"id=%s election_rounds=%d heartbeat_lost=%d prevote_rounds=%d term=%d state=%s",
+			s.ID, s.ElectionRoundCount, s.HeartbeatLostCount, s.PreVoteRoundCount, s.Term, s.State)
+		s.RUnlock()
+	})
 	// batch22: /raft/entry 端点 — 返回已确认 entry（F3 存活率验证用）
 	// 模式1: GET /raft/entry?index=N → 返回单个 entry {index,term,value,commit_index}
 	// 模式2: GET /raft/entry?index=N&count=C → 返回 entry 列表
