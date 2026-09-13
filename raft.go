@@ -835,6 +835,24 @@ func (rn *RaftNode) handleElectionTimeout() {
 		rn.logf("[raft/%s] ⚡ 选举超时突破: 连续 %d 次失败，强制 logCaughtUp=true", rn.id, rn.candidateFailCount)
 	}
 
+	// batch23: pre-vote 探测 — 获 quorum 预支持才转 Candidate，防选票分裂
+	preVoteTerm := atomic.LoadInt64(&rn.term) + 1
+	lastLogIdx := int64(len(rn.logs))
+	var lastLogTm int64
+	if len(rn.logs) > 0 {
+		lastLogTm = rn.logs[len(rn.logs)-1].Term
+	}
+	peersSnapshot := make([]PeerInfo, len(rn.peers))
+	copy(peersSnapshot, rn.peers)
+	rn.mu.Unlock()
+
+	if !rn.preVoteProbe(preVoteTerm, lastLogIdx, lastLogTm, peersSnapshot) {
+		rn.logf("[raft/%s] pre-vote 未获 quorum，放弃本轮选举", rn.id)
+		rn.electionTimer.Reset(randomElectionTimeout())
+		return
+	}
+
+	rn.mu.Lock()
 	// 进入 Candidate 状态
 	rn.state = StateCandidate
 	rn.electionEventCount.Add(1)
@@ -988,6 +1006,125 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 			}
 		}
 	}
+}
+
+// =========================================================================
+// batch23: pre-vote 探测 — 防选票分裂
+// =========================================================================
+
+func (rn *RaftNode) preVoteProbe(term int64, lastLogIdx int64, lastLogTm int64, peers []PeerInfo) bool {
+	votesNeeded := rn.config.quorumSize()
+	votesGranted := int32(1) // 自己预投自己
+
+	var wg sync.WaitGroup
+	for _, peer := range peers {
+		wg.Add(1)
+		go func(p PeerInfo) {
+			defer func() {
+				if r := recover(); r != nil {
+					rn.logf("[raft/%s] pre-vote RPC panic recovered: %v", rn.id, r)
+				}
+			}()
+			defer wg.Done()
+
+			addr, ok := rn.peerHttpAddrs[p.ID]
+			if !ok {
+				return
+			}
+
+			reqBody, _ := json.Marshal(map[string]interface{}{
+				"term":           term,
+				"candidate_id":   rn.id,
+				"last_log_index": lastLogIdx,
+				"last_log_term":  lastLogTm,
+			})
+
+			client := &http.Client{Timeout: rpcTimeout}
+			resp, err := client.Post("http://"+addr+"/raft/pre_vote", "application/json", bytes.NewReader(reqBody))
+			if err != nil {
+				return
+			}
+			defer resp.Body.Close()
+
+			var result struct {
+				Term           int64 `json:"term"`
+				PreVoteGranted bool  `json:"pre_vote_granted"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				return
+			}
+			if result.PreVoteGranted {
+				atomic.AddInt32(&votesGranted, 1)
+			}
+		}(peer)
+	}
+	wg.Wait()
+
+	granted := atomic.LoadInt32(&votesGranted) >= int32(votesNeeded)
+	rn.logf("[raft/%s] pre-vote 探测: 得票 %d/%d (quorum=%d) → %v",
+		rn.id, votesGranted, len(peers)+1, votesNeeded, granted)
+	return granted
+}
+
+// HandlePreVote — pre-vote 服务端处理，复用 HandleRequestVote 检查但不更新状态
+func (rn *RaftNode) HandlePreVote(term int64, candidateId string, lastLogIndex int64, lastLogTerm int64) (int64, bool) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	respTerm := rn.term
+	granted := false
+
+	// 【检查1】term 倒退拒绝
+	if term < rn.term {
+		return respTerm, false
+	}
+
+	// 【检查2】候选者不在当前配置中
+	if rn.config != nil {
+		allNodes := rn.config.allNodes()
+		if len(allNodes) > 1 && !stringInSlice(candidateId, allNodes) {
+			return respTerm, false
+		}
+	}
+
+	// 注意：跳过检查3（stepDown）— pre-vote 不更新 term/state
+	// 注意：跳过检查5（votedFor 冲突）— pre-vote 不检查 votedFor
+
+	// 【检查4】WAL 重放未完成 / 门禁关闭
+	if !rn.walReplayCompleted {
+		return respTerm, false
+	}
+	if rn.walGateClosed {
+		return respTerm, false
+	}
+
+	// 【检查6】logCaughtUp 检查（含选举风暴自愈突破）
+	if !rn.logCaughtUp && rn.candidateFailCount >= 3 && !rn.firstCandidateTime.IsZero() && time.Since(rn.firstCandidateTime) <= 60*time.Second {
+		// pre-vote 中不修改 logCaughtUp，仅检查
+	}
+	if !rn.logCaughtUp && !rn.lastHeartbeat.IsZero() {
+		return respTerm, false
+	}
+
+	// 【检查7】空日志候选者禁止当选
+	if lastLogIndex == 0 && rn.commitIdx > 0 {
+		return respTerm, false
+	}
+
+	// 【检查8】log up-to-date 检查
+	lastIdx := int64(len(rn.logs))
+	var localLastTerm int64
+	if lastIdx > 0 {
+		localLastTerm = rn.logs[lastIdx-1].Term
+	}
+	if lastLogTerm < localLastTerm ||
+		(lastLogTerm == localLastTerm && lastLogIndex < lastIdx) {
+		return respTerm, false
+	}
+
+	// 授予 pre-vote（不更新 votedFor/term/state）
+	granted = true
+	return respTerm, granted
 }
 
 // =========================================================================

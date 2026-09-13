@@ -372,6 +372,29 @@ func main() {
 			"entries":      entries,
 		})
 	})
+	// batch23: /raft/pre_vote 端点 — pre-vote 探测（防选票分裂）
+	httpMux.HandleFunc("/raft/pre_vote", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Term         int64  `json:"term"`
+			CandidateId  string `json:"candidate_id"`
+			LastLogIndex int64  `json:"last_log_index"`
+			LastLogTerm  int64  `json:"last_log_term"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"bad request"}`, http.StatusBadRequest)
+			return
+		}
+		respTerm, granted := node.HandlePreVote(req.Term, req.CandidateId, req.LastLogIndex, req.LastLogTerm)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"term":             respTerm,
+			"pre_vote_granted": granted,
+		})
+	})
 	// 刀三: 快照兜底路径 — follower 接收 leader 发来的快照
 	httpMux.HandleFunc("/raft/install-snapshot", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

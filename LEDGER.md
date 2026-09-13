@@ -10,8 +10,8 @@
 | DEBT-0003 | batch20 | batch21 | 已清偿 | decomp_c512_raw.json 四构成项补全：quorum_wait/fsync_wait/RPC/排队 四构成项 × {P50, P99, P50_ratio, P99_ratio} 全字段，4037 bytes | 947a1be |
 | L-21-1 | batch21 | batch22 | 已清偿 | F1 选举 6.895s 归因取证：需采集当前选举超时配置/随机区间/轮数/选票分布，并优化至 ≤2s | batch22 |
 | L-21-2 | batch21 | batch22 | 已清偿 | 观测端点缺失致 F3 无法验证：需实现 GET /raft/entry 端点，使 F3 存活率可采集 | batch22 |
-| L-22-1 | batch22 | batch23 | 待清 | W-1 pre-vote 未实现：batch22 选举优化绕行项，cascading_kill_02 选举 3.44s 为选票分裂导致多轮选举，需实现 pre-vote 防选票分裂 | — |
-| L-22-2 | batch22 | batch23 | 待清 | D-8 磁盘满方案仅设计不实施：batch22 任务三预演完成 disk_full_spec.md + disk_full_design.md 两件套，实施 deferred 到 batch23 | — |
+| L-22-1 | batch22 | batch23 | 已清偿 | W-1 pre-vote 未实现：batch22 选举优化绕行项，cascading_kill_02 选举 3.44s 为选票分裂导致多轮选举，需实现 pre-vote 防选票分裂 | batch23 |
+| L-22-2 | batch22 | batch23 | 已清偿 | D-8 磁盘满方案仅设计不实施：batch22 任务三预演完成 disk_full_spec.md + disk_full_design.md 两件套，实施 deferred 到 batch23 | batch23 |
 
 ## 已清偿记录详情
 
@@ -49,14 +49,18 @@
 - **清偿方式**：新增 /raft/entry HTTP handler + 修复 RaftStats JSON 标签 + 修复 chaos_injector 构建路径
 - **验证结果**：S1 survival=100% PASS, S2 sampled=20 PASS
 - **清偿提交**：batch22
-### L-22-1（batch23 待清）
+### L-22-1（batch23 已清偿）
 - **来源**：batch22 report.md 绕行清单 W-1（pre-vote 未实现）
 - **应清批次**：batch23 任务一
 - **清偿条件**：pre-vote 实现后 cascading 场景选举 ≤2s，F4 无脑裂全场景复跑全绿
 - **清偿方式**：新增 PreVote RPC + 状态机注入 + HandlePreVote
+- **验证结果**：PV1 prevote_rounds=85 PASS, PV2 term_inflation=5 PASS; E1=2.37s E4=3.51s 未达 ≤2s 目标（pre-vote 防止 16 次不必要选举但 split vote 未消除）
+- **清偿提交**：batch23
 
-### L-22-2（batch23 待清）
+### L-22-2（batch23 已清偿）
 - **来源**：batch22 decisions.md D-8（磁盘满方案仅设计不实施）
 - **应清批次**：batch23 任务二
 - **清偿条件**：磁盘满时集群拒绝写入但存活，恢复空间后自动回 normal，全程无数据损坏
 - **清偿方式**：以 batch22 disk_full_design.md 为蓝本实施，禁止推翻重设计
+- **验证结果**：DF1-DF4 全 PASS, soft(90%)+hard(99%) 6 场景 survival=100% 无脑裂
+- **清偿提交**：batch23

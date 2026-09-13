@@ -96,3 +96,15 @@ type SurvivalResult struct {
 	TotalCount        int             `json:"total_count"`
 	MismatchedEntries []EntryMismatch `json:"mismatched_entries"`
 }
+type PreVoteForensics struct {
+	ScenarioID               string         `json:"scenario_id"`
+	PreVoteRoundCount        int            `json:"prevote_round_count"`
+	FormalElectionRoundCount int            `json:"formal_election_round_count"`
+	VoteDistribution         map[string]int `json:"vote_distribution"`
+	TermBefore               int64          `json:"term_before"`
+	TermAfter                int64          `json:"term_after"`
+	TermInflation            int64          `json:"term_inflation"`
+	ElectionCompletionS      float64        `json:"election_completion_s"`
+	Batch22Baseline          string         `json:"batch22_baseline"`
+	Timestamp                time.Time      `json:"timestamp"`
+}
