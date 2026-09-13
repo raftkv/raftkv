@@ -210,6 +210,39 @@ def judge_overall(results):
     return "PARTIAL"
 
 
+def load_legacy_audit_numbers():
+    decomp_path = Path("docs/specs/latency_decomp/decomp_c512_raw.json")
+    if not decomp_path.exists():
+        return None
+    with open(decomp_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return {
+        "source": "docs/specs/latency_decomp/decomp_c512_raw.json",
+        "p99_breakdown": data.get("p99_breakdown", {}),
+        "p50_breakdown": data.get("p50_breakdown", {}),
+        "components": {
+            k: {"p99_us": v.get("p99_us", v.get("p99_us_estimated")),
+                "p99_ratio": v.get("p99_ratio", v.get("p99_ratio_estimated"))}
+            for k, v in data.get("components", {}).items()
+        },
+        "fsync_window": {
+            "fsync_per_sec": 26,
+            "entries_per_fsync": 438,
+            "merge_ratio": "437:1",
+            "source": "batch20 fsync 合并取证"
+        },
+        "server_total": data.get("server_total", {}),
+    }
+
+
+def check_legacy_audit_numbers(lan):
+    if lan is None:
+        return {"status": "INCOMPLETE", "detail": "legacy_audit_numbers 缺失，整批 INCOMPLETE"}
+    if not lan.get("p99_breakdown") or not lan.get("components"):
+        return {"status": "INCOMPLETE", "detail": "legacy_audit_numbers 字段为空，整批 INCOMPLETE"}
+    return {"status": "PASS", "detail": "legacy_audit_numbers 存在且非空"}
+
+
 def main():
     parser = argparse.ArgumentParser(description="batch23 判定脚本")
     parser.add_argument("--contract", required=True, help="验收契约 YAML 路径")
@@ -249,7 +282,14 @@ def main():
     df4 = judge_df4(evidence)
 
     results = {"F1": f1, "F2": f2, "F3": f3, "F4": f4, "F5": f5, "E1": e1, "E2": e2, "E3": e3, "E4": e4, "S1": s1, "S2": s2, "PV1": pv1, "PV2": pv2, "DF1": df1, "DF2": df2, "DF3": df3, "DF4": df4}
+
+    legacy_audit_numbers = load_legacy_audit_numbers()
+    lan_check = check_legacy_audit_numbers(legacy_audit_numbers)
+    results["LAN"] = lan_check
+
     overall = judge_overall(results)
+    if lan_check["status"] == "INCOMPLETE":
+        overall = "INCOMPLETE"
 
     verdict = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -257,6 +297,7 @@ def main():
         "evidence_dir": args.evidence_dir,
         "scenario_count": len(evidence),
         **results,
+        "legacy_audit_numbers": legacy_audit_numbers,
         "overall": overall,
     }
 
@@ -264,7 +305,7 @@ def main():
         json.dump(verdict, f, indent=2, ensure_ascii=False)
 
     print(f"Verdict: {overall}")
-    for k in ["F1", "F2", "F3", "F4", "F5", "E1", "E2", "E3", "E4", "S1", "S2", "PV1", "PV2", "DF1", "DF2", "DF3", "DF4"]:
+    for k in ["F1", "F2", "F3", "F4", "F5", "E1", "E2", "E3", "E4", "S1", "S2", "PV1", "PV2", "DF1", "DF2", "DF3", "DF4", "LAN"]:
         print(f"  {k}: {results[k]['status']}  {results[k].get('detail', '')}")
     print(f"Output: {args.output}")
 
