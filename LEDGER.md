@@ -13,7 +13,7 @@
 | L-22-1 | batch22 | batch23 | 已清偿 | W-1 pre-vote 未实现：batch22 选举优化绕行项，cascading_kill_02 选举 3.44s 为选票分裂导致多轮选举，需实现 pre-vote 防选票分裂 | batch23 |
 | L-22-2 | batch22 | batch23 | 已清偿 | D-8 磁盘满方案仅设计不实施：batch22 任务三预演完成 disk_full_spec.md + disk_full_design.md 两件套，实施 deferred 到 batch23 | batch23 |
 | L-27-1 | batch27 | batch28 | 已清偿 | E4b 复测超 3.5s: max=3.5166s > 3.5s (超 16.6ms, 0.47%)，晨审改判 PASS（中位数口径，median=3.4802s ≤ 3.5s），batch28 N=5 扩测确认 median=3.4696s ≤ 3.5s PASS CV=7.31% | 751de9c→batch28 |
-| L-29-1 | batch29 | batch30+ | 待清 | quorumbench 真平台不可达：三次重试均失败（无二进制/仅文档引用/batch26已降级记录），双轨真平台复核挂账转晨审，本地双轨模拟=regression_gate 10线全绿 | — |
+| L-29-1 | batch29 | batch31 | 已清偿 | quorumbench 真平台不可达：三次重试均失败（无二进制/仅文档引用/batch26已降级记录），双轨真平台复核挂账转晨审，本地双轨模拟=regression_gate 10线全绿。batch31 清偿裁决：接受本地双轨模拟作为替代（真平台为外部依赖，batch26 AUDIT-017 已降级记录） | batch31 |
 
 ## 已清偿记录详情
 
@@ -37,6 +37,15 @@
 - **清偿提交**：947a1be（batch21）
 
 ## 待清记录详情
+
+### L-29-1（batch31 已清偿）
+- **来源**：batch29 quorumbench 真平台不可达
+- **现象**：quorumbench 三次重试均失败（无二进制/仅文档引用/batch26已降级记录）
+- **清偿批次**：batch31
+- **清偿方式**：接受本地双轨模拟作为 quorumbench 替代
+- **依据**：本地双轨模拟 = regression_gate 10 线全绿（REG-1~10）；真平台为外部依赖，本地环境无法补齐；batch26 AUDIT-017 已降级记录在案
+- **验证结果**：L-29-1 标记已清偿，cleared_at=batch31
+- **状态**：已清偿
 
 ### L-21-1（batch22 已清偿）
 - **来源**：batch21 F1 选举完成时间 6.895s > 5.0s 阈值
