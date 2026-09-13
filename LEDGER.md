@@ -12,6 +12,7 @@
 | L-21-2 | batch21 | batch22 | 已清偿 | 观测端点缺失致 F3 无法验证：需实现 GET /raft/entry 端点，使 F3 存活率可采集 | batch22 |
 | L-22-1 | batch22 | batch23 | 已清偿 | W-1 pre-vote 未实现：batch22 选举优化绕行项，cascading_kill_02 选举 3.44s 为选票分裂导致多轮选举，需实现 pre-vote 防选票分裂 | batch23 |
 | L-22-2 | batch22 | batch23 | 已清偿 | D-8 磁盘满方案仅设计不实施：batch22 任务三预演完成 disk_full_spec.md + disk_full_design.md 两件套，实施 deferred 到 batch23 | batch23 |
+| L-27-1 | batch27 | batch28 | 待清 | E4b 复测超 3.5s: max=3.5166s > 3.5s (超 16.6ms, 0.47%)，需晨审裁决是否加宽 E4b 阈值至 3.6s 或接受边缘超限 | — |
 
 ## 已清偿记录详情
 
@@ -64,3 +65,10 @@
 - **清偿方式**：以 batch22 disk_full_design.md 为蓝本实施，禁止推翻重设计
 - **验证结果**：DF1-DF4 全 PASS, soft(90%)+hard(99%) 6 场景 survival=100% 无脑裂
 - **清偿提交**：batch23
+### L-27-1（待清）
+- **来源**：batch27 任务二 E4b 真实复测
+- **现象**：N=3 复测值 [3.2438, 3.4802, 3.5166]，max=3.5166s > 3.5s 阈值（超 16.6ms, 0.47%）
+- **机制级归因**：cascading split vote 双轮选举收敛，两轮机制下限 3.4s + 测量波动；3.5s 阈值 = batch24 max(3.4607s) + 40ms 余量，新测 3.5166s 超余量 16.6ms
+- **CV**: 3.54% < 15% 可信，非测量噪声
+- **处置选项**: (a) 晨批裁决加宽 E4b 阈值至 3.6s (b) 接受边缘超限（0.47% marginal） (c) 协议层优化降低双轮收敛
+- **状态**: 待晨审

@@ -805,6 +805,10 @@ func (rn *RaftNode) handleElectionTimeout() {
 		return
 	}
 
+	rn.stats.Lock()
+	rn.stats.HeartbeatLostCount++
+	rn.stats.Unlock()
+
 	if !rn.walReplayCompleted {
 		rn.mu.Unlock()
 		rn.logf("[raft/%s] 重放未完成拒绝选举", rn.id)
@@ -846,6 +850,9 @@ func (rn *RaftNode) handleElectionTimeout() {
 	}
 
 	// batch23: pre-vote 探测 — 获 quorum 预支持才转 Candidate，防选票分裂
+	rn.stats.Lock()
+	rn.stats.PreVoteRoundCount++
+	rn.stats.Unlock()
 	preVoteTerm := atomic.LoadInt64(&rn.term) + 1
 	lastLogIdx := int64(len(rn.logs))
 	var lastLogTm int64
@@ -866,6 +873,9 @@ func (rn *RaftNode) handleElectionTimeout() {
 	// 进入 Candidate 状态
 	rn.state = StateCandidate
 	rn.electionEventCount.Add(1)
+	rn.stats.Lock()
+	rn.stats.ElectionRoundCount++
+	rn.stats.Unlock()
 	currentTerm := atomic.AddInt64(&rn.term, 1)
 	rn.votedFor = rn.id
 	rn.leaderID = ""

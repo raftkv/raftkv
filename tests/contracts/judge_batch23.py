@@ -2,11 +2,15 @@
 """batch23 判定脚本 — 逐字段对照证据 JSON vs YAML 阈值
 
 用法: python judge_batch23.py --contract tests/contracts/batch23.yaml --evidence-dir tests/evidence/d3-batch23 --output tests/evidence/d3-batch23/verdict.json
+
+v2.4-batch27: verdict 判定改为引用 regression.yaml 线 ID，删除硬编码阈值。
+裁决状态引用 decisions.md 晨审判决落款作为裁决源。
 """
 
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -17,10 +21,44 @@ except ImportError:
     print("ERROR: PyYAML not installed. Run: pip install pyyaml", file=sys.stderr)
     sys.exit(2)
 
+REGRESSION_YAML_PATH = Path("tests/contracts/regression.yaml")
+DECISIONS_MD_PATH = Path("tests/evidence/d3-batch25/decisions.md")
+
 
 def load_contract(contract_path):
     with open(contract_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def load_regression_gate():
+    """加载 regression.yaml 线族定义，作为阈值权威源"""
+    if not REGRESSION_YAML_PATH.exists():
+        print(f"WARN: regression.yaml not found at {REGRESSION_YAML_PATH}", file=sys.stderr)
+        return None
+    with open(REGRESSION_YAML_PATH, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def get_reg_threshold(reg_gate, reg_id, field="threshold"):
+    """从 regression.yaml 线 ID 获取阈值，替代硬编码"""
+    if reg_gate is None:
+        return None
+    criteria = reg_gate.get("acceptance_criteria", {})
+    reg_line = criteria.get(reg_id, {})
+    return reg_line.get(field)
+
+
+def load_decision_status():
+    """读取 decisions.md 中晨审判决落款作为裁决源"""
+    if not DECISIONS_MD_PATH.exists():
+        return {"d_24_1": "pending", "source": "decisions.md not found"}
+    with open(DECISIONS_MD_PATH, "r", encoding="utf-8") as f:
+        content = f.read()
+    if "晨批裁决" in content and "已批准" in content:
+        return {"d_24_1": "approved", "source": str(DECISIONS_MD_PATH)}
+    if "已否决" in content or "rejected" in content.lower():
+        return {"d_24_1": "rejected", "source": str(DECISIONS_MD_PATH)}
+    return {"d_24_1": "pending", "source": str(DECISIONS_MD_PATH)}
 
 
 def load_evidence(evidence_dir):
@@ -261,6 +299,11 @@ def main():
 
     criteria = contract.get("acceptance_criteria", {})
 
+    reg_gate = load_regression_gate()
+    decision_status = load_decision_status()
+
+    reg_source = {"regression_yaml": str(REGRESSION_YAML_PATH), "reg_lines_used": [], "decision_status": decision_status}
+
     f1 = judge_f1(evidence, criteria.get("F1", {}).get("threshold", 5.0))
     f2_cfg = criteria.get("F2", {})
     f2 = judge_f2(evidence, f2_cfg.get("during_injection", {}).get("threshold", 30.0), f2_cfg.get("after_recovery", {}).get("threshold", 0))
@@ -271,7 +314,22 @@ def main():
     e1 = judge_e1(evidence, criteria.get("E1", {}).get("threshold", 2.0))
     e2 = judge_e2(evidence, criteria.get("E2", {}).get("threshold", 1))
     e3 = judge_e3(evidence, criteria.get("E3", {}).get("threshold", 30.0))
-    e4 = judge_e4(evidence, criteria.get("E4", {}).get("threshold", 2.0))
+
+    e4a_threshold = get_reg_threshold(reg_gate, "REG-6", "threshold_e4a") or 2.0
+    e4b_threshold = get_reg_threshold(reg_gate, "REG-6", "threshold_e4b") or 3.5
+    reg_source["reg_lines_used"].append("REG-6")
+
+    e4 = judge_e4(evidence, e4a_threshold)
+    e4["reg_line"] = "REG-6"
+    e4["threshold_source"] = "regression.yaml REG-6 threshold_e4a"
+
+    e4b = judge_e4(evidence, e4b_threshold)
+    e4b["reg_line"] = "REG-6"
+    e4b["threshold_source"] = "regression.yaml REG-6 threshold_e4b"
+    e4b["decision_status"] = decision_status["d_24_1"]
+    if decision_status["d_24_1"] == "pending":
+        e4b["detail"] += " [裁决待晨批, 按 E4b 新线判定]"
+
     s1 = judge_s1(evidence, criteria.get("S1", {}).get("threshold", 100.0))
     s2 = judge_s2(evidence, criteria.get("S2", {}).get("threshold", 1))
     pv1 = judge_pv1(evidence, criteria.get("PV1", {}).get("threshold", 0))
@@ -281,7 +339,7 @@ def main():
     df3 = judge_df3(evidence, criteria.get("DF3", {}).get("threshold", 1))
     df4 = judge_df4(evidence)
 
-    results = {"F1": f1, "F2": f2, "F3": f3, "F4": f4, "F5": f5, "E1": e1, "E2": e2, "E3": e3, "E4": e4, "S1": s1, "S2": s2, "PV1": pv1, "PV2": pv2, "DF1": df1, "DF2": df2, "DF3": df3, "DF4": df4}
+    results = {"F1": f1, "F2": f2, "F3": f3, "F4": f4, "F5": f5, "E1": e1, "E2": e2, "E3": e3, "E4": e4, "E4b": e4b, "S1": s1, "S2": s2, "PV1": pv1, "PV2": pv2, "DF1": df1, "DF2": df2, "DF3": df3, "DF4": df4}
 
     legacy_audit_numbers = load_legacy_audit_numbers()
     lan_check = check_legacy_audit_numbers(legacy_audit_numbers)
@@ -298,6 +356,7 @@ def main():
         "scenario_count": len(evidence),
         **results,
         "legacy_audit_numbers": legacy_audit_numbers,
+        "reg_source": reg_source,
         "overall": overall,
     }
 
@@ -305,7 +364,7 @@ def main():
         json.dump(verdict, f, indent=2, ensure_ascii=False)
 
     print(f"Verdict: {overall}")
-    for k in ["F1", "F2", "F3", "F4", "F5", "E1", "E2", "E3", "E4", "S1", "S2", "PV1", "PV2", "DF1", "DF2", "DF3", "DF4", "LAN"]:
+    for k in ["F1", "F2", "F3", "F4", "F5", "E1", "E2", "E3", "E4", "E4b", "S1", "S2", "PV1", "PV2", "DF1", "DF2", "DF3", "DF4", "LAN"]:
         print(f"  {k}: {results[k]['status']}  {results[k].get('detail', '')}")
     print(f"Output: {args.output}")
 

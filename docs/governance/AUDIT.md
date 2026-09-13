@@ -87,6 +87,8 @@
 | AUDIT-007 | batch24→25 | 正向改线 | 采信 |
 | AUDIT-008 | 历史 | 催缴失败 | 采信 || AUDIT-009 | batch25 | E4提案改判 | 采信 |
 | AUDIT-010 | batch25 | 追问三则 | 采信 |
+| AUDIT-011 | batch14~26 | 性能终审闭案 | 采信 |
+| AUDIT-012 | batch27 | 口径不一致 | 采信 |
 
 ## 5. batch25 追加判例
 
@@ -102,4 +104,21 @@
 - **追问一**: E4b 区间推导 → 两轮机制下限 3.4s + 100ms 余量 = 3.5s
 - **追问二**: 区间加宽空间 → E1≤2.0s 约束下最多加宽 356ms，但对 E4 无改善（级联 split vote 由 kill 时机决定）
 - **追问三**: CV 制度 → E1 CV=2.52% < 15% 可信，E4 CV=5.85% < 15% 可信
+- **状态**: 采信
+## 6. batch27 追加判例
+
+### 判例 AUDIT-011: 性能战役终审闭案（batch14~26）
+- **批次**: batch14~26
+- **闭案范围**: batch9 OOM 修复 → batch11 group commit → batch12 Bug A 修复 → batch14 loadgen 修复 → batch16~20 pipeline 达标 → batch22~25 选举定线
+- **关键数字**: 796.7→9020 TPS (11.3x), P99 50ms (c=128), E1=1.8233s PASS, E4=3.2849s FAIL(待D-24-1)
+- **闭案文件**: docs/reports/performance_campaign_final.md
+- **冻结声明**: 性能数字冻结，后续批次不得修改
+- **状态**: 采信
+
+### 判例 AUDIT-012: 判定口径不一致 verdict 硬编码 vs regression 线族
+- **批次**: batch27
+- **现象**: verdict.json 硬编码阈值（E4≤2.0s）与 regression.yaml 线族（REG-6 E4b≤3.5s）矛盾，同一 E4 实测值在两套口径下结论不同
+- **根因**: verdict 判定脚本独立维护硬编码阈值，未引用 regression.yaml 线 ID，制度变更时两套口径不同步
+- **处置**: batch27 任务一将 verdict 改为引用 regression.yaml 线 ID，删除一切硬编码阈值
+- **MISBEHAVIOR**: MB-008 收录此模式
 - **状态**: 采信
