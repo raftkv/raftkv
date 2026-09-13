@@ -3,16 +3,17 @@ package main
 import "time"
 
 type ScenarioResult struct {
-	ScenarioID        string            `json:"scenario_id"`
-	ScenarioType      string            `json:"scenario_type"`
-	Timeline          []TimelineEvent   `json:"timeline"`
-	ElectionMetrics   ElectionMetrics   `json:"election_metrics"`
-	RejectMetrics     RejectMetrics     `json:"reject_metrics"`
-	SurvivalMetrics   SurvivalMetrics   `json:"survival_metrics"`
-	SplitBrainMetrics SplitBrainMetrics `json:"split_brain_metrics"`
-	LogMetrics        LogMetrics        `json:"log_metrics"`
-	Status            string            `json:"status"`
-	EvidencePath      string            `json:"evidence_path"`
+	ScenarioID        string                   `json:"scenario_id"`
+	ScenarioType      string                   `json:"scenario_type"`
+	Timeline          []TimelineEvent          `json:"timeline"`
+	ElectionMetrics   ElectionMetrics          `json:"election_metrics"`
+	RejectMetrics     RejectMetrics            `json:"reject_metrics"`
+	SurvivalMetrics   SurvivalMetrics          `json:"survival_metrics"`
+	SplitBrainMetrics SplitBrainMetrics        `json:"split_brain_metrics"`
+	LogMetrics        LogMetrics               `json:"log_metrics"`
+	PartitionMetrics  *NetworkPartitionMetrics `json:"partition_metrics,omitempty"`
+	Status            string                   `json:"status"`
+	EvidencePath      string                   `json:"evidence_path"`
 }
 
 type TimelineEvent struct {
@@ -107,4 +108,21 @@ type PreVoteForensics struct {
 	ElectionCompletionS      float64        `json:"election_completion_s"`
 	Batch22Baseline          string         `json:"batch22_baseline"`
 	Timestamp                time.Time      `json:"timestamp"`
+}
+
+type NetworkPartitionMetrics struct {
+	PartitionType        string   `json:"partition_type"`
+	PartitionedNodes     []string `json:"partitioned_nodes"`
+	MajorityNodes        []string `json:"majority_nodes"`
+	PartitionDurationS   float64  `json:"partition_duration_s"`
+	RecoveryDurationS    float64  `json:"recovery_duration_s"`
+	MaxConcurrentLeaders int      `json:"max_concurrent_leaders"`
+	MajorityLeader       string   `json:"majority_leader"`
+	MinorityLeaderCount  int      `json:"minority_leader_count"`
+	TermBefore           int64    `json:"term_before"`
+	TermAfter            int64    `json:"term_after"`
+	TermMonotonic        bool     `json:"term_monotonic"`
+	CommitIndexBefore    int64    `json:"commit_index_before"`
+	CommitIndexAfter     int64    `json:"commit_index_after"`
+	CommitCaughtUp       bool     `json:"commit_caught_up"`
 }

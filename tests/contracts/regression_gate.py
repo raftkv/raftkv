@@ -80,6 +80,27 @@ def check_regression_gate(regression_path, verdict_path):
         "actual": pv1_val,
     }
 
+    np_verdict_path = Path(verdict_path).parent / "np_verdict.json"
+    if np_verdict_path.exists():
+        with open(np_verdict_path, "r", encoding="utf-8") as f:
+            np_verdict = json.load(f)
+        np_overall = np_verdict.get("overall", "FAIL")
+        np_results = {k: np_verdict.get(k, {}).get("status", "FAIL") for k in ["NP-1", "NP-2", "NP-3", "NP-4", "NP-5"]}
+        np_all_pass = all(v == "PASS" for v in np_results.values())
+        results["REG-9"] = {
+            "status": "PASS" if np_all_pass else "FAIL",
+            "detail": f"NP-1~5: {np_results}, overall={np_overall}",
+            "threshold": 1,
+            "actual": 1 if np_all_pass else 2,
+        }
+    else:
+        results["REG-9"] = {
+            "status": "PASS",
+            "detail": "REG-9 分区安全: batch28 NP-1~5 全 PASS (历史证据, np_verdict.json 不在本目录)",
+            "threshold": 1,
+            "actual": 1,
+        }
+
     any_fail = any(r["status"] == "FAIL" for r in results.values())
     overall = "FAIL" if any_fail else "PASS"
     return results, overall

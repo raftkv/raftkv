@@ -48,6 +48,35 @@ def get_reg_threshold(reg_gate, reg_id, field="threshold"):
     return reg_line.get(field)
 
 
+def get_reg_stat(reg_gate, reg_id):
+    """从 regression.yaml 线 ID 获取判定统计量（median/max/min/count）"""
+    if reg_gate is None:
+        return "max"
+    criteria = reg_gate.get("acceptance_criteria", {})
+    reg_line = criteria.get(reg_id, {})
+    return reg_line.get("stat", "max")
+
+
+def compute_statistic(values, stat):
+    """按线 stat 定义计算统计量，禁止自由裁量"""
+    if not values:
+        return None
+    sorted_v = sorted(values)
+    n = len(sorted_v)
+    if stat == "max":
+        return max(values)
+    elif stat == "min":
+        return min(values)
+    elif stat == "median":
+        if n >= 3:
+            mid3 = sorted_v[n//2 - 1 : n//2 + 2]
+            return sorted(mid3)[len(mid3)//2]
+        return sorted_v[n//2]
+    elif stat == "count":
+        return len(values)
+    return max(values)
+
+
 def load_decision_status():
     """读取 decisions.md 中晨审判决落款作为裁决源"""
     if not DECISIONS_MD_PATH.exists():
@@ -317,15 +346,31 @@ def main():
 
     e4a_threshold = get_reg_threshold(reg_gate, "REG-6", "threshold_e4a") or 2.0
     e4b_threshold = get_reg_threshold(reg_gate, "REG-6", "threshold_e4b") or 3.5
+    e4b_stat = get_reg_stat(reg_gate, "REG-6")
     reg_source["reg_lines_used"].append("REG-6")
 
     e4 = judge_e4(evidence, e4a_threshold)
     e4["reg_line"] = "REG-6"
     e4["threshold_source"] = "regression.yaml REG-6 threshold_e4a"
 
-    e4b = judge_e4(evidence, e4b_threshold)
+    cascading_durations = cascading_elections(evidence)
+    e4b_stat_value = compute_statistic(cascading_durations, e4b_stat)
+    if e4b_stat_value is not None:
+        e4b_status = "PASS" if e4b_stat_value <= e4b_threshold else "FAIL"
+        e4b = {
+            "status": e4b_status,
+            "value": round(e4b_stat_value, 4),
+            "threshold": e4b_threshold,
+            "stat": e4b_stat,
+            "unit": "seconds",
+            "operator": "<=",
+            "detail": f"{e4b_stat}(cascading_duration)={e4b_stat_value:.4f}s vs threshold={e4b_threshold}s",
+            "all_cascading": [round(d, 4) for d in sorted(cascading_durations)] if cascading_durations else [],
+        }
+    else:
+        e4b = {"status": "INSUFFICIENT_EVIDENCE", "detail": "no cascading data", "value": None, "stat": e4b_stat}
     e4b["reg_line"] = "REG-6"
-    e4b["threshold_source"] = "regression.yaml REG-6 threshold_e4b"
+    e4b["threshold_source"] = f"regression.yaml REG-6 threshold_e4b stat={e4b_stat}"
     e4b["decision_status"] = decision_status["d_24_1"]
     if decision_status["d_24_1"] == "pending":
         e4b["detail"] += " [裁决待晨批, 按 E4b 新线判定]"
