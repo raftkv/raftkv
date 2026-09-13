@@ -26,15 +26,30 @@ external/tools/chaos_injector.exe \
   -scenario-type cascading
 ```
 
-场景类型: steady | under_load | cascading | all
+场景类型: steady | under_load | cascading | disk_full | network_partition | all
+
+## 网络分区注入
+
+```bash
+external/tools/chaos_injector.exe \
+  --contract tests/contracts/batch23.yaml \
+  --evidence-dir tests/evidence/d3-batchXX \
+  --cluster-config config.toml \
+  --scenario-type network_partition \
+  --timebox 30m
+```
+
+6 场景: np_symmetric_01/02, np_asymmetric_01, np_bridge_01, np_recovery_01, np_cascading_01
 
 ## 回归门
 
 ```bash
-python tests/contracts/regression_gate.py
+python tests/contracts/regression_gate.py \
+  --regression tests/contracts/regression.yaml \
+  --verdict tests/evidence/d3-batchXX/verdict.json
 ```
 
-8 线全绿方可推进本批门。
+9 线全绿方可推进本批门。
 
 ## 判定
 
@@ -45,7 +60,17 @@ python tests/contracts/judge_batch23.py \
   --output tests/evidence/d3-batchXX/verdict.json
 ```
 
-verdict 引用 regression.yaml 线 ID (batch27 改造)。
+verdict 引用 regression.yaml 线 ID (batch27 改造) + stat 定义 (batch28)。
+
+## NP 验收判定
+
+```bash
+python tests/contracts/judge_batch28.py \
+  --evidence-dir tests/evidence/d3-batchXX \
+  --output tests/evidence/d3-batchXX/np_verdict.json
+```
+
+NP-1~5: 无脑裂 / 多数派可用 / 少数派不选举 / 恢复追平 / term 单调
 
 ## 红线
 

@@ -89,6 +89,8 @@
 | AUDIT-010 | batch25 | 追问三则 | 采信 |
 | AUDIT-011 | batch14~26 | 性能终审闭案 | 采信 |
 | AUDIT-012 | batch27 | 口径不一致 | 采信 |
+| AUDIT-013 | batch28 | 统计量口径漂移 | 采信 |
+| AUDIT-014 | batch27~28 | 授权表实战 | 采信 |
 
 ## 5. batch25 追加判例
 
@@ -121,4 +123,23 @@
 - **根因**: verdict 判定脚本独立维护硬编码阈值，未引用 regression.yaml 线 ID，制度变更时两套口径不同步
 - **处置**: batch27 任务一将 verdict 改为引用 regression.yaml 线 ID，删除一切硬编码阈值
 - **MISBEHAVIOR**: MB-008 收录此模式
+- **状态**: 采信
+## 7. batch28 追加判例
+
+### 判例 AUDIT-013: 判定统计量未入线定义致 max/中位数口径漂移（第二次口径族 bug）
+- **批次**: batch27→batch28
+- **现象**: batch27 E4b 复测 max=3.5166s > 3.5s 判 FAIL，但 median=3.4802s ≤ 3.5s 判 PASS；regression.yaml REG-6 未显式声明判定统计量（median/max），verdict 自由裁量用 max，晨审改判用 median
+- **根因**: regression.yaml 线定义仅声明 threshold，未声明判定统计量（stat: median/max/p99），致 verdict 脚本可自由选择统计量，同一组测量值在不同统计量下结论不同
+- **处置**: batch28 任务一将每条线显式声明判定统计量，verdict 按线定义执行，禁止自由裁量
+- **MISBEHAVIOR**: MB-009 收录此模式
+- **状态**: 采信
+
+### 判例 AUDIT-014: 夜批授权表首次实战执行合规
+- **批次**: batch27~28
+- **授权表预裁决项**:
+  - E4b 复测超 3.5s → 报 FAIL+机制级归因+挂账 LEDGER+等晨审 (batch27 执行)
+  - quorumbench 不可达 → 降级为本地双轨模拟并申报降级理由 (batch27 执行)
+  - SDD 代理放行 → 自核验全过后开工首任务 (batch27 执行)
+  - 晨审改判 PASS（中位数口径）→ L-27-1 销账 (batch28 执行)
+- **合规结论**: 全部按授权表执行，无越权决策，无红线触发
 - **状态**: 采信

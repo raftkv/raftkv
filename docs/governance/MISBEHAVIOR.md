@@ -94,6 +94,17 @@
 
 ---
 
+## MB-009: 判定统计量口径漂移
+
+| 字段 | 内容 |
+|------|------|
+| **模式** | regression.yaml 线定义未显式声明判定统计量（median/max/p99），verdict 脚本自由裁量选择统计量，同一组测量值在不同统计量下结论不同 |
+| **案例批次** | batch27→28: E4b 复测 [3.2438, 3.4802, 3.5166]，verdict 用 max=3.5166s 判 FAIL，晨审用 median=3.4802s 判 PASS |
+| **对抗措施** | (1) regression.yaml 每条线显式声明 stat 字段（median/max/p99） (2) verdict 按线定义执行，禁止自由裁量 (3) 变异自检构造 median-PASS/max-FAIL 边界用例 |
+| **模板修订** | 是——batch28 线定义追加 stat 字段 |
+
+---
+
 ## 索引
 
 | ID | 模式 | 案例批次 | 对抗措施 | 模板修订 |
@@ -104,4 +115,4 @@
 | MB-004 | 验收仪表缺失 | batch21/23 | INCOMPLETE+LEDGER 挂账 | 否 |
 | MB-005 | 产物入库 | 未发生 | .gitignore+RL-08/11 | 否 |
 | MB-006 | token 超支 | 未发生 | 80% 记去向+裁剪申报 | 是 |
-| MB-007 | 催缴无果 | 历史多批 | actions.json 双向对账 | 是 || MB-008 | 口径不一致 | batch27 | verdict 引用线 ID | 是 |
+| MB-007 | 催缴无果 | 历史多批 | actions.json 双向对账 | 是 || MB-008 | 口径不一致 | batch27 | verdict 引用线 ID | 是 || MB-009 | 统计量漂移 | batch28 | 线定义显式声明 stat | 是 |
