@@ -204,3 +204,37 @@
 - **执行结果**: 30min 基线测试完成（墙钟 30m4s），基线数值：TPS=841, P50=1.24ms, P99=3.10s, 成功率=95.00%（写 0% / 读 100%），写入 design.md §2.7
 - **判例性质**: 规则冲突判例——设计批的长时验证以"基线锚定"形式满足，设计批豁免通道就此关闭
 - **状态**: 采信（用户裁决，即刻生效）
+## 11. batch35-S 追加判例
+
+### 判例 AUDIT-022: CompactLogs 物理删除——切片截断替代 nil-out
+- **批次**: batch35-S
+- **决策**: CompactLogs 从置空 Command/SM3Hash 改为切片截断 `logs = logs[upToIndex:]`，物理释放内存
+- **理由**: nil-out 仅释放引用不释放底层数组内存；切片截断让 GC 回收被压缩的日志条目
+- **影响**: 所有数组访问从 `logs[idx-1]` 迁移到 `logAtLocked(idx)` = `logs[idx-logStartIndex]`
+- **状态**: 采信（1h soak 53 次快照无内存泄漏）
+
+### 判例 AUDIT-023: WAL 并发保护——snapMu RWMutex
+- **批次**: batch35-S
+- **决策**: EncryptedStorage 添加 snapMu sync.RWMutex，AppendRaftLog 取 RLock，Snapshot WAL 重置段取 Lock
+- **理由**: Snapshot() 关闭/删除/重建 WAL 期间，并发 AppendRaftLog 报 "WAL 已关闭"
+- **状态**: 采信（修复后 5min smoke + 1h soak 零 WAL 错误）
+
+### 判例 AUDIT-024: 快照限流器——SnapshotThrottle 令牌桶
+- **批次**: batch35-S
+- **决策**: 本地 SnapshotThrottle 类型（rate=100, burst=10），限制快照传输出站带宽
+- **理由**: 大快照分片传输可能挤占正常日志复制带宽
+- **状态**: 采信（T041 单测 PASS + 1h soak 快照期间 P99=40ms ≤ 基线×2）
+
+### 判例 AUDIT-025: InstallSnapshot HTTP 传输——分片接收协议
+- **批次**: batch35-S
+- **决策**: HandleInstallSnapshot 分片接收 + sendInstallSnapshot 分片发送，chunk=1MB
+- **理由**: gRPC 流式不可用（protoc 限制 RL-07），改用 HTTP 分片传输
+- **状态**: 采信（T040 单测 PASS）
+
+### 判例 AUDIT-026: soak 失败根因——并发 loadgen 进程污染数据
+- **批次**: batch35-S
+- **背景**: 1h soak 测试报告 ~33% 失败率，两次"复现"均在 ~29min 后出现
+- **根因**: 3 个 e04_loadtest.exe 进程并发运行写同一输出文件，集群被 3x 负载压垮
+- **处置**: 杀掉所有并发进程，干净 1h 单进程 soak 100% 通过（TPS=14770, P99=40ms, 0 失败）
+- **教训**: soak 测试启动前必须检查无残留 loadgen 进程；输出文件须唯一
+- **状态**: 采信（根因确认非代码 bug，测试流程缺陷）
