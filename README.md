@@ -92,6 +92,11 @@ go build ./...
 ### Run a Single Node
 
 ```bash
+# SM4 key: 16 bytes as 32-char hex (example key for testing only)
+export SM4_KEY="726166746b765f736d34746573743031"
+# Demo mode: allows startup without a license (read-only)
+export LICENSE_FAIL_MODE=open
+
 go run . -id node-1 -port 9500 -http 9000
 ```
 
@@ -152,7 +157,7 @@ curl http://localhost:9001/raft/status
 | `HTTP_PORT` | `9000` | HTTP API port |
 | `HTTP_BIND` | `127.0.0.1` | HTTP bind address |
 | `PEERS` | (empty) | Peer list: `id1=host1:port1,id2=host2:port2` |
-| `SM4_KEY` | (required) | SM4 encryption key (16 bytes, fail-closed) |
+| `SM4_KEY` | (required) | SM4 encryption key (16 bytes as 32-char hex, fail-closed) |
 | `LICENSE_FAIL_MODE` | `closed` | `closed` = fail-closed, `open` = degraded read-only |
 | `RSA_PRIVATE_KEY_PATH` | (env) | Path to RSA private key for license verification |
 
@@ -160,11 +165,13 @@ See [`raftkv.env.default`](raftkv.env.default) for the full configuration templa
 
 ### SM4 Key
 
-The SM4 key must be exactly 16 bytes. If `SM4_KEY` is missing or invalid, the
-process exits immediately with a non-zero exit code (fail-closed).
+The SM4 key must be a 32-character hex-encoded string representing 16 bytes.
+If `SM4_KEY` is missing or invalid, the process exits immediately with a
+non-zero exit code (fail-closed).
 
 ```bash
-export SM4_KEY="your-16-byte-key"
+# Example: hex-encoded 16-byte key
+export SM4_KEY="726166746b765f736d34746573743031"
 ```
 
 ---
