@@ -32,8 +32,8 @@ import (
 
 const (
 	// 选举超时范围（毫秒）
-	electionTimeoutMin = 150 // 最小选举超时
-	electionTimeoutMax = 300 // 最大选举超时
+	electionTimeoutMin = 800  // 最小选举超时（batch34 T016: 150→800，与主模块对齐）
+	electionTimeoutMax = 1200 // 最大选举超时（batch34 T016: 300→1200，与主模块对齐）
 
 	// Leader 心跳间隔
 	heartbeatIntervalMin = 50 * time.Millisecond
@@ -352,6 +352,100 @@ func (rn *RaftNode) handleElectionTimeout() {
 }
 
 // =========================================================================
+// pre-vote 探测 — 防止日志落后节点干扰集群（batch34 T016: 从主模块迁移）
+// =========================================================================
+
+// preVoteProbe 发起 pre-vote 探测，询问 peers 是否会在正式选举中投票给自己。
+// 纯探测无副作用：不递增 term、不更新 state/votedFor。
+func (rn *RaftNode) preVoteProbe(term int64, lastLogIdx int64, lastLogTm int64, peers []PeerInfo) bool {
+	votesNeeded := (len(peers)+1)/2 + 1
+	votesGranted := int32(1) // 自己预投自己
+
+	var wg sync.WaitGroup
+	for _, peer := range peers {
+		wg.Add(1)
+		go func(p PeerInfo) {
+			defer func() {
+				if r := recover(); r != nil {
+					rn.logf("[raft/%s] pre-vote RPC panic recovered: %v", rn.id, r)
+				}
+			}()
+			defer wg.Done()
+
+			tp, ok := rn.transports[p.ID]
+			if !ok {
+				return
+			}
+
+			req := &RequestVoteRequest{
+				Term:         term,
+				CandidateId:  rn.id,
+				LastLogIndex: lastLogIdx,
+				LastLogTerm:  lastLogTm,
+			}
+
+			resp, err := tp.PreVote(req)
+			if err != nil {
+				return
+			}
+
+			if resp.VoteGranted {
+				atomic.AddInt32(&votesGranted, 1)
+			}
+		}(peer)
+	}
+	wg.Wait()
+
+	granted := atomic.LoadInt32(&votesGranted) >= int32(votesNeeded)
+	rn.logf("[raft/%s] pre-vote 探测: 得票 %d/%d (quorum=%d) → %v",
+		rn.id, votesGranted, len(peers)+1, votesNeeded, granted)
+	return granted
+}
+
+// HandlePreVote 处理候选者的 pre-vote 探测（服务端侧）。
+// 校验日志 up-to-date → 授予或拒绝预支持，纯探测无副作用（不更新 term/state/votedFor）。
+func (rn *RaftNode) HandlePreVote(term int64, candidateId string, lastLogIndex int64, lastLogTerm int64) (respTerm int64, granted bool) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	respTerm = rn.term
+	granted = false
+
+	// 【检查1】term 倒退拒绝
+	if term < rn.term {
+		return respTerm, false
+	}
+
+	// 注意：跳过 stepDown — pre-vote 不更新 term/state
+	// 注意：跳过 votedFor 冲突 — pre-vote 不检查 votedFor
+
+	// 【检查3】logCaughtUp 检查
+	if !rn.logCaughtUp && !rn.lastHeartbeat.IsZero() {
+		return respTerm, false
+	}
+
+	// 【检查4】空日志候选者禁止当选
+	if lastLogIndex == 0 && rn.commitIdx > 0 {
+		return respTerm, false
+	}
+
+	// 【检查5】log up-to-date 检查
+	lastIdx := int64(len(rn.logs))
+	var localLastTerm int64
+	if lastIdx > 0 {
+		localLastTerm = rn.logs[lastIdx-1].Term
+	}
+	if lastLogTerm < localLastTerm ||
+		(lastLogTerm == localLastTerm && lastLogIndex < lastIdx) {
+		return respTerm, false
+	}
+
+	// 授予 pre-vote（不更新 votedFor/term/state）
+	granted = true
+	return respTerm, granted
+}
+
+// =========================================================================
 // 并发投票请求
 // =========================================================================
 
@@ -598,7 +692,10 @@ func (rn *RaftNode) replicateAll() {
 				// 日志不一致，回退 nextIdx
 				rn.mu.Lock()
 				if rn.state == StateLeader {
-					if rn.nextIdx[s.id] > 1 {
+					// T017: 快速回退 — 使用 ConflictIndex 直接跳到冲突点（O(1)），否则逐条递减
+					if resp.ConflictIndex > 0 && resp.ConflictIndex < rn.nextIdx[s.id] {
+						rn.nextIdx[s.id] = resp.ConflictIndex
+					} else if rn.nextIdx[s.id] > 1 {
 						rn.nextIdx[s.id]--
 					}
 				}
@@ -846,12 +943,24 @@ func (rn *RaftNode) HandleAppendEntries(req *AppendEntriesRequest) (*AppendEntri
 
 	// 一致性检查 1：prevLogIndex 超出本地日志长度
 	if req.PrevLogIndex > lastLogIdx {
+		// T017: 快速回退 — ConflictIndex = lastLogIdx + 1（Leader 直接回退到此）
+		resp.ConflictIndex = lastLogIdx + 1
 		rn.mu.Unlock()
 		return resp, nil
 	}
 	// 一致性检查 2：prevLogIndex 处的 term 不匹配
 	if req.PrevLogIndex > 0 {
 		if rn.logs[req.PrevLogIndex-1].Term != req.PrevLogTerm {
+			// T017: 快速回退 — 找到冲突 term 的首个索引
+			conflictTerm := rn.logs[req.PrevLogIndex-1].Term
+			conflictIdx := req.PrevLogIndex
+			for i := req.PrevLogIndex - 1; i > 0; i-- {
+				if rn.logs[i-1].Term != conflictTerm {
+					break
+				}
+				conflictIdx = i
+			}
+			resp.ConflictIndex = conflictIdx
 			rn.mu.Unlock()
 			return resp, nil
 		}

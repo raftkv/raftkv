@@ -149,6 +149,8 @@ type SnapshotChunk struct {
 type Transport interface {
 	// RequestVote 请求投票 RPC
 	RequestVote(req *RequestVoteRequest) (*RequestVoteResponse, error)
+	// PreVote pre-vote 探测 RPC（纯探测，不更新状态）
+	PreVote(req *RequestVoteRequest) (*RequestVoteResponse, error)
 	// AppendEntries 追加日志 RPC（含心跳）
 	AppendEntries(req *AppendEntriesRequest) (*AppendEntriesResponse, error)
 	// Close 关闭传输连接

@@ -41,6 +41,7 @@ const (
 	// RPC 路径
 	pathRequestVote   = "/raft/request_vote"
 	pathAppendEntries = "/raft/append_entries"
+	pathPreVote       = "/raft/pre_vote"
 )
 
 // =========================================================================
@@ -83,6 +84,19 @@ func (t *HTTPTransport) RequestVote(req *RequestVoteRequest) (*RequestVoteRespon
 	var result RequestVoteResponse
 	if err := json.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("RequestVote 响应解码失败: %w", err)
+	}
+	return &result, nil
+}
+
+// PreVote 发送 PreVote RPC（batch34 T016: pre-vote 探测）
+func (t *HTTPTransport) PreVote(req *RequestVoteRequest) (*RequestVoteResponse, error) {
+	resp, err := t.doRPC(pathPreVote, req)
+	if err != nil {
+		return nil, err
+	}
+	var result RequestVoteResponse
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("PreVote 响应解码失败: %w", err)
 	}
 	return &result, nil
 }
@@ -168,6 +182,7 @@ func NewHTTPServer(addr string, node *RaftNode) (*HTTPServer, error) {
 
 	mux.HandleFunc(pathRequestVote, srv.handleRequestVote)
 	mux.HandleFunc(pathAppendEntries, srv.handleAppendEntries)
+	mux.HandleFunc(pathPreVote, srv.handlePreVote)
 
 	srv.server = &http.Server{
 		Handler:      mux,
@@ -222,6 +237,31 @@ func (s *HTTPServer) handleRequestVote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (s *HTTPServer) handlePreVote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var req RequestVoteRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respTerm, granted := s.node.HandlePreVote(req.Term, req.CandidateId, req.LastLogIndex, req.LastLogTerm)
+	resp := &RequestVoteResponse{Term: respTerm, VoteGranted: granted}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)

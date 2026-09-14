@@ -1413,7 +1413,13 @@ func (rn *RaftNode) sendHeartbeats() {
 			} else {
 				rn.mu.Lock()
 				if rn.nextIdx[p.ID] > 1 {
-					rn.nextIdx[p.ID]--
+					// T017: 快速回退优化 — 指数回退（proto 无 ConflictIndex，用指数回退替代逐条递减 O(log N)）
+					gap := rn.nextIdx[p.ID] - 1
+					if gap > 1 {
+						rn.nextIdx[p.ID] -= gap / 2
+					} else {
+						rn.nextIdx[p.ID]--
+					}
 				}
 				rn.mu.Unlock()
 			}
@@ -1461,6 +1467,10 @@ func (rn *RaftNode) advanceCommit(term int64) {
 				newOK = newCount >= len(newPeers)/2+1
 			}
 			if oldOK && newOK {
+				// T018: Figure 8 校验 — 仅当前 term 日志可直接提交，旧 term 日志在新 term 日志提交后间接提交
+				if N > 0 && int(N-1) < len(rn.logs) && rn.logs[N-1].Term != rn.term {
+					continue
+				}
 				oldCommit := rn.commitIdx
 				rn.commitIdx = N
 				rn.applyConfigChangesLocked(oldCommit, N)
@@ -2089,12 +2099,23 @@ func (rn *RaftNode) HandleAppendEntries(
 			}
 		}
 		if entry.Index > int64(len(rn.logs)) {
-			rn.logs = append(rn.logs, RaftLog{
+			// T020: 截断后重算 SM3Hash，保证链式校验完整性
+			logEntry := RaftLog{
 				Index:   entry.Index,
 				Term:    entry.Term,
 				Command: entry.Command,
 				SM3Hash: entry.Sm3Hash,
-			})
+			}
+			if sm3IntegrityEnabled {
+				var prevHash []byte
+				if len(rn.logs) > 0 {
+					prevHash = rn.logs[len(rn.logs)-1].SM3Hash
+				}
+				if recomputed := ComputeEntrySM3(prevHash, entry.Term, entry.Index, entry.Command); recomputed != nil {
+					logEntry.SM3Hash = recomputed
+				}
+			}
+			rn.logs = append(rn.logs, logEntry)
 		}
 	}
 
