@@ -27,6 +27,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/tjfoc/gmsm/sm4"
 )
@@ -47,8 +48,9 @@ const (
 // EncryptedStorage SM4-CTR 加密存储层
 // 透明叠加在 WAL 之上：写入前加密，读取时解密
 type EncryptedStorage struct {
-	wal *WAL
-	key []byte
+	wal    *WAL
+	key    []byte
+	snapMu sync.RWMutex // 保护 WAL 在快照重置期间不被并发写入
 }
 
 // NewEncryptedStorage 创建加密存储
@@ -123,6 +125,9 @@ func sm4CTRDecrypt(key, data []byte) ([]byte, error) {
 
 // AppendRaftLog 加密后追加日志到 WAL
 func (es *EncryptedStorage) AppendRaftLog(log RaftLog) error {
+	es.snapMu.RLock()
+	defer es.snapMu.RUnlock()
+
 	data, err := json.Marshal(log)
 	if err != nil {
 		return fmt.Errorf("序列化失败: %w", err)
@@ -325,7 +330,8 @@ func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 
 	commitOK = true
 
-	// 8. 重置 WAL
+	// 8. 重置 WAL（写锁保护，防止并发 AppendRaftLog）
+	es.snapMu.Lock()
 	oldSize := es.wal.offset
 
 	// 清理已轮转的 closed WALs（数据已在快照中）
@@ -337,9 +343,11 @@ func (es *EncryptedStorage) Snapshot() (int, int64, error) {
 	os.Remove(es.wal.path)
 	wal, err := NewWAL(es.wal.path)
 	if err != nil {
+		es.snapMu.Unlock()
 		return 0, 0, fmt.Errorf("WAL 重创建失败: %w", err)
 	}
 	es.wal = wal
+	es.snapMu.Unlock()
 
 	snapStat, _ := os.Stat(snapshotPath)
 	snapSize := int64(0)

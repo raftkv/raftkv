@@ -12,7 +12,8 @@ import (
 )
 
 // TestBatch13_LogMatchingChainAfterCompaction 验证快照截断后日志匹配链完整
-// 构造 10000 条日志 → CompactLogs(5000) → 遍历 logs[5000:] 验证 Index/Term 保留 → 验证 prevLog 衔接
+// 构造 10000 条日志 → CompactLogs(5000) → 遍历 logs[0:5000] 验证 Index/Term 保留 → 验证 prevLog 衔接
+// batch35 T030: CompactLogs 改为切片截断，logs 物理释放前 5000 条
 func TestBatch13_LogMatchingChainAfterCompaction(t *testing.T) {
 	rn := &RaftNode{
 		logs:          make([]RaftLog, 0, 10000),
@@ -37,9 +38,14 @@ func TestBatch13_LogMatchingChainAfterCompaction(t *testing.T) {
 		t.Fatalf("logStartIndex=%d, 期望 5001", rn.logStartIndex)
 	}
 
-	for i := 5000; i < 10000; i++ {
-		if rn.logs[i].Index != int64(i+1) {
-			t.Errorf("logs[%d].Index=%d, 期望 %d", i, rn.logs[i].Index, i+1)
+	if len(rn.logs) != 5000 {
+		t.Fatalf("logs 长度=%d, 期望 5000（切片截断物理释放）", len(rn.logs))
+	}
+
+	for i := 0; i < 5000; i++ {
+		expectedIdx := int64(i + 5001)
+		if rn.logs[i].Index != expectedIdx {
+			t.Errorf("logs[%d].Index=%d, 期望 %d", i, rn.logs[i].Index, expectedIdx)
 		}
 		if rn.logs[i].Term == 0 {
 			t.Errorf("logs[%d].Term=0, 期望保留", i)
@@ -47,21 +53,12 @@ func TestBatch13_LogMatchingChainAfterCompaction(t *testing.T) {
 		if len(rn.logs[i].Command) == 0 {
 			t.Errorf("logs[%d].Command 为空, 期望保留（未压缩区间）", i)
 		}
-	}
-
-	for i := 0; i < 5000; i++ {
-		if rn.logs[i].Command != nil {
-			t.Errorf("logs[%d].Command 未释放", i)
-		}
-		if rn.logs[i].SM3Hash != nil {
-			t.Errorf("logs[%d].SM3Hash 未释放", i)
-		}
-		if rn.logs[i].Index != int64(i+1) {
-			t.Errorf("logs[%d].Index=%d, 期望 %d（元数据保留）", i, rn.logs[i].Index, i+1)
+		if len(rn.logs[i].SM3Hash) == 0 {
+			t.Errorf("logs[%d].SM3Hash 为空, 期望保留", i)
 		}
 	}
 
-	t.Logf("日志匹配链完整: logStartIndex=%d, 压缩 5000 条, 保留 5000 条", rn.logStartIndex)
+	t.Logf("日志匹配链完整: logStartIndex=%d, 物理释放 5000 条, 保留 5000 条", rn.logStartIndex)
 }
 
 // TestBatch13_CatchUpAcrossCompactionPoint 验证追赶跨越截断点
@@ -97,8 +94,9 @@ func TestBatch13_CatchUpAcrossCompactionPoint(t *testing.T) {
 	followerNextIdx = 5001
 
 	for i := followerNextIdx; i <= 10000; i++ {
-		if int(i-1) < len(leader.logs) {
-			entry := leader.logs[i-1]
+		arrIdx := i - leader.logStartIndex
+		if arrIdx >= 0 && int(arrIdx) < len(leader.logs) {
+			entry := leader.logs[arrIdx]
 			if entry.Index != i {
 				t.Errorf("追赶日志 Index=%d, 期望 %d", entry.Index, i)
 			}
@@ -263,7 +261,7 @@ func TestBatch13_WriteSemanticsDuringSnapshot(t *testing.T) {
 
 	rn.mu.RLock()
 	found := make(map[int64]bool)
-	for i := 10000; i < len(rn.logs); i++ {
+	for i := 0; i < len(rn.logs); i++ {
 		idx := rn.logs[i].Index
 		if idx >= 10001 && idx <= 10100 {
 			found[idx] = true

@@ -165,6 +165,11 @@ type RaftNode struct {
 	getSnapshotData func() ([]byte, int64, int64, error) // 回调：返回 (snapshotData, lastIncludedIndex, lastIncludedTerm, error)
 	installSnapshot func([]byte, int64, int64) error     // 回调：参数 (snapshotData, lastIncludedIndex, lastIncludedTerm)
 
+	// --- batch35 T031/T032: 分片快照传输 ---
+	snapshotThrottle *SnapshotThrottle                  // T033: 令牌桶限流器
+	snapRecvBuf      map[string]*snapshotReceiveSession // T031: 分片接收会话（leaderID → session）
+	snapRecvMu       sync.Mutex                         // 保护 snapRecvBuf
+
 	// --- batch11: group commit 攒批层 ---
 	proposeBatchCh    chan *proposeRequest // Propose 请求通道
 	replicateCh       chan struct{}        // 立即复制触发信号
@@ -266,6 +271,7 @@ func NewRaftNode(
 		votedFor:      "",
 		leaderID:      "",
 		logs:          make([]RaftLog, 0),
+		logStartIndex: 1,
 		commitIdx:     0,
 		lastApplied:   0,
 		nextIdx:       make(map[string]int64),
@@ -291,6 +297,7 @@ func NewRaftNode(
 		logCaughtUp:              false,
 		degradedFollowers:        make(map[string]bool),
 		gapSince:                 make(map[string]time.Time),
+		snapRecvBuf:              make(map[string]*snapshotReceiveSession),
 		proposeBatchCh:           make(chan *proposeRequest, 1024),
 		replicateCh:              make(chan struct{}, 256),
 		proposeBatchClose:        make(chan struct{}),
@@ -351,6 +358,7 @@ func (rn *RaftNode) RestoreFromWAL(logs []RaftLog) {
 	for i := range rn.logs {
 		rn.logs[i].Index = int64(i + 1)
 	}
+	rn.logStartIndex = 1
 
 	lastLog := rn.logs[len(rn.logs)-1]
 	// Fix #1: commitIdx/lastApplied基于log位置而非原始WAL index，防止截断后index空洞
@@ -493,12 +501,13 @@ func (rn *RaftNode) GetLogEntries(startIdx, endIdx int64) ([]*pb.LogEntry, error
 
 	var entries []*pb.LogEntry
 	for i := startIdx; i <= endIdx; i++ {
-		if i > 0 && int(i-1) < len(rn.logs) {
+		e := rn.logAtLocked(i)
+		if e != nil {
 			entries = append(entries, &pb.LogEntry{
-				Term:    rn.logs[i-1].Term,
-				Index:   rn.logs[i-1].Index,
-				Command: rn.logs[i-1].Command,
-				Sm3Hash: rn.logs[i-1].SM3Hash,
+				Term:    e.Term,
+				Index:   e.Index,
+				Command: e.Command,
+				Sm3Hash: e.SM3Hash,
 			})
 		}
 	}
@@ -512,6 +521,31 @@ func (rn *RaftNode) GetLogStartIndex() int64 {
 	return rn.logStartIndex
 }
 
+// lastLogIndexLocked 返回最后一条日志的 Index（0 表示空）。调用方须持有 rn.mu。
+func (rn *RaftNode) lastLogIndexLocked() int64 {
+	if len(rn.logs) == 0 {
+		return 0
+	}
+	lsi := rn.logStartIndex
+	if lsi == 0 {
+		lsi = 1
+	}
+	return int64(len(rn.logs)) + lsi - 1
+}
+
+// logAtLocked 返回指定 Index 的日志条目指针，越界或已压缩返回 nil。调用方须持有 rn.mu。
+func (rn *RaftNode) logAtLocked(idx int64) *RaftLog {
+	lsi := rn.logStartIndex
+	if lsi == 0 {
+		lsi = 1
+	}
+	arrIdx := idx - lsi
+	if arrIdx < 0 || int(arrIdx) >= len(rn.logs) {
+		return nil
+	}
+	return &rn.logs[arrIdx]
+}
+
 // GetPeerHttpAddr 获取指定 peer 的 HTTP 地址（快照传输用）
 func (rn *RaftNode) GetPeerHttpAddr(peerID string) (string, bool) {
 	rn.mu.RLock()
@@ -521,8 +555,9 @@ func (rn *RaftNode) GetPeerHttpAddr(peerID string) (string, bool) {
 }
 
 // ReloadFromSnapshot 从快照数据重载日志
-// snapshotData 是 gzip(json([]RaftLog)) 格式
+// snapshotData 是 json([]RaftLog) 格式
 // lastIncludedIndex/lastIncludedTerm 是快照中最后一条日志的索引和任期
+// T035: 快照后日志追赶 — logStartIndex 从首条日志推断，commitIdx/lastApplied 设为 lastIncludedIndex
 func (rn *RaftNode) ReloadFromSnapshot(snapshotData []byte, lastIncludedIndex int64, lastIncludedTerm int64) error {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
@@ -533,28 +568,267 @@ func (rn *RaftNode) ReloadFromSnapshot(snapshotData []byte, lastIncludedIndex in
 	}
 
 	if len(logs) == 0 {
-		return fmt.Errorf("快照为空")
+		rn.logs = make([]RaftLog, 0)
+		rn.commitIdx = lastIncludedIndex
+		rn.lastApplied = lastIncludedIndex
+		rn.logStartIndex = lastIncludedIndex + 1
+	} else {
+		rn.logs = logs
+		rn.commitIdx = lastIncludedIndex
+		rn.lastApplied = lastIncludedIndex
+		rn.logStartIndex = logs[0].Index
 	}
 
-	rn.logs = logs
-	rn.commitIdx = lastIncludedIndex
-	rn.lastApplied = lastIncludedIndex
-	rn.logStartIndex = 1
-
-	rn.logf("[raft/%s] 快照重载: %d 条日志, commitIdx=%d, lastApplied=%d, logStartIndex=1",
-		rn.id, len(logs), lastIncludedIndex, lastIncludedIndex)
+	rn.logf("[raft/%s] 快照重载: %d 条日志, commitIdx=%d, lastApplied=%d, logStartIndex=%d",
+		rn.id, len(logs), lastIncludedIndex, lastIncludedIndex, rn.logStartIndex)
 
 	return nil
+}
+
+// =========================================================================
+// batch35 T031/T032: 分片 InstallSnapshot 协议实现
+// =========================================================================
+
+// SnapshotThrottle 令牌桶限流器（T033），限制快照传输出站带宽
+type SnapshotThrottle struct {
+	tokens chan struct{}
+	rate   int
+	burst  int
+}
+
+// NewSnapshotThrottle 创建快照传输限流器
+func NewSnapshotThrottle(rate int, burst int) *SnapshotThrottle {
+	if burst < 1 {
+		burst = 1
+	}
+	t := &SnapshotThrottle{
+		tokens: make(chan struct{}, burst),
+		rate:   rate,
+		burst:  burst,
+	}
+	for i := 0; i < burst; i++ {
+		t.tokens <- struct{}{}
+	}
+	go t.refill()
+	return t
+}
+
+func (t *SnapshotThrottle) refill() {
+	interval := time.Second / time.Duration(t.rate)
+	if interval <= 0 {
+		interval = time.Millisecond
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for range ticker.C {
+		select {
+		case t.tokens <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// Acquire 阻塞获取一个令牌许可
+func (t *SnapshotThrottle) Acquire(ctx context.Context) error {
+	select {
+	case <-t.tokens:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Release 释放一个令牌许可
+func (t *SnapshotThrottle) Release() {
+	select {
+	case t.tokens <- struct{}{}:
+	default:
+	}
+}
+
+// snapshotReceiveSession 分片接收会话（T031）
+type snapshotReceiveSession struct {
+	buf              []byte
+	lastIncludedIdx  int64
+	lastIncludedTerm int64
+	leaderTerm       int64
+	leaderID         string
+}
+
+// snapshotChunkSize 快照分片大小（1MB）
+const snapshotChunkSize = 1024 * 1024
+
+// HandleInstallSnapshot T031: RPC 服务端处理 — 校验 term → 累积分片 → done=true 时应用状态机
+func (rn *RaftNode) HandleInstallSnapshot(req InstallSnapshotRequest) InstallSnapshotResponse {
+	rn.mu.Lock()
+	if req.Term < rn.term {
+		resp := InstallSnapshotResponse{Term: rn.term, Success: false}
+		rn.mu.Unlock()
+		return resp
+	}
+	if req.Term > rn.term {
+		rn.term = req.Term
+		rn.state = StateFollower
+		rn.votedFor = ""
+		rn.leaderID = req.LeaderId
+	}
+	rn.mu.Unlock()
+
+	rn.snapRecvMu.Lock()
+	defer rn.snapRecvMu.Unlock()
+
+	session, ok := rn.snapRecvBuf[req.LeaderId]
+	if !ok {
+		session = &snapshotReceiveSession{
+			lastIncludedIdx:  req.LastIncludedIndex,
+			lastIncludedTerm: req.LastIncludedTerm,
+			leaderTerm:       req.Term,
+			leaderID:         req.LeaderId,
+		}
+		if rn.snapRecvBuf == nil {
+			rn.snapRecvBuf = make(map[string]*snapshotReceiveSession)
+		}
+		rn.snapRecvBuf[req.LeaderId] = session
+	}
+
+	session.buf = append(session.buf, req.Data...)
+
+	if !req.Done {
+		return InstallSnapshotResponse{Term: rn.term, Success: true}
+	}
+
+	snapshotData := session.buf
+	lastIdx := session.lastIncludedIdx
+	lastTerm := session.lastIncludedTerm
+	delete(rn.snapRecvBuf, req.LeaderId)
+
+	rn.mu.Lock()
+	if lastIdx > 0 {
+		cutIdx := lastIdx - rn.logStartIndex + 1
+		if cutIdx > 0 && int(cutIdx) <= len(rn.logs) {
+			rn.logs = rn.logs[cutIdx:]
+		} else if int(cutIdx) > len(rn.logs) {
+			rn.logs = make([]RaftLog, 0)
+		}
+		rn.logStartIndex = lastIdx + 1
+		if rn.commitIdx < lastIdx {
+			rn.commitIdx = lastIdx
+		}
+		if rn.lastApplied < lastIdx {
+			rn.lastApplied = lastIdx
+		}
+	}
+	rn.mu.Unlock()
+
+	if rn.installSnapshot != nil {
+		if err := rn.installSnapshot(snapshotData, lastIdx, lastTerm); err != nil {
+			rn.logf("[raft/%s] HandleInstallSnapshot: installSnapshot 回调失败: %v", rn.id, err)
+			return InstallSnapshotResponse{Term: rn.term, Success: false}
+		}
+	}
+
+	rn.logf("[raft/%s] HandleInstallSnapshot: 快照安装完成, lastIncludedIndex=%d, lastIncludedTerm=%d, logStartIndex=%d",
+		rn.id, lastIdx, lastTerm, rn.GetLogStartIndex())
+
+	return InstallSnapshotResponse{Term: rn.term, Success: true}
+}
+
+// sendInstallSnapshot T032: Leader 侧分片发送 + 限流控制 + 完成后切换 AppendEntries 追赶
+func (rn *RaftNode) sendInstallSnapshot(peerID string, term int64, leaderCommit int64) bool {
+	if rn.getSnapshotData == nil {
+		return false
+	}
+	snapshotData, lastIdx, lastTerm, err := rn.getSnapshotData()
+	if err != nil {
+		rn.logf("[raft/%s] sendInstallSnapshot: 快照读取失败: %v", rn.id, err)
+		return false
+	}
+
+	httpAddr, ok := rn.GetPeerHttpAddr(peerID)
+	if !ok {
+		return false
+	}
+
+	throttle := rn.snapshotThrottle
+	totalLen := len(snapshotData)
+	offset := int64(0)
+
+	for offset < int64(totalLen) {
+		end := offset + int64(snapshotChunkSize)
+		if end > int64(totalLen) {
+			end = int64(totalLen)
+		}
+		chunk := SnapshotChunk{
+			Offset: offset,
+			Data:   snapshotData[offset:end],
+			Last:   end >= int64(totalLen),
+		}
+
+		if throttle != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			if err := throttle.Acquire(ctx); err != nil {
+				cancel()
+				rn.logf("[raft/%s] sendInstallSnapshot: 限流获取失败: %v", rn.id, err)
+				return false
+			}
+			cancel()
+		}
+
+		req := InstallSnapshotRequest{
+			Term:              term,
+			LeaderId:          rn.id,
+			LastIncludedIndex: lastIdx,
+			LastIncludedTerm:  lastTerm,
+			Offset:            chunk.Offset,
+			Data:              chunk.Data,
+			Done:              chunk.Last,
+		}
+		body, _ := json.Marshal(req)
+		url := fmt.Sprintf("http://%s/raft/install-snapshot-chunk", httpAddr)
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
+		httpReq, _ := http.NewRequestWithContext(ctx2, "POST", url, bytes.NewReader(body))
+		httpReq.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(httpReq)
+		if err != nil {
+			cancel2()
+			rn.logf("[raft/%s] sendInstallSnapshot: 分片发送失败 offset=%d: %v", rn.id, offset, err)
+			return false
+		}
+		resp.Body.Close()
+		cancel2()
+		if resp.StatusCode != http.StatusOK {
+			rn.logf("[raft/%s] sendInstallSnapshot: 分片被拒绝 offset=%d status=%d", rn.id, offset, resp.StatusCode)
+			return false
+		}
+
+		if throttle != nil {
+			throttle.Release()
+		}
+		offset = end
+	}
+
+	rn.mu.Lock()
+	if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
+		rn.matchIdx[peerID] = lastIdx
+		rn.nextIdx[peerID] = lastIdx + 1
+	}
+	rn.mu.Unlock()
+	rn.advanceCommit(term)
+
+	rn.logf("[raft/%s] sendInstallSnapshot: peer=%s 快照发送完成, lastIdx=%d, nextIdx=%d",
+		rn.id, peerID, lastIdx, lastIdx+1)
+	return true
 }
 
 // GetLogTerm 获取指定索引日志的任期
 func (rn *RaftNode) GetLogTerm(idx int64) int64 {
 	rn.mu.RLock()
 	defer rn.mu.RUnlock()
-	if idx <= 0 || int(idx-1) >= len(rn.logs) {
+	e := rn.logAtLocked(idx)
+	if e == nil {
 		return 0
 	}
-	return rn.logs[idx-1].Term
+	return e.Term
 }
 
 // getCommitIdx 获取当前commitIdx
@@ -721,30 +995,26 @@ func (rn *RaftNode) SetOnCommit(fn func(RaftLog)) {
 	rn.mu.Unlock()
 }
 
-// CompactLogs 快照后日志压缩：释放 Index <= upToIndex 的日志的 Command 和 SM3Hash
-// 保留 Index/Term 元数据（Raft 协议需要），仅释放大字段（Command/SM3Hash 占 99%+ 内存）
-// 不改变 logs 数组结构，不影响 1-based 索引 rn.logs[idx-1]
-// 设置 logStartIndex = upToIndex + 1，GetLogEntries 对 < logStartIndex 的请求返回 ErrCompacted
+// CompactLogs 快照后日志压缩：切片截断 logs[upToIndex:] 物理释放内存
+// 前移 logStartIndex = upToIndex + 1，GetLog/GetLogEntries 对 < logStartIndex 的请求返回 ErrCompacted
 func (rn *RaftNode) CompactLogs(upToIndex int64) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
 
-	compacted := 0
-	for i := 0; i < len(rn.logs); i++ {
-		if rn.logs[i].Index <= upToIndex {
-			rn.logs[i].Command = nil
-			rn.logs[i].SM3Hash = nil
-			compacted++
-		} else {
-			break
-		}
+	if upToIndex <= 0 || upToIndex < rn.logStartIndex {
+		return
 	}
 
-	if compacted > 0 {
-		rn.logStartIndex = upToIndex + 1
-		rn.logf("[raft/%s] 日志压缩: 截断至 index=%d, logStartIndex=%d, 释放 %d 条日志的 Command/SM3Hash",
-			rn.id, upToIndex, rn.logStartIndex, compacted)
+	cutCount := int(upToIndex - rn.logStartIndex + 1)
+	if cutCount > len(rn.logs) {
+		cutCount = len(rn.logs)
 	}
+
+	rn.logs = rn.logs[cutCount:]
+	rn.logStartIndex = upToIndex + 1
+
+	rn.logf("[raft/%s] 日志压缩: 切片截断至 index=%d, logStartIndex=%d, 物理释放 %d 条日志",
+		rn.id, upToIndex, rn.logStartIndex, cutCount)
 }
 
 // collectCommittedLogs 收集从 oldCommit+1 到 commitIdx 的已提交日志
@@ -755,8 +1025,9 @@ func (rn *RaftNode) collectCommittedLogs(oldCommit int64) []RaftLog {
 	}
 	var logs []RaftLog
 	for i := oldCommit + 1; i <= rn.commitIdx; i++ {
-		if int(i-1) >= 0 && int(i-1) < len(rn.logs) {
-			logs = append(logs, rn.logs[i-1])
+		e := rn.logAtLocked(i)
+		if e != nil {
+			logs = append(logs, *e)
 		}
 	}
 	return logs
@@ -854,7 +1125,7 @@ func (rn *RaftNode) handleElectionTimeout() {
 	rn.stats.PreVoteRoundCount++
 	rn.stats.Unlock()
 	preVoteTerm := atomic.LoadInt64(&rn.term) + 1
-	lastLogIdx := int64(len(rn.logs))
+	lastLogIdx := rn.lastLogIndexLocked()
 	var lastLogTm int64
 	if len(rn.logs) > 0 {
 		lastLogTm = rn.logs[len(rn.logs)-1].Term
@@ -978,14 +1249,14 @@ func (rn *RaftNode) requestVotes(term int64, peers []PeerInfo) {
 		rn.firstCandidateTime = time.Time{}
 
 		// 初始化 Leader 状态
-		lastLogIdx := int64(len(rn.logs))
+		lastLogIdx := rn.lastLogIndexLocked()
 		for _, p := range rn.peers {
 			rn.nextIdx[p.ID] = lastLogIdx + 1
 			rn.matchIdx[p.ID] = 0
 		}
 
 		// F4b: 追加 no-op 条目，确保新 Leader 当选后可安全提交前 term 条目
-		noOpIndex := int64(len(rn.logs)) + 1
+		noOpIndex := rn.lastLogIndexLocked() + 1
 		rn.logs = append(rn.logs, RaftLog{
 			Index:   noOpIndex,
 			Term:    rn.term,
@@ -1132,10 +1403,10 @@ func (rn *RaftNode) HandlePreVote(term int64, candidateId string, lastLogIndex i
 	}
 
 	// 【检查8】log up-to-date 检查
-	lastIdx := int64(len(rn.logs))
+	lastIdx := rn.lastLogIndexLocked()
 	var localLastTerm int64
 	if lastIdx > 0 {
-		localLastTerm = rn.logs[lastIdx-1].Term
+		localLastTerm = rn.logs[len(rn.logs)-1].Term
 	}
 	if lastLogTerm < localLastTerm ||
 		(lastLogTerm == localLastTerm && lastLogIndex < lastIdx) {
@@ -1267,7 +1538,7 @@ func (rn *RaftNode) sendHeartbeats() {
 	}
 	// V2.5.1 B2修复: 不再全量拷贝 rn.logs（消除 O(N) 每心跳拷贝风暴——E08 OOM 主犯）。
 	// 锁内为每个 peer 构造增量 entries 切片 + prevLog 快照，构造完立即解锁再发送（持锁不做网络 IO）。
-	logEnd := int64(len(rn.logs))
+	logEnd := rn.lastLogIndexLocked()
 	type peerPlan struct {
 		prevIdx       int64
 		prevTerm      int64
@@ -1283,18 +1554,17 @@ func (rn *RaftNode) sendHeartbeats() {
 			plans[p.ID] = pp
 			continue
 		}
-		if start > 1 {
+		if start > rn.logStartIndex {
 			pp.prevIdx = start - 1
-			if pp.prevIdx-1 >= 0 && int(pp.prevIdx-1) < len(rn.logs) {
-				pp.prevTerm = rn.logs[pp.prevIdx-1].Term
+			if e := rn.logAtLocked(pp.prevIdx); e != nil {
+				pp.prevTerm = e.Term
 			}
 		}
 		if start <= logEnd {
 			n := int(logEnd - start + 1)
 			pp.entries = make([]*pb.LogEntry, 0, n)
 			for i := start; i <= logEnd; i++ {
-				if i > 0 && int(i-1) < len(rn.logs) {
-					l := &rn.logs[i-1]
+				if l := rn.logAtLocked(i); l != nil {
 					pp.entries = append(pp.entries, &pb.LogEntry{
 						Term:    l.Term,
 						Index:   l.Index,
@@ -1329,40 +1599,7 @@ func (rn *RaftNode) sendHeartbeats() {
 				if rn.batchSyncMgr != nil {
 					rn.batchSyncMgr.sendSnapshot(p.ID)
 				} else if rn.getSnapshotData != nil {
-					snapshotData, lastIdx, lastTerm, err := rn.getSnapshotData()
-					if err != nil {
-						rn.logf("[raft/%s] follower=%s 快照读取失败: %v", rn.id, p.ID, err)
-						return
-					}
-					httpAddr, ok := rn.GetPeerHttpAddr(p.ID)
-					if !ok {
-						return
-					}
-					req := struct {
-						SnapshotData      []byte `json:"snapshot_data"`
-						LastIncludedIndex int64  `json:"last_included_index"`
-						LastIncludedTerm  int64  `json:"last_included_term"`
-						LeaderCommit      int64  `json:"leader_commit"`
-					}{snapshotData, lastIdx, lastTerm, leaderCommit}
-					body, _ := json.Marshal(req)
-					url := fmt.Sprintf("http://%s/raft/install-snapshot", httpAddr)
-					ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
-					defer cancel2()
-					httpReq, _ := http.NewRequestWithContext(ctx2, "POST", url, bytes.NewReader(body))
-					httpReq.Header.Set("Content-Type", "application/json")
-					resp2, err := http.DefaultClient.Do(httpReq)
-					if err == nil {
-						resp2.Body.Close()
-						if resp2.StatusCode == http.StatusOK {
-							rn.mu.Lock()
-							if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
-								rn.matchIdx[p.ID] = lastIdx
-								rn.nextIdx[p.ID] = lastIdx + 1
-							}
-							rn.mu.Unlock()
-							rn.advanceCommit(term)
-						}
-					}
+					rn.sendInstallSnapshot(p.ID, term, leaderCommit)
 				}
 				return
 			}
@@ -1445,7 +1682,7 @@ func (rn *RaftNode) advanceCommit(term int64) {
 	if rn.state == StateLeader && atomic.LoadInt64(&rn.term) == term {
 		oldPeers := rn.config.oldPeers()
 		newPeers := rn.config.newPeers()
-		for N := int64(len(rn.logs)); N > rn.commitIdx; N-- {
+		for N := rn.lastLogIndexLocked(); N > rn.commitIdx; N-- {
 			oldOK := true
 			newOK := true
 			if len(oldPeers) > 0 {
@@ -1468,7 +1705,7 @@ func (rn *RaftNode) advanceCommit(term int64) {
 			}
 			if oldOK && newOK {
 				// T018: Figure 8 校验 — 仅当前 term 日志可直接提交，旧 term 日志在新 term 日志提交后间接提交
-				if N > 0 && int(N-1) < len(rn.logs) && rn.logs[N-1].Term != rn.term {
+				if e := rn.logAtLocked(N); e == nil || e.Term != rn.term {
 					continue
 				}
 				oldCommit := rn.commitIdx
@@ -1618,7 +1855,7 @@ func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 	rn.mu.RLock()
 	term := rn.term
 	isLeader := rn.state == StateLeader && !rn.walGateClosed
-	baseIdx := int64(len(rn.logs))
+	baseIdx := rn.lastLogIndexLocked()
 	rn.mu.RUnlock()
 
 	if !isLeader {
@@ -1652,7 +1889,7 @@ func (rn *RaftNode) proposeBatchFlush(batch []*proposeRequest) {
 		return
 	}
 	// 校正 baseIdx（锁内实际长度可能已变）
-	actualBase := int64(len(rn.logs))
+	actualBase := rn.lastLogIndexLocked()
 	if actualBase != baseIdx {
 		for i := range batchLogs {
 			batchLogs[i].Index = actualBase + int64(i+1)
@@ -1793,7 +2030,7 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 		return 0, fmt.Errorf("WAL gate closed")
 	}
 
-	index := int64(len(rn.logs)) + 1
+	index := rn.lastLogIndexLocked() + 1
 	entry := RaftLog{
 		Index:   index,
 		Term:    rn.term,
@@ -1844,22 +2081,27 @@ func (rn *RaftNode) Propose(command []byte) (int64, error) {
 func (rn *RaftNode) GetLog(index int64) (RaftLog, bool) {
 	rn.mu.RLock()
 	defer rn.mu.RUnlock()
-	if index < 1 || int(index) > len(rn.logs) {
+	if index < rn.logStartIndex {
 		return RaftLog{}, false
 	}
-	return rn.logs[index-1], true
+	e := rn.logAtLocked(index)
+	if e == nil {
+		return RaftLog{}, false
+	}
+	return *e, true
 }
 
 // V2.3: 应用已提交的配置变更（调用前必须持有 rn.mu 写锁）
 func (rn *RaftNode) applyConfigChangesLocked(from, to int64) {
 	for i := from + 1; i <= to; i++ {
-		if int(i-1) < 0 || int(i-1) >= len(rn.logs) {
+		e := rn.logAtLocked(i)
+		if e == nil {
 			continue
 		}
-		if !isConfigEntry(rn.logs[i-1].Command) {
+		if !isConfigEntry(e.Command) {
 			continue
 		}
-		change, ok := decodeConfigChange(rn.logs[i-1].Command)
+		change, ok := decodeConfigChange(e.Command)
 		if !ok {
 			continue
 		}
@@ -1973,10 +2215,10 @@ func (rn *RaftNode) HandleRequestVote(
 		return resp, nil
 	}
 
-	lastIdx := int64(len(rn.logs))
+	lastIdx := rn.lastLogIndexLocked()
 	var lastTerm int64
 	if lastIdx > 0 {
-		lastTerm = rn.logs[lastIdx-1].Term
+		lastTerm = rn.logs[len(rn.logs)-1].Term
 	}
 
 	if req.LastLogTerm < lastTerm ||
@@ -2052,7 +2294,7 @@ func (rn *RaftNode) HandleAppendEntries(
 		// Fix #2: 仅Follower才根据LeaderCommit推进commitIdx，防止外部请求直接推进
 		if req.LeaderCommit > rn.commitIdx && rn.state == StateFollower {
 			oldCommit := rn.commitIdx
-			lastLogIdx := int64(len(rn.logs))
+			lastLogIdx := rn.lastLogIndexLocked()
 			if req.LeaderCommit < lastLogIdx {
 				rn.commitIdx = req.LeaderCommit
 			} else {
@@ -2063,7 +2305,7 @@ func (rn *RaftNode) HandleAppendEntries(
 			rn.applyConfigChangesLocked(oldCommit, rn.commitIdx) // V2.3
 		}
 		// 日志追上 Leader 后，允许参与选举
-		if !rn.logCaughtUp && req.LeaderCommit > 0 && int64(len(rn.logs)) >= req.LeaderCommit {
+		if !rn.logCaughtUp && req.LeaderCommit > 0 && rn.lastLogIndexLocked() >= req.LeaderCommit {
 			rn.logCaughtUp = true
 			rn.logf("[raft/%s] 日志已追上 Leader (logs=%d, leaderCommit=%d)，允许参与选举",
 				rn.id, len(rn.logs), req.LeaderCommit)
@@ -2075,7 +2317,7 @@ func (rn *RaftNode) HandleAppendEntries(
 		return resp, nil
 	}
 
-	lastLogIdx := int64(len(rn.logs))
+	lastLogIdx := rn.lastLogIndexLocked()
 
 	if req.PrevLogIndex > lastLogIdx {
 		rn.mu.Unlock()
@@ -2084,7 +2326,7 @@ func (rn *RaftNode) HandleAppendEntries(
 	if req.PrevLogIndex > 0 {
 		if req.PrevLogIndex < rn.logStartIndex {
 			// 压缩感知：follower 已通过快照拥有该前缀，视为匹配成功
-		} else if rn.logs[req.PrevLogIndex-1].Term != req.PrevLogTerm {
+		} else if e := rn.logAtLocked(req.PrevLogIndex); e == nil || e.Term != req.PrevLogTerm {
 			rn.mu.Unlock()
 			return resp, nil
 		}
@@ -2092,13 +2334,13 @@ func (rn *RaftNode) HandleAppendEntries(
 
 	for _, entry := range req.Entries {
 		if entry.Index <= lastLogIdx {
-			if entry.Index > 0 && int(entry.Index-1) < len(rn.logs) {
-				if rn.logs[entry.Index-1].Term != entry.Term {
-					rn.logs = rn.logs[:entry.Index-1]
+			if e := rn.logAtLocked(entry.Index); e != nil {
+				if e.Term != entry.Term {
+					rn.logs = rn.logs[:entry.Index-rn.logStartIndex]
 				}
 			}
 		}
-		if entry.Index > int64(len(rn.logs)) {
+		if entry.Index > rn.lastLogIndexLocked() {
 			// T020: 截断后重算 SM3Hash，保证链式校验完整性
 			logEntry := RaftLog{
 				Index:   entry.Index,
@@ -2123,7 +2365,7 @@ func (rn *RaftNode) HandleAppendEntries(
 	// Fix #2: 仅Follower才根据LeaderCommit推进commitIdx，防止外部请求直接推进
 	if req.LeaderCommit > rn.commitIdx && rn.state == StateFollower {
 		oldCommit := rn.commitIdx
-		newLast := int64(len(rn.logs))
+		newLast := rn.lastLogIndexLocked()
 		if req.LeaderCommit < newLast {
 			rn.commitIdx = req.LeaderCommit
 		} else {
@@ -2135,7 +2377,7 @@ func (rn *RaftNode) HandleAppendEntries(
 	}
 
 	// 日志追上 Leader 后，允许参与选举
-	if !rn.logCaughtUp && req.LeaderCommit > 0 && int64(len(rn.logs)) >= req.LeaderCommit {
+	if !rn.logCaughtUp && req.LeaderCommit > 0 && rn.lastLogIndexLocked() >= req.LeaderCommit {
 		rn.logCaughtUp = true
 		rn.logf("[raft/%s] 日志已追上 Leader (logs=%d, leaderCommit=%d)，允许参与选举",
 			rn.id, len(rn.logs), req.LeaderCommit)
@@ -2185,7 +2427,7 @@ func (rn *RaftNode) Shutdown() {
 func (rn *RaftNode) getLastLogIndex() int64 {
 	rn.mu.RLock()
 	defer rn.mu.RUnlock()
-	return int64(len(rn.logs))
+	return rn.lastLogIndexLocked()
 }
 
 func (rn *RaftNode) getLastLogTerm() int64 {

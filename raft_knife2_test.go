@@ -58,8 +58,9 @@ func TestKnife2_GetLogEntries_ErrCompacted(t *testing.T) {
 // 刀二验证: CompactLogs 后，GetLogEntries 对 >= logStartIndex 的请求正常工作
 func TestKnife2_GetLogEntries_AfterCompaction_StillWorks(t *testing.T) {
 	rn := &RaftNode{
-		id:   "node-1",
-		logs: make([]RaftLog, 10000),
+		id:            "node-1",
+		logs:          make([]RaftLog, 10000),
+		logStartIndex: 1,
 	}
 	for i := range rn.logs {
 		rn.logs[i] = RaftLog{Index: int64(i + 1), Term: 10, Command: []byte("cmd"), SM3Hash: []byte("hash")}

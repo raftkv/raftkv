@@ -434,6 +434,23 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"success":true}`))
 	})
+	// batch35 T031: 分片 InstallSnapshot HTTP 端点
+	httpMux.HandleFunc("/raft/install-snapshot-chunk", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		var req InstallSnapshotRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"decode failed: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+		resp := node.HandleInstallSnapshot(req)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+	// batch35 T033: 初始化快照传输限流器（rate=100 chunks/s, burst=10）
+	node.snapshotThrottle = NewSnapshotThrottle(100, 10)
 	// batch16: 限流器 + metrics 采集器（在 /raft/propose 之前创建，供写路径引用）
 	rateLimiter := NewTokenBucketLimiter(1024, 10000)
 	if v := os.Getenv("RATE_LIMIT_ENABLED"); v == "true" || v == "1" {
