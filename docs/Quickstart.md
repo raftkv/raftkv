@@ -22,14 +22,62 @@ cd raftkv
 go build -o raftkv .
 ```
 
-### 2. Set the SM4 Key
+### 2. Set the SM4 Key and License Mode
 
-RaftKV requires a 16-byte SM4 encryption key. If missing, the process exits
-immediately (fail-closed).
+RaftKV requires a 16-byte SM4 encryption key as a 32-character hex-encoded
+string. If missing or invalid, the process exits immediately (fail-closed).
+
+For demo/evaluation without a license key, set `LICENSE_FAIL_MODE=open` to
+run in degraded read-only mode (Raft elections and reads work; writes are
+rejected). For production use, generate a license via `cmd/license-tool`
+and keep `LICENSE_FAIL_MODE=closed` (the default).
 
 ```bash
-export SM4_KEY="raftkv_sm4test01"
+# SM4 key: 16 bytes as 32-char hex (example key for testing only)
+export SM4_KEY="726166746b765f736d34746573743031"
+
+# Demo mode: allows startup without a license (read-only)
+export LICENSE_FAIL_MODE=open
 ```
+
+### 3. Start
+
+```bash
+./raftkv -id node-1 -port 9500 -http 9000
+```
+
+You should see:
+
+```
+═════════════════════════════════════════════════
+  RaftKV 确定性管控中枢 (Go gRPC 微服务版)
+  ...
+═════════════════════════════════════════════════
+```
+
+### 4. Test
+
+```bash
+# Health check
+curl http://localhost:9000/health/live
+# {"status":"alive"}
+
+# Put a value (requires valid license; rejected in degraded mode)
+curl -X PUT http://localhost:9000/raft/entry \
+  -H "Content-Type: application/json" \
+  -d '{"key":"hello","value":"world"}'
+
+# Get the value
+curl http://localhost:9000/raft/get?key=hello
+# {"value":"world"}
+
+# Raft status
+curl http://localhost:9000/raft/status
+```
+
+> **Note**: In degraded mode (`LICENSE_FAIL_MODE=open`), write operations
+> return HTTP 503. To enable writes, generate a license key using
+> `cmd/license-tool` and set `LICENSE_FAIL_MODE=closed`.
 
 ### 3. Start
 
@@ -74,7 +122,8 @@ curl http://localhost:9000/raft/status
 
 ```bash
 go build -o raftkv .
-export SM4_KEY="raftkv_sm4test01"
+export SM4_KEY="726166746b765f736d34746573743031"
+export LICENSE_FAIL_MODE=open
 ```
 
 ### 2. Start 3 Nodes
@@ -121,13 +170,14 @@ curl http://localhost:9003/raft/get?key=counter
 
 ### 1. Start the Cluster
 
+Uses the self-contained quickstart compose (builds from source, demo mode):
+
 ```bash
-docker compose -p deploy5 \
-  -f tests/deploy/docker-compose-5node.yml \
-  -f tests/deploy/docker-compose-5node-ports.yml \
-  -f tests/deploy/docker-compose-5node-batch16.yml \
-  --env-file tests/deploy/deploy.env up -d
+docker compose -f examples/docker-compose-quickstart.yml up -d
 ```
+
+> **Note**: This builds the Docker image from source (first run takes a few
+> minutes). Uses `LICENSE_FAIL_MODE=open` (read-only demo mode).
 
 ### 2. Verify
 
@@ -199,11 +249,23 @@ curl http://localhost:9001/latency/decomp
 
 ### Process exits immediately with "SM4_KEY missing"
 
-The SM4 key is required and must be exactly 16 bytes. Set it before starting:
+The SM4 key is required and must be a 32-character hex-encoded string
+(16 bytes). Set it before starting:
 
 ```bash
-export SM4_KEY="your-16-byte-key-here"
+export SM4_KEY="726166746b765f736d34746573743031"
 ```
+
+### Process exits with "授权校验失败（Fail-Closed 拒绝启动）"
+
+No valid license key found. For demo/evaluation, set:
+
+```bash
+export LICENSE_FAIL_MODE=open
+```
+
+This starts in degraded read-only mode (writes rejected, reads and Raft
+elections work normally).
 
 ### Writes return 307 redirect
 
