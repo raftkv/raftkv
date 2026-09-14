@@ -656,7 +656,7 @@ func collectFiles(dir string) ([]string, error) {
 
 func packAndEncrypt(files []string, key string) ([]byte, error) {
 	var buf bytes.Buffer
-	buf.WriteString("DAIJIN235_PACK_V1\n")
+	buf.WriteString("RAFTKV_PACK_V1\n")
 	for _, f := range files {
 		base := filepath.Base(f)
 		data, err := os.ReadFile(f)

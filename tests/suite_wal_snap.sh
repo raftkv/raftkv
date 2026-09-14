@@ -111,7 +111,7 @@ else
     
     # 用当前镜像启动, 挂载旧WAL
     docker run -d --name "$t22_c" --network "$t22_net" \
-        -e DAIJIN235_FP_ANCHOR="${FP_ANCHOR}" \
+        -e RAFTKV_FP_ANCHOR="${FP_ANCHOR}" \
         -e SM4_KEY="$fixture_key" \
         -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
         -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \

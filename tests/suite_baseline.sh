@@ -16,7 +16,7 @@ t_begin "t01" "fail_closed: SM4_KEY missing/short → container exit non-zero"
 
 # t01a: 无SM4_KEY
 docker run -d --name "t01a-${RID}" --network none \
-    -e DAIJIN235_FP_ANCHOR="${FP_ANCHOR}" \
+    -e RAFTKV_FP_ANCHOR="${FP_ANCHOR}" \
     -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
@@ -29,7 +29,7 @@ assert_ne "$t01a_state" "running" "t01a: no SM4_KEY → not running"
 
 # t01b: SM4_KEY过短(5字符)
 docker run -d --name "t01b-${RID}" --network none \
-    -e DAIJIN235_FP_ANCHOR="${FP_ANCHOR}" \
+    -e RAFTKV_FP_ANCHOR="${FP_ANCHOR}" \
     -e SM4_KEY=abcde \
     -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
@@ -145,7 +145,7 @@ key=$(openssl rand -hex 16)
 
 # t06a: abc
 docker run -d --name "t06a-${RID}" --network none \
-    -e DAIJIN235_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
+    -e RAFTKV_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
     -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -e WAL_FLUSH_INTERVAL_MS=abc \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
@@ -157,7 +157,7 @@ assert_ne "$t06a_state" "running" "t06a: WAL_FLUSH_INTERVAL_MS=abc → not runni
 
 # t06b: 0
 docker run -d --name "t06b-${RID}" --network none \
-    -e DAIJIN235_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
+    -e RAFTKV_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
     -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -e WAL_FLUSH_INTERVAL_MS=0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
