@@ -54,17 +54,20 @@ func TestKnife3_ReloadFromSnapshot(t *testing.T) {
 }
 
 // TestKnife3_ReloadFromSnapshot_EmptyData
-// 刀三验证: 空快照数据返回错误
+// 刀三验证: 空快照数据（T035: 空快照合法，表示仅状态机状态无日志条目）
 func TestKnife3_ReloadFromSnapshot_EmptyData(t *testing.T) {
 	rn := &RaftNode{
 		id: "node-1",
 	}
 
-	err := rn.ReloadFromSnapshot([]byte("[]"), 0, 0)
-	if err == nil {
-		t.Error("空快照应返回错误")
+	err := rn.ReloadFromSnapshot([]byte("[]"), 100, 5)
+	if err != nil {
+		t.Errorf("空快照应成功（T035: 表示仅状态机状态）: %v", err)
 	}
-	t.Log("✓ 空快照数据正确返回错误")
+	if rn.logStartIndex != 101 {
+		t.Errorf("logStartIndex 应为 101, 实际 %d", rn.logStartIndex)
+	}
+	t.Log("✓ 空快照数据正确处理: logStartIndex=lastIncludedIndex+1")
 }
 
 // TestKnife3_ConcurrencyGuard

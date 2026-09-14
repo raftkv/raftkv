@@ -573,11 +573,20 @@ func (s *SnapshotScheduler) Request(req *snapshotRequest) {
 }
 
 // executeSnapshot 执行快照（在消费 goroutine 中调用）
+// T034: 增加 logCount > snapshotThreshold 联动触发检查 + lastIncludedIndex ≤ commitIdx 前置校验
 func (s *SnapshotScheduler) executeSnapshot(req *snapshotRequest) {
 	// 快照是本地状态机持久化操作，leader 和 follower 均可执行
 	// req.term > 0 时校验 term 未变更（防止旧 term 的过期快照请求）
 	if req.term > 0 && s.node.Term() != req.term {
 		s.logger.Printf("快照跳过: term 变更 (reqTerm=%d, curTerm=%d)", req.term, s.node.Term())
+		return
+	}
+
+	// T034: 前置校验 — lastIncludedIndex 必须 ≤ commitIdx（不可快照未提交的日志）
+	commitIdx := s.node.getCommitIdx()
+	if req.lastIdx > commitIdx {
+		s.logger.Printf("快照拒绝: lastIncludedIndex=%d > commitIdx=%d（不可快照未提交日志）",
+			req.lastIdx, commitIdx)
 		return
 	}
 
