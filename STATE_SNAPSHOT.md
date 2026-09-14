@@ -1,12 +1,24 @@
-# STATE_SNAPSHOT — 岱境235 · 战役V · CHAIN-3
+# STATE_SNAPSHOT — 岱境235 · 战役V · CHAIN-4
 
 > 日期: 2026-09-15
-> 链: CHAIN-3 开源交付链
-> 状态: **COMPLETE**
+> 链: CHAIN-4 发布收官与公网亮相
+> 前链: CHAIN-3 开源交付链 (COMPLETE, v0.5.0)
+> 状态: **IN_PROGRESS**
 > 版本: v0.5.0
 > License: Apache-2.0
+> HEAD: f1f3842
+> Tag: v0.5.0 → f1f3842
 
-## 链完成状态
+## CHAIN-4 链状态
+
+| 任务 | 状态 | 产出 |
+|------|------|------|
+| 1. 备份三级闭环 | ✅ COMPLETE | bundle+MD5+核验单 |
+| 2. 陌生环境发布验证 | ⏳ PENDING | |
+| 3. 公网亮相准备 | ⏳ PENDING | |
+| 4. 红线门 | ⏳ PENDING | |
+
+## CHAIN-3 链完成状态 (前链)
 
 | 任务 | 状态 | 提交 |
 |------|------|------|
@@ -16,6 +28,19 @@
 | 4. 示例应用 | ✅ COMPLETE | 5962848 |
 | 5. 发布工程 | ✅ COMPLETE | 5962848 (tag v0.5.0) |
 | 6. 红线门验收 | ✅ COMPLETE | 449bc9d |
+
+## 备份三级闭环 (CHAIN-4 任务1)
+
+| 凭证 | 值 |
+|------|-----|
+| Bundle 文件 | v0.5.0-release.bundle |
+| Bundle 大小 | 74MB |
+| MD5 | 2e01b2641482acf0f78838283f6d3ade |
+| 物理位1 | D:/235备份文件/V2.4_Performance_Sandbox/v0.5.0-release.bundle |
+| 物理位2 | C:/Users/27998/.daijin235/backup_chain4/v0.5.0-release.bundle |
+| MD5 一致性 | PASS (双位一致) |
+| Bundle 验证 | PASS (106 refs, 含 v0.5.0 tag → f1f3842) |
+| 核验单 | docs/chain4_backup_verify.md |
 
 ## 关键裁决
 
@@ -51,7 +76,7 @@
 - examples/README.md
 
 ### 发布工程
-- Git tag: v0.5.0 (annotated, on commit 449bc9d)
+- Git tag: v0.5.0 (annotated, on commit f1f3842)
 - docs/RELEASE_v0.5.0.md
 - docs/release_artifacts.md
 
