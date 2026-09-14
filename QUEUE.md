@@ -119,7 +119,7 @@
 ### 任务1: 备份三级闭环 (铁律11核验) — ✅ COMPLETE
 - 核验 v0.5.0 tag → f1f3842 完整性
 - git bundle 产出 v0.5.0-release.bundle (74MB, MD5: 2e01b264...)
-- 双物理位: 项目根目录 + <HOME>/.daijin235/backup_chain4/
+- 双物理位: <PROJECT_ROOT> + <HOME>/backup_chain4/
 - 核验单: docs/chain4_backup_verify.md
 
 ### 任务2: 陌生环境发布验证 (OSS-EXPR-01 纪律) — ⏳ PENDING

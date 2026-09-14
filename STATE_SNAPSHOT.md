@@ -1,4 +1,4 @@
-# STATE_SNAPSHOT — 岱境235 · 战役V · CHAIN-4
+# STATE_SNAPSHOT — RaftKV · CHAIN-4
 
 > 日期: 2026-09-15
 > 链: CHAIN-4 发布收官与公网亮相
@@ -36,8 +36,8 @@
 | Bundle 文件 | v0.5.0-release.bundle |
 | Bundle 大小 | 74MB |
 | MD5 | 2e01b2641482acf0f78838283f6d3ade |
-| 物理位1 | <ARCHIVE>/V2.4_Performance_Sandbox/v0.5.0-release.bundle |
-| 物理位2 | <HOME>/.daijin235/backup_chain4/v0.5.0-release.bundle |
+| 物理位1 | <PROJECT_ROOT>/v0.5.0-release.bundle |
+| 物理位2 | <HOME>/backup_chain4/v0.5.0-release.bundle |
 | MD5 一致性 | PASS (双位一致) |
 | Bundle 验证 | PASS (106 refs, 含 v0.5.0 tag → f1f3842) |
 | 核验单 | docs/chain4_backup_verify.md |
