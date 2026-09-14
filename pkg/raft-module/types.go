@@ -108,8 +108,37 @@ type AppendEntriesRequest struct {
 
 // AppendEntriesResponse 追加日志 RPC 响应
 type AppendEntriesResponse struct {
-	Term    int64 `json:"term"`
-	Success bool  `json:"success"`
+	Term          int64 `json:"term"`
+	Success       bool  `json:"success"`
+	ConflictIndex int64 `json:"conflict_index,omitempty"` // 快速回退：冲突首个索引，Success=false 时有效
+}
+
+// =========================================================================
+// 快照 RPC 请求/响应结构体（本地定义，HTTP 分片传输，不修改 proto —— RL-07）
+// =========================================================================
+
+// InstallSnapshotRequest 快照安装请求（本地结构体，不修改 proto）
+type InstallSnapshotRequest struct {
+	Term              int64  `json:"term"`                // Leader 任期
+	LeaderId          string `json:"leader_id"`           // Leader ID
+	LastIncludedIndex int64  `json:"last_included_index"` // 快照最后包含的日志索引
+	LastIncludedTerm  int64  `json:"last_included_term"`  // 快照最后包含的日志任期
+	Offset            int64  `json:"offset"`              // 当前分片在快照中的偏移
+	Data              []byte `json:"data"`                // 快照分片数据
+	Done              bool   `json:"done"`                // 是否最后一片
+}
+
+// InstallSnapshotResponse 快照安装响应
+type InstallSnapshotResponse struct {
+	Term    int64 `json:"term"`    // 响应方当前任期
+	Success bool  `json:"success"` // 接收成功
+}
+
+// SnapshotChunk 快照分片（Leader 侧分片切割单元）
+type SnapshotChunk struct {
+	Offset int64  `json:"offset"` // 分片在快照中的偏移
+	Data   []byte `json:"data"`   // 分片数据
+	Last   bool   `json:"last"`   // 是否最后一片
 }
 
 // =========================================================================
