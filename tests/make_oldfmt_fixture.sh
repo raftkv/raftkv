@@ -49,7 +49,7 @@ docker network create "$FIX_NET" 2>/dev/null
 docker volume create "$FIX_VOL" 2>/dev/null
 
 docker run -d --name "$FIX_C" --network "$FIX_NET" \
-    -e DAIJIN235_FP_ANCHOR="$FP_ANCHOR" -e SM4_KEY="$SM4_KEY" \
+    -e RAFTKV_FP_ANCHOR="$FP_ANCHOR" -e SM4_KEY="$SM4_KEY" \
     -e NODE_ID=node-1 -e GRPC_PORT=9500 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     -v "${FIX_VOL}:/app/wal-data" \

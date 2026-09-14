@@ -29,7 +29,7 @@ const licenseFile = "license.key"
 // 修复：运维在部署时注入此锚点（宿主机唯一 ID / K8s Node 名称 / 固定 UUID），
 // 使其与授权签发时绑定的指纹保持一致。锚点一旦注入即成为指纹的第一优先级来源，
 // 彻底消除重启漂移。未注入时自动回退到物理特征（DMI→machine-id→CPU Serial）。
-const FingerprintAnchorEnvKey = "DAIJIN235_FP_ANCHOR"
+const FingerprintAnchorEnvKey = "RAFTKV_FP_ANCHOR"
 
 const embeddedPublicKeyPEM = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5oD3IZkgdstRVsO9vODa

@@ -65,7 +65,7 @@ up_cluster() {
     docker volume create "$V1" 2>/dev/null
     docker volume create "$V2" 2>/dev/null
     
-    local env_args=(-e "DAIJIN235_FP_ANCHOR=${FP_ANCHOR}"
+    local env_args=(-e "RAFTKV_FP_ANCHOR=${FP_ANCHOR}"
                     -e "SM4_KEY=${SM4_KEY}"
                     -e "NODE_ID=node-1"
                     -e "GRPC_PORT=9500"
@@ -84,7 +84,7 @@ up_cluster() {
     
     env_args[6]=-e"PEERS=node-1=${C1}:9500"  # fix: override PEERS for node-2
     # 重建env_args for node-2
-    local env_args2=(-e "DAIJIN235_FP_ANCHOR=${FP_ANCHOR}"
+    local env_args2=(-e "RAFTKV_FP_ANCHOR=${FP_ANCHOR}"
                      -e "SM4_KEY=${SM4_KEY}"
                      -e "NODE_ID=node-2"
                      -e "GRPC_PORT=9500"

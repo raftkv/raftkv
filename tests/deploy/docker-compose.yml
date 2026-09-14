@@ -5,7 +5,7 @@ services:
     networks:
       - raftkv-net
     environment:
-      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - RAFTKV_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
       - NODE_ID=node-1
       - GRPC_PORT=${GRPC_PORT}
@@ -22,7 +22,7 @@ services:
     networks:
       - raftkv-net
     environment:
-      - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
+      - RAFTKV_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
       - NODE_ID=node-2
       - GRPC_PORT=${GRPC_PORT}

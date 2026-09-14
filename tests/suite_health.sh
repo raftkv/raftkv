@@ -90,7 +90,7 @@ key=$(openssl rand -hex 16)
 
 # t32a: GRPC_PORT=abc
 docker run -d --name "t32a-${RID}" --network none \
-    -e DAIJIN235_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
+    -e RAFTKV_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
     -e NODE_ID=node-1 -e GRPC_PORT=abc -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
@@ -103,7 +103,7 @@ assert_ne "$t32a_state" "running" "t32a: GRPC_PORT=abc → not running"
 
 # t32b: GRPC_PORT=0
 docker run -d --name "t32b-${RID}" --network none \
-    -e DAIJIN235_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
+    -e RAFTKV_FP_ANCHOR="${FP_ANCHOR}" -e SM4_KEY="$key" \
     -e NODE_ID=node-1 -e GRPC_PORT=0 -e HTTP_PORT=9000 -e HTTP_BIND=0.0.0.0 \
     -v "${LICENSE_DIR}/node-1.key:/app/license.key:ro" \
     "$IMAGE_NAME" 2>&1 || true
