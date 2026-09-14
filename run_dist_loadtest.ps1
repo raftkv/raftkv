@@ -1,8 +1,8 @@
-﻿$engine = "<HOME>\Desktop\岱境235\daijin235_go_engine"
+﻿$engine = "<HOME>\Desktop\RaftKV\raftkv_go_engine"
 $outFile = "$engine\dist_loadtest_output.txt"
 
 # Get baseline
-$baseline = docker exec daijin235-mysql mysql -uroot -pdaijin235_pwd daijin235_logs -e "SELECT count(*) FROM raft_logs;" 2>&1
+$baseline = docker exec raftkv-mysql mysql -uroot -praftkv_pwd raftkv_logs -e "SELECT count(*) FROM raft_logs;" 2>&1
 Write-Output "MySQL 基线: $baseline"
 
 # Start load test in background
@@ -17,8 +17,8 @@ Write-Output "压测启动 PID=$($proc.Id) at $(Get-Date -Format 'HH:mm:ss')"
 # Wait 20(20 seconds then kill Leader
 Start-Sleep 20
 Write-Output ""
-Write-Output "=== 20s: 故障注入 docker stop daijin235-gw-5 ==="
-docker stop daijin235-gw-5 2>&1
+Write-Output "=== 20s: 故障注入 docker stop raftkv-gw-5 ==="
+docker stop raftkv-gw-5 2>&1
 Write-Output "Leader node-5 已停止 at $(Get-Date -Format 'HH:mm:ss')"
 
 # Wait for load test to finish (60s total + 10s buffer)
@@ -33,7 +33,7 @@ Get-Content $outFile
 # Final MySQL count
 Write-Output ""
 Write-Output "=== MySQL 最终行数 ==="
-docker exec daijin235-mysql mysql -uroot -pdaijin235_pwd daijin235_logs -e "SELECT count(*) AS final_rows FROM raft_logs;" 2>&1
+docker exec raftkv-mysql mysql -uroot -praftkv_pwd raftkv_logs -e "SELECT count(*) AS final_rows FROM raft_logs;" 2>&1
 
 # Show remaining cluster status
 Write-Output ""

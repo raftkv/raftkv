@@ -13,7 +13,7 @@ E08第3轮2h压测期间，node-1/3/5分别于开测后约3/5/12分钟被Docker 
 ## 清理操作
 1. Exited(137)容器日志取证: node-1/3/5各50行 → tests/evidence/d3-batch2-p1/E08-rerun3/node-{1,3,5}-exit137-log.txt
 2. 删除Exited(0)的4个smoke容器: n1/n2-smoke-run-20260906_044455, n1/n2-smoke-run-20260906_043820
-3. 删除Exited(137)的3个容器: daijin235-node-1/3/5 (日志已取证)
+3. 删除Exited(137)的3个容器: raft-node-1/3/5 (日志已取证)
 4. 清理悬空镜像: 20个 → 回收5.404GB
 5. 清理历史卷: 33个(wal1/wal2-smoke-*, wal1/wal2-base-*, wal1/wal2-health-*, wal1/wal2-probe-test-*, 匿名卷)
 
@@ -27,7 +27,7 @@ E08第3轮2h压测期间，node-1/3/5分别于开测后约3/5/12分钟被Docker 
 - deploy5_wal-node-{1..5}: 当前集群WAL卷
 - 235__grafana-data/mysql-data/prometheus-data: 监控数据
 - desktop_grafana_data/prometheus_data: Docker Desktop监控
-- daijin235-v26:ci-knife: 当前镜像
+- raftkv:latest-knife: 当前镜像
 
 ## Docker Desktop配额建议
 当前Docker Desktop内存配额可能过高（导致OOM时未及时限制）。建议用户手动将配额压至8GB:

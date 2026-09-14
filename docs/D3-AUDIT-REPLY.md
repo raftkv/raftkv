@@ -28,12 +28,12 @@ tests/evidence/d3-batch1/
 
 | # | 维度 | 根compose | 5node compose | 偏离性质 | 说明 |
 |---|---|---|---|---|---|
-| 1 | 镜像来源 | `build: .` + `image: daijin235-gateway:latest` | `image: ${IMAGE_NAME}` (ci-knife) | **适配性改写** | ci-knife已验证含/health/live(strings确认)；build: .需Go编译环境且产物不含SM4_KEY/license逻辑 |
+| 1 | 镜像来源 | `build: .` + `image: raftkv-gateway:latest` | `image: ${IMAGE_NAME}` (ci-knife) | **适配性改写** | ci-knife已验证含/health/live(strings确认)；build: .需Go编译环境且产物不含SM4_KEY/license逻辑 |
 | 2 | 端口策略 | 每节点不同GRPC(9500-9502,9604-9605) + host映射(9001-9003,9104-9105) | 全节点相同GRPC(9500)+HTTP(9000)，无host暴露 | **适配性改写** | D2部署模式依赖容器网络隔离，各容器独立命名空间允许端口复用；无host暴露与D2一致(docker exec验证) |
 | 3 | SM4_KEY | 无 | `SM4_KEY=${SM4_KEY}` | **适配性改写** | ci-knife为fail-closed模式，需SM4_KEY做数据加密；根compose的build产物为旧版本不需SM4_KEY |
 | 4 | license挂载 | 无 | `${LICENSE_DIR}/node-N.key:/app/license.key:ro` | **适配性改写** | ci-knife需license.key做授权验证(fail-closed) |
 | 5 | frontend | 有(nginx:alpine, 8096:80) | 无 | **适配性改写** | 冒烟测试聚焦Raft集群核心功能，frontend非必要 |
-| 6 | PEERS格式 | 容器名+不同端口 `node-2=daijin235-node-2:9501` | 容器名+相同端口 `node-2=node-2:9500` | **适配性改写** | D2部署模式使用相同内部端口+容器名解析，各容器独立命名空间 |
+| 6 | PEERS格式 | 容器名+不同端口 `node-2=raft-node-2:9501` | 容器名+相同端口 `node-2=node-2:9500` | **适配性改写** | D2部署模式使用相同内部端口+容器名解析，各容器独立命名空间 |
 | 7 | WAL卷 | 无 | `wal-node-N:/app/wal-data` | **适配性改写** | ci-knife需WAL持久化目录 |
 | 8 | HTTP_BIND | 无 | `HTTP_BIND=0.0.0.0` | **适配性改写** | ci-knife需显式绑定0.0.0.0接受容器内通信 |
 | 9 | healthcheck | 有(/health/live) | 有(/health/live) | **无偏离** | 一致 |
@@ -57,7 +57,7 @@ tests/evidence/d3-batch1/
 
 **历史处理**：旧密钥值已在git历史a4e51db中，视为已作废。按R2红线（禁止改写历史），不执行history清除。旧密钥作废验证见tests/evidence/d3-sec-rotate/。
 | FP_ANCHOR | tcx4-v25-test | tests/deploy/deploy.env.example | 硬编码(指纹锚标识) |
-| LICENSE_DIR | <HOME>/.daijin235/tcx4_test/licenses_v25 | tests/deploy/deploy.env | 本地license目录 |
+| LICENSE_DIR | <HOME>/.raftkv/tcx4_test/licenses_v25 | tests/deploy/deploy.env | 本地license目录 |
 | license.key | node-{1..5}.key (各817字节) | LICENSE_DIR下 | RSA-2048商业授权文件(预生成) |
 
 ### yml注释块
@@ -78,7 +78,7 @@ tests/evidence/d3-batch1/
 |---|---|---|
 | F01 | `peers=1` | 集群仅2节点(自己+1peer) |
 | F04 | `leader=node-1, follower=node-2` | 仅2节点参与 |
-| F14 | `daijin235-node-1: SERVING, daijin235-node-2: SERVING` | 仅检查2节点 |
+| F14 | `raft-node-1: SERVING, raft-node-2: SERVING` | 仅检查2节点 |
 | 全部 | 无node-3/4/5出现 | 2节点拓扑 |
 
 ### 结论

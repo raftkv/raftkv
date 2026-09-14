@@ -12,10 +12,10 @@
 
 ```bash
 # 分区: 将 node-1 从集群网络断开
-docker network disconnect deploy5_daijin235-net daijin235-node-1
+docker network disconnect deploy5_raft-net raft-node-1
 
 # 恢复: 将 node-1 重新接入
-docker network connect deploy5_daijin235-net daijin235-node-1
+docker network connect deploy5_raft-net raft-node-1
 ```
 
 **选择理由**:

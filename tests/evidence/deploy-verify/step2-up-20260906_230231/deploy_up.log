@@ -1,41 +1,41 @@
 ﻿[deploy] SM4_KEY: 首次生成并写入本地密钥文件
 
 [deploy] 配置:
-  IMAGE_NAME=daijin235-v26:ci-knife
+  IMAGE_NAME=raftkv-v26:ci-knife
   FP_ANCHOR=tcx4-v25-test
   GRPC_PORT=9500
   HTTP_PORT=9000
-  LICENSE_DIR=<HOME>/.daijin235/tcx4_test/licenses_v25
+  LICENSE_DIR=<HOME>/.raftkv/tcx4_test/licenses_v25
   SM4_KEY=837e01cd...(隐藏)
 
 [deploy] docker compose up -d...
    Volume deploy_wal-node-2 Creating 
    Volume deploy_wal-node-1 Creating 
-   Network deploy_daijin235-net Creating 
+   Network deploy_raftkv-net Creating 
    Volume deploy_wal-node-2 Creating 
    Volume deploy_wal-node-1 Creating 
-   Network deploy_daijin235-net Creating 
+   Network deploy_raftkv-net Creating 
    Volume deploy_wal-node-1 Created 
    Volume deploy_wal-node-1 Created 
    Volume deploy_wal-node-2 Created 
    Volume deploy_wal-node-2 Created 
-   Network deploy_daijin235-net Created 
-   Network deploy_daijin235-net Created 
-   Container daijin235-node-2 Creating 
-   Container daijin235-node-1 Creating 
-   Container daijin235-node-1 Created 
-   Container daijin235-node-2 Created 
-   Container daijin235-node-1 Starting 
-   Container daijin235-node-2 Starting 
-   Container daijin235-node-2 Started 
-   Container daijin235-node-1 Started 
+   Network deploy_raftkv-net Created 
+   Network deploy_raftkv-net Created 
+   Container raftkv-node-2 Creating 
+   Container raftkv-node-1 Creating 
+   Container raftkv-node-1 Created 
+   Container raftkv-node-2 Created 
+   Container raftkv-node-1 Starting 
+   Container raftkv-node-2 Starting 
+   Container raftkv-node-2 Started 
+   Container raftkv-node-1 Started 
 
 [deploy] 等待Leader出现...
-[deploy] Leader=daijin235-node-1 after 5s
+[deploy] Leader=raftkv-node-1 after 5s
 [deploy] stats: id=node-1 state=Leader term=1 leader=node-1 commit=1 applied=1 logs=1 peers=1 voted=node-1
 [deploy] PASS: 集群已就绪
 
 === 步骤2完成 ===
-Leader: daijin235-node-1
-Evidence: <ARCHIVE>\V2.4_Performance_Sandbox\tests\evidence\deploy-verify\step2-up-20260906_230231
+Leader: raftkv-node-1
+Evidence: .\tests\evidence\deploy-verify\step2-up-20260906_230231
 SM4_KEY文件md5: 5e3bd2f51a5dd59ae8889a6a7c687291  tests/deploy/.sm4_key

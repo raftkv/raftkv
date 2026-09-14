@@ -13,7 +13,7 @@
 | 读取比例 | 80% (GET /raft/status) |
 | 断开节点 | node-1 (Follower) |
 | Leader | node-5 → node-3 → node-4 → node-2 (多次切换) |
-| 镜像 | daijin235-v26:ci-knife (重建后含R-01修复) |
+| 镜像 | raftkv:latest-knife (重建后含R-01修复) |
 
 ## 2. 故障期性能结果
 

@@ -134,7 +134,7 @@ func (c *Collector) CollectPreVoteRounds() (int, int) {
 	formalRounds := 0
 	for i := 1; i <= 5; i++ {
 		nodeID := fmt.Sprintf("node-%d", i)
-		container := fmt.Sprintf("daijin235-%s", nodeID)
+		container := fmt.Sprintf("raftkv-%s", nodeID)
 		out, err := exec.Command("docker", "logs", container).CombinedOutput()
 		if err != nil {
 			continue

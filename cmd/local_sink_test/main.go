@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 本地联调测试 — TiDB 适配器数据流转验证
+// RaftKV 本地联调测试 — TiDB 适配器数据流转验证
 //
 // 验证链路: Raft 日志 → TiDBAdapter.Write → MySQL 容器
 // =========================================================================
@@ -13,17 +13,17 @@ import (
 	"log"
 	"time"
 
-	"daijin235/pkg/adapters"
+	"raftkv/pkg/adapters"
 )
 
 func main() {
-	fmt.Println("=== 岱境235 TiDB 适配器本地联调测试 ===")
+	fmt.Println("=== RaftKV TiDB 适配器本地联调测试 ===")
 	fmt.Println()
 
 	// 1. 创建适配器配置
 	config := adapters.SinkConfig{
 		Enable:        true,
-		DSN:           "root:CHANGE_ME@tcp(127.0.0.1:3306)/daijin235_logs?charset=utf8mb4&parseTime=true&loc=Local",
+		DSN:           "root:CHANGE_ME@tcp(127.0.0.1:3306)/raftkv_logs?charset=utf8mb4&parseTime=true&loc=Local",
 		BatchSize:     100,
 		FlushInterval: 200 * time.Millisecond,
 		ChannelSize:   1024,

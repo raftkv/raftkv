@@ -43,7 +43,7 @@
 
 ```
 98.89% google.golang.org/grpc.(*Server).handleStream
-98.87% daijin235/proto._RaftService_AppendEntries_Handler
+98.87% raftkv/proto._RaftService_AppendEntries_Handler
 97.98% main.(*RaftNode).HandleAppendEntries          1819.37 MB
 96.57% main.(*EncryptedStorage).Snapshot              1793.18 MB
 96.57% main.(*RaftPipeline).OnCommit                  1793.18 MB

@@ -1,6 +1,6 @@
 ﻿docker : [pipeline] 2026/09/09 02:37:16 WAL 写入失败 index=37860: WAL 已关闭
 At line:1 char:32
-+ ... ,2,3) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++ ... ,2,3) { $log = docker logs "raftkv-node-$n" --tail 30 2>&1; $log | ...
 +                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: ([pipeline] 2026...=37860: WAL 已关闭:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError

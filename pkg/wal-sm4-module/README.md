@@ -1,4 +1,4 @@
-# 岱境235 Module02 — WAL + 国密 SM4 持久化存储引擎（独立闭环模块）
+# RaftKV Module02 — WAL + 国密 SM4 持久化存储引擎（独立闭环模块）
 
 > 纯标准库零外部依赖 | SM4 自研（符合 GB/T 32907-2016）| WAL 1GB 预分配 + 批量 fsync | SM4-CTR + HMAC-SHA256 认证加密
 
@@ -6,7 +6,7 @@
 
 ## 1. 模块概述
 
-本模块从 `daijin235_go_engine` 主工程中剥离 **WAL 预写式日志 + 国密 SM4 持久化存储引擎**，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
+本模块从 `raftkv_go_engine` 主工程中剥离 **WAL 预写式日志 + 国密 SM4 持久化存储引擎**，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
 
 ### 核心能力
 
@@ -118,7 +118,7 @@ Replay() → 扫描文件 [长度前缀][payload]
 `go.mod` 内容：
 
 ```
-module daijin235/wal-sm4-module
+module raftkv/wal-sm4-module
 
 go 1.21
 ```

@@ -1,10 +1,10 @@
 ﻿$ErrorActionPreference = "SilentlyContinue"
-$base = "<ARCHIVE>\V2.4_Performance_Sandbox\tests\evidence\d3-batch6\scene-preservation"
+$base = ".\tests\evidence\d3-batch6\scene-preservation"
 
 # === 1. OOM 节点完整日志（用 docker logs 不限 tail）===
 Write-Host "[1] 提取 OOM 节点完整日志..."
-docker logs daijin235-node-4 2>&1 | Out-File "$base\node4-full.log" -Encoding UTF8
-docker logs daijin235-node-5 2>&1 | Out-File "$base\node5-full.log" -Encoding UTF8
+docker logs raftkv-node-4 2>&1 | Out-File "$base\node4-full.log" -Encoding UTF8
+docker logs raftkv-node-5 2>&1 | Out-File "$base\node5-full.log" -Encoding UTF8
 $n4 = (Get-Content "$base\node4-full.log").Count
 $n5 = (Get-Content "$base\node5-full.log").Count
 Write-Host "  node4: $n4 lines, node5: $n5 lines"
@@ -30,7 +30,7 @@ $inv = "$base\snapshot-inventory.txt"
 "=== Snapshot/WAL 文件清单 ===" | Set-Content $inv -Encoding UTF8
 "" | Add-Content $inv
 for ($i = 1; $i -le 5; $i++) {
-    $node = "daijin235-node-$i"
+    $node = "raftkv-node-$i"
     "--- $node ---" | Add-Content $inv
     $status = docker ps -a --filter "name=$node" --format "{{.Status}}" 2>$null
     "Status: $status" | Add-Content $inv
@@ -67,7 +67,7 @@ $wal = "$base\wal-dir-sizes.txt"
 "=== WAL 目录总大小 ===" | Set-Content $wal -Encoding UTF8
 "" | Add-Content $wal
 for ($i = 1; $i -le 5; $i++) {
-    $node = "daijin235-node-$i"
+    $node = "raftkv-node-$i"
     "--- $node ---" | Add-Content $wal
     $status = docker ps -a --filter "name=$node" --format "{{.Status}}" 2>$null
     "Status: $status" | Add-Content $wal

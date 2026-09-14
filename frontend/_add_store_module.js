@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const f = path.join('<HOME>\\Desktop\\岱境235\\daijin235_go_engine\\frontend\\daijing_235_dashboard.html');
+const f = path.join('./dashboard.html');
 let html = fs.readFileSync(f, 'utf8');
 
 // ============ 1. CSS: insert before </style> ============

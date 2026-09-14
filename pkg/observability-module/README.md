@@ -1,4 +1,4 @@
-# 岱境235 Module04 — 微秒级原生可观测性底座（Latency 直采引擎）（独立闭环模块）
+# RaftKV Module04 — 微秒级原生可观测性底座（Latency 直采引擎）（独立闭环模块）
 
 > 纯标准库零外部依赖 | 微秒级 Latency 直采 | P50/P90/P99/P999 分位数 | 多标签维度 | 1M 采样零丢失 | 采集开销 < 100ns
 
@@ -6,7 +6,7 @@
 
 ## 1. 模块概述
 
-本模块从 `daijin235_go_engine` 主工程中剥离 **微秒级原生可观测性底座（Latency 直采引擎）**，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
+本模块从 `raftkv_go_engine` 主工程中剥离 **微秒级原生可观测性底座（Latency 直采引擎）**，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
 
 ### 核心能力
 
@@ -137,7 +137,7 @@ root.End()  → collector.ObserveNS("pipeline_e2e", elapsed, L("pipeline_id","p1
 `go.mod` 内容：
 
 ```
-module daijin235/observability-module
+module raftkv/observability-module
 
 go 1.21
 ```

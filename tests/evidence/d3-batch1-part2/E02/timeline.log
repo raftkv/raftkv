@@ -1,5 +1,5 @@
 ﻿
-[22:40:31] E02-rerun Step1: leader=daijin235-node-1, 断开follower=daijin235-node-2
+[22:40:31] E02-rerun Step1: leader=raftkv-node-1, 断开follower=raftkv-node-2
 [22:40:31]   分区前 commit C1=15
 [22:40:31]   分区前 /raft/status (5节点):
 [22:40:32]     node-1: {"commit_index":15,"id":"node-1","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Leader","term":25,"voted_for":"node-1"}
@@ -7,7 +7,7 @@
 [22:40:32]     node-3: {"commit_index":15,"id":"node-3","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
 [22:40:32]     node-4: {"commit_index":15,"id":"node-4","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
 [22:40:32]     node-5: {"commit_index":15,"id":"node-5","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Follower","term":25,"voted_for":"node-1"}
-[22:40:32] E02-rerun Step2: disconnect daijin235-node-2
+[22:40:32] E02-rerun Step2: disconnect raftkv-node-2
 [22:40:43] E02-rerun Step3: 等待10秒(分区中)
 [22:40:43]   分区期间 /raft/status (5节点):
 [22:40:43]     node-1: {"commit_index":15,"id":"node-1","last_applied":15,"leader_id":"node-1","log_count":15,"peer_count":4,"state":"Leader","term":25,"voted_for":"node-1"}
@@ -20,7 +20,7 @@
 [22:40:44]     write[1]: {"index":16,"success":true}
 [22:40:45]     write[2]: {"index":17,"success":true}
 [22:40:46]   分区期间写入后 commit C2=17
-[22:40:46] E02-rerun Step5: reconnect daijin235-node-2
+[22:40:46] E02-rerun Step5: reconnect raftkv-node-2
 [22:40:46]   network connect 完成, 开始轮询
 [22:40:51]   轮询5s: follower commit=15, leader commit=19
 [22:40:56]   轮询10s: follower commit=15, leader commit=20

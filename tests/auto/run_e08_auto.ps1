@@ -8,7 +8,7 @@
 $ErrorActionPreference = "Stop"
 
 # === 路径常量 ===
-$ProjectRoot  = "<ARCHIVE>\V2.4_Performance_Sandbox"
+$ProjectRoot  = "."
 $AutoDir      = "$ProjectRoot\tests\auto"
 $ComposeF1    = "$ProjectRoot\tests\deploy\docker-compose-5node.yml"
 $ComposeF2    = "$ProjectRoot\tests\deploy\docker-compose-5node-ports.yml"
@@ -52,15 +52,15 @@ function Write-Fail($n, $reason) {
 
 # ── docker ──
 function Set-DockerEnv {
-    $env:IMAGE_NAME="daijin235-v26:ci-knife"; $env:FP_ANCHOR="tcx4-v25-test"
+    $env:IMAGE_NAME="raftkv-v26:ci-knife"; $env:FP_ANCHOR="tcx4-v25-test"
     $env:GRPC_PORT="9500"; $env:HTTP_PORT="9000"
-    $env:LICENSE_DIR="<HOME>/.daijin235/tcx4_test/licenses_v25"
+    $env:LICENSE_DIR="<HOME>/.raftkv/tcx4_test/licenses_v25"
     $env:SM4_KEY=(Get-Content $Sm4KeyFile -Raw) -replace '\s',''
 }
 function Wait-Healthy($t=90) {
     $dl=(Get-Date).AddSeconds($t)
     while((Get-Date) -lt $dl){
-        $h=0; for($i=1;$i -le $nodeCount;$i++){ if((docker ps --filter "name=daijin235-node-$i" --format "{{.Status}}" 2>$null) -match "healthy"){$h++} }
+        $h=0; for($i=1;$i -le $nodeCount;$i++){ if((docker ps --filter "name=raftkv-node-$i" --format "{{.Status}}" 2>$null) -match "healthy"){$h++} }
         if($h -eq $nodeCount){return $true}; Start-Sleep 2
     }; return $false
 }
@@ -72,7 +72,7 @@ function Start-MemSample($csv) {
         while($true){
             $ts=Get-Date -Format "yyyy-MM-ddTHH:mm:ss"
             for($i=1;$i -le $n;$i++){
-                $st=docker stats --no-stream --format "{{.MemUsage}}" "daijin235-node-$i" 2>$null
+                $st=docker stats --no-stream --format "{{.MemUsage}}" "raftkv-node-$i" 2>$null
                 if($st -match '([\d.]+)(MiB|GiB)'){ $m=[double]$Matches[1]; if($Matches[2] -eq 'GiB'){$m*=1024}; Add-Content $c "$ts,node-$i,$m" }
             }
             Start-Sleep $iv
@@ -98,7 +98,7 @@ function Run-Accept($lt,$mem,$res) {
 
 # ── 节点存活 ──
 function Check-Alive {
-    $a=0; for($i=1;$i -le $nodeCount;$i++){ if((docker ps --filter "name=daijin235-node-$i" --format "{{.Status}}" 2>$null) -match "Up"){$a++} }; return $a
+    $a=0; for($i=1;$i -le $nodeCount;$i++){ if((docker ps --filter "name=raftkv-node-$i" --format "{{.Status}}" 2>$null) -match "Up"){$a++} }; return $a
 }
 
 # ── pprof 采集 ──
@@ -106,8 +106,8 @@ function Get-HeapProfile($nodeIdx, $outDir, $tag) {
     $ts = Get-Date -Format "HHmmss"
     $out = "$outDir\heap_node${nodeIdx}_${tag}_${ts}.pb"
     $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
-    docker exec "daijin235-node-$nodeIdx" curl -s "http://127.0.0.1:9600/debug/pprof/heap" -o "/tmp/heap.pb" 2>$null
-    docker cp "daijin235-node-${nodeIdx}:/tmp/heap.pb" $out 2>$null
+    docker exec "raftkv-node-$nodeIdx" curl -s "http://127.0.0.1:9600/debug/pprof/heap" -o "/tmp/heap.pb" 2>$null
+    docker cp "raftkv-node-${nodeIdx}:/tmp/heap.pb" $out 2>$null
     $ErrorActionPreference = $prevEAP
     if (Test-Path $out) { return $out }; return $null
 }
@@ -115,14 +115,14 @@ function Get-GoroutineProfile($nodeIdx, $outDir, $tag) {
     $ts = Get-Date -Format "HHmmss"
     $out = "$outDir\goroutine_node${nodeIdx}_${tag}_${ts}.pb"
     $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
-    docker exec "daijin235-node-$nodeIdx" curl -s "http://127.0.0.1:9600/debug/pprof/goroutine" -o "/tmp/goroutine.pb" 2>$null
-    docker cp "daijin235-node-${nodeIdx}:/tmp/goroutine.pb" $out 2>$null
+    docker exec "raftkv-node-$nodeIdx" curl -s "http://127.0.0.1:9600/debug/pprof/goroutine" -o "/tmp/goroutine.pb" 2>$null
+    docker cp "raftkv-node-${nodeIdx}:/tmp/goroutine.pb" $out 2>$null
     $ErrorActionPreference = $prevEAP
     if (Test-Path $out) { return $out }; return $null
 }
 function Get-AllProfiles($outDir, $tag) {
     for ($i = 1; $i -le $nodeCount; $i++) {
-        $st = docker ps --filter "name=daijin235-node-$i" --format "{{.Status}}" 2>$null
+        $st = docker ps --filter "name=raftkv-node-$i" --format "{{.Status}}" 2>$null
         if ($st -match "Up") {
             Get-HeapProfile $i $outDir $tag
             Get-GoroutineProfile $i $outDir $tag
@@ -221,7 +221,7 @@ function P4-E08 {
             Start-Sleep 60
             $now = Get-Date -Format "yyyy-MM-ddTHH:mm:ss"
             for ($i = 1; $i -le $nodeCount; $i++) {
-                $st = docker ps --filter "name=daijin235-node-$i" --format "{{.Status}}" 2>$null
+                $st = docker ps --filter "name=raftkv-node-$i" --format "{{.Status}}" 2>$null
                 if ($st -match "Up") { Get-HeapProfile $i $pprofDir "periodic" }
             }
             $tps = Get-LatestTps $tmpOut
@@ -236,7 +236,7 @@ function P4-E08 {
                     Add-Content $tsLog "$now,crash,detected,TPS=$tps Alive=$alive/$nodeCount" -Encoding UTF8
                     Get-AllProfiles $pprofDir "crash"
                     for ($i = 1; $i -le 5; $i++) {
-                        $st = docker ps -a --filter "name=daijin235-node-$i" --format "{{.Status}}" 2>$null
+                        $st = docker ps -a --filter "name=raftkv-node-$i" --format "{{.Status}}" 2>$null
                         Write-Host "    node-${i}: $st" -ForegroundColor Gray
                         Add-Content $tsLog "$now,crash,node-$i,$st" -Encoding UTF8
                     }

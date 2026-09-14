@@ -3,7 +3,7 @@
 > **验证时间**：2026-09-08 20:17~20:20 CST
 > **验证窗口**：2026-09-08 17:19:00 ~ 20:20:00 CST（UTC+8），约3h01m
 > **数据来源**：5节点Docker容器日志（`docker logs --timestamps --since 3h`）+ `/raft/stats` HTTP API
-> **镜像**：daijin235-v26:ci-knife（含修复E/F，commit 77bf664）
+> **镜像**：raftkv:latest-knife（含修复E/F，commit 77bf664）
 > **验证方法**：自行复跑日志统计产出独立数字，与用户手动旁证交叉印证
 
 ---

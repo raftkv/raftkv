@@ -15,7 +15,7 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  56.83MB
+Sending build context to Docker daemon  56.83MB
 Step 1/17 : FROM golang:1.24-alpine AS builder
  ---> 8bee1901f1e5
 Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
@@ -66,7 +66,7 @@ Step 17/17 : ENTRYPOINT ["./gateway"]
  ---> Using cache
  ---> 8bb36e2b61e4
 Successfully built 8bb36e2b61e4
-Successfully tagged daijin235-v26:ci-knife
+Successfully tagged raftkv-v26:ci-knife
 [build] key leak scan...
 key leak hits: 0
 [build] PASS: build + key leak scan clean
@@ -285,7 +285,7 @@ ad131f5e5eaaf032d931496eb131917272570a16826492b5af2cf9d8f33f8d91
 b3726429cef779ab7ab6988ae67ab15c8d9db03b35e2a53e9f828486aa1278f9
 [harness] Leader=n1-snap-1788630475-t20 after 5s
   [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
-  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+  [PASS] t20: snapshot file exists: /app/wal-data/raftkv_raft.wal.snapshot.gz != 
 n1-snap-1788630475-t20
 n2-snap-1788630475-t20
   [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
@@ -324,7 +324,7 @@ c-snap-1788630475-t22
 vol-snap-1788630475-t22
 net-snap-1788630475-t22
 
-▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+▶ t23: key_leak_scan: runtime strings search for raftkv_012345 → 0 hits
 dfc64faeb57178c9c5abc871fa217a7b798ce3eef91a872ff752dfea4daf0525
 wal1-snap-1788630475-t23
 wal2-snap-1788630475-t23
@@ -457,7 +457,7 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  56.91MB
+Sending build context to Docker daemon  56.91MB
 Step 1/17 : FROM golang:1.24-alpine AS builder
  ---> 8bee1901f1e5
 Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
@@ -508,7 +508,7 @@ Step 17/17 : ENTRYPOINT ["./gateway"]
  ---> Using cache
  ---> 8bb36e2b61e4
 Successfully built 8bb36e2b61e4
-Successfully tagged daijin235-v26:ci-knife
+Successfully tagged raftkv-v26:ci-knife
 [build] key leak scan...
 key leak hits: 0
 [build] PASS: build + key leak scan clean
@@ -727,7 +727,7 @@ wal2-snap-1788630900-t20
 5891781d1c067bf4733c111e8daae210db81e124b0a75594cca2e6501ff58a4f
 [harness] Leader=n1-snap-1788630900-t20 after 6s
   [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
-  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+  [PASS] t20: snapshot file exists: /app/wal-data/raftkv_raft.wal.snapshot.gz != 
 n1-snap-1788630900-t20
 n2-snap-1788630900-t20
   [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
@@ -766,7 +766,7 @@ c-snap-1788630900-t22
 vol-snap-1788630900-t22
 net-snap-1788630900-t22
 
-▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+▶ t23: key_leak_scan: runtime strings search for raftkv_012345 → 0 hits
 e618d31b00e564b8fea9abeff49dd6cd6700fbe412808b770412e677b3abf9a9
 wal1-snap-1788630900-t23
 wal2-snap-1788630900-t23
@@ -902,7 +902,7 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  56.98MB
+Sending build context to Docker daemon  56.98MB
 Step 1/17 : FROM golang:1.24-alpine AS builder
  ---> 8bee1901f1e5
 Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
@@ -953,7 +953,7 @@ Step 17/17 : ENTRYPOINT ["./gateway"]
  ---> Using cache
  ---> 8bb36e2b61e4
 Successfully built 8bb36e2b61e4
-Successfully tagged daijin235-v26:ci-knife
+Successfully tagged raftkv-v26:ci-knife
 [build] key leak scan...
 key leak hits: 0
 [build] PASS: build + key leak scan clean
@@ -1014,7 +1014,7 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  57.05MB
+Sending build context to Docker daemon  57.05MB
 Step 1/17 : FROM golang:1.24-alpine AS builder
  ---> 8bee1901f1e5
 Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
@@ -1065,7 +1065,7 @@ Step 17/17 : ENTRYPOINT ["./gateway"]
  ---> Using cache
  ---> 8bb36e2b61e4
 Successfully built 8bb36e2b61e4
-Successfully tagged daijin235-v26:ci-knife
+Successfully tagged raftkv-v26:ci-knife
 [build] key leak scan...
 key leak hits: 0
 [build] PASS: build + key leak scan clean
@@ -1284,7 +1284,7 @@ wal2-snap-1788667495-t20
 3d7da80224f756f200128d425b5ca3687904a84ddfa87b814859add01c5fdcfc
 [harness] Leader=n1-snap-1788667495-t20 after 6s
   [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
-  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+  [PASS] t20: snapshot file exists: /app/wal-data/raftkv_raft.wal.snapshot.gz != 
 n1-snap-1788667495-t20
 n2-snap-1788667495-t20
   [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
@@ -1323,7 +1323,7 @@ c-snap-1788667495-t22
 vol-snap-1788667495-t22
 net-snap-1788667495-t22
 
-▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+▶ t23: key_leak_scan: runtime strings search for raftkv_012345 → 0 hits
 5f33fd1a1a2141a261b680f53439dd99880fd6bb5e25c10f5cfc49eaf2f84737
 wal1-snap-1788667495-t23
 wal2-snap-1788667495-t23
@@ -1391,7 +1391,7 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  57.21MB
+Sending build context to Docker daemon  57.21MB
 Step 1/17 : FROM golang:1.24-alpine AS builder
  ---> 8bee1901f1e5
 Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
@@ -1442,7 +1442,7 @@ Step 17/17 : ENTRYPOINT ["./gateway"]
  ---> Using cache
  ---> 8bb36e2b61e4
 Successfully built 8bb36e2b61e4
-Successfully tagged daijin235-v26:ci-knife
+Successfully tagged raftkv-v26:ci-knife
 [build] key leak scan...
 key leak hits: 0
 [build] PASS: build + key leak scan clean
@@ -1661,7 +1661,7 @@ wal2-snap-1788669759-t20
 1048e843e1a9435e84370c075f6724fcfc5773b2ea991e7eee226d34c74d72fd
 [harness] Leader=n1-snap-1788669759-t20 after 6s
   [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
-  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+  [PASS] t20: snapshot file exists: /app/wal-data/raftkv_raft.wal.snapshot.gz != 
 n1-snap-1788669759-t20
 n2-snap-1788669759-t20
   [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
@@ -1700,7 +1700,7 @@ c-snap-1788669759-t22
 vol-snap-1788669759-t22
 net-snap-1788669759-t22
 
-▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+▶ t23: key_leak_scan: runtime strings search for raftkv_012345 → 0 hits
 9dee0aadd76d671ab38cb6d59868a1de587769c30d70164802d26e6d8025ce5e
 wal1-snap-1788669759-t23
 wal2-snap-1788669759-t23
@@ -1832,7 +1832,7 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  57.28MB
+Sending build context to Docker daemon  57.28MB
 Step 1/17 : FROM golang:1.24-alpine AS builder
  ---> 8bee1901f1e5
 Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
@@ -1883,7 +1883,7 @@ Step 17/17 : ENTRYPOINT ["./gateway"]
  ---> Using cache
  ---> 8bb36e2b61e4
 Successfully built 8bb36e2b61e4
-Successfully tagged daijin235-v26:ci-knife
+Successfully tagged raftkv-v26:ci-knife
 [build] key leak scan...
 key leak hits: 0
 [build] PASS: build + key leak scan clean
@@ -2102,7 +2102,7 @@ wal2-snap-1788670151-t20
 0903db688a3f2a5b496c4f487d85ac54a1e35fcdbeee91259dc8149cf0c8ff7d
 [harness] Leader=n2-snap-1788670151-t20 after 8s
   [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
-  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+  [PASS] t20: snapshot file exists: /app/wal-data/raftkv_raft.wal.snapshot.gz != 
 n1-snap-1788670151-t20
 n2-snap-1788670151-t20
   [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
@@ -2141,7 +2141,7 @@ c-snap-1788670151-t22
 vol-snap-1788670151-t22
 net-snap-1788670151-t22
 
-▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+▶ t23: key_leak_scan: runtime strings search for raftkv_012345 → 0 hits
 d4f6a00e792e2d0e5397dd82bb944526dccef3af05aa050d3c83568e952479bd
 wal1-snap-1788670151-t23
 wal2-snap-1788670151-t23

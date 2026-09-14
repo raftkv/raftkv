@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 确定性引擎 — Raft 日志 → 国产金融数据库 异步落盘适配器
+// RaftKV 确定性引擎 — Raft 日志 → 国产金融数据库 异步落盘适配器
 //
 // 技术目标：
 //   将 Raft 共识提交日志通过纯 Go 驱动异步批量写入 TiDB/MySQL
@@ -68,7 +68,7 @@ type SinkConfig struct {
 func DefaultSinkConfig() SinkConfig {
 	return SinkConfig{
 		Enable:        false,
-		DSN:           "root:@tcp(127.0.0.1:4000)/daijin235?charset=utf8mb4&parseTime=true",
+		DSN:           "root:@tcp(127.0.0.1:4000)/raftkv?charset=utf8mb4&parseTime=true",
 		BatchSize:     1000,
 		FlushInterval: 500 * time.Millisecond,
 		ChannelSize:   4096,

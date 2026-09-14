@@ -1,4 +1,4 @@
 ﻿E01b回归(R-01修复后)
-L1=daijin235-node-3 kill→L2=daijin235-node-4 当选
+L1=raftkv-node-3 kill→L2=raftkv-node-4 当选
 L1重启: state=Follower C3=5 C2=5
 结果: PASS

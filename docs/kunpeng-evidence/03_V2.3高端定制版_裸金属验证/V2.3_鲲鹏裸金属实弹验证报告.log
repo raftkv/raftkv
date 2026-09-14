@@ -1,14 +1,14 @@
 ============================================================================
-岱境235 V2.3 — 鲲鹏裸金属实弹验证报告
+RaftKV V2.3 — 鲲鹏裸金属实弹验证报告
 ============================================================================
 验证时间: 2026-08-23 23:03 ~ 23:15
 服务器: 172.38.3.147 (DG-S920X20 Kunpeng aarch64)
 内核: 5.10.0-182.0.0.95.oe2203sp3.aarch64
-隔离目录: /root/v2.3_test/ (与 /root/daijin235_cluster/ 完全隔离)
+隔离目录: /root/v2.3_test/ (与 /root/raftkv_cluster/ 完全隔离)
 
 一、部署环境
 ----------
-二进制: daijin235-v2.3-linux-arm64 (12,320,952 bytes, ELF 64-bit ARM aarch64)
+二进制: raftkv-v2.3-linux-arm64 (12,320,952 bytes, ELF 64-bit ARM aarch64)
 版本: 2.3.0 (V2.3-joint-consensus)
 授权: 降级只读模式 (无license.key, Raft共识正常工作)
 管线: WAL关闭 (PIPELINE_ENABLE_WAL=false)
@@ -100,8 +100,8 @@ node-1 日志: 选举失败 1/4票 term=804 (被拦截, 无法扰乱)
 
 八、V2.2-S 交付环境完整性
 ----------
-原交付目录: /root/daijin235_cluster/ (未修改)
-隔离边界: /root/v2.3_test/ 与 /root/daijin235_cluster/ 完全隔离
+原交付目录: /root/raftkv_cluster/ (未修改)
+隔离边界: /root/v2.3_test/ 与 /root/raftkv_cluster/ 完全隔离
 V2.2-S 代码库: 未受任何影响 [PASS]
 
 九、实机终端原始日志摘录

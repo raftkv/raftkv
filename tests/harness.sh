@@ -6,7 +6,7 @@
 # ── 配置（可通过环境变量覆盖） ──
 TESTS_DIR="${TESTS_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 REPO_DIR="${REPO_DIR:-$(cd "$TESTS_DIR/.." && pwd)}"
-IMAGE_NAME="${IMAGE_NAME:-daijin235-v26:ci-test}"
+IMAGE_NAME="${IMAGE_NAME:-raftkv:latest-test}"
 LICENSE_DIR="${LICENSE_DIR:-/licenses}"
 FP_ANCHOR="${FP_ANCHOR:-tcx4-v25-test}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-${TESTS_DIR}/evidence}"

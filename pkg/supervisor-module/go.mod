@@ -1,3 +1,3 @@
-module daijin235/supervisor-module
+module raftkv/supervisor-module
 
 go 1.21

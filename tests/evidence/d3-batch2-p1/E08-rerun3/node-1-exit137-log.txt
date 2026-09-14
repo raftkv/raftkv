@@ -1,6 +1,6 @@
 ﻿docker : 2026/09/08 23:39:57 [raft/node-1] [raft/node-1] 选举超时触发 → Candidate, term=2577
 At line:1 char:32
-+ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 50 2>&1; $log | ...
++ ... ,3,5) { $log = docker logs "raftkv-node-$n" --tail 50 2>&1; $log | ...
 +                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (2026/09/08 23:3...date, term=2577:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError

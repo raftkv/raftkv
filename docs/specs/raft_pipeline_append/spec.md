@@ -197,7 +197,7 @@ storage "D 盘仓库" as Repo
 storage "bundle 文件" as Bundle
 
 Agent -> Repo : 切换工作目录至 D 盘仓库
-Agent -> Repo : git bundle create ../daijin235-v24-backup-pre-batch12.bundle --all
+Agent -> Repo : git bundle create ../raftkv-v24-backup-pre-batch12.bundle --all
 Repo -> Bundle : 落盘全量备份
 Agent -> Bundle : 验证 bundle 可读（git bundle verify）
 Bundle -> Agent : 验证通过

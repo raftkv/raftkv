@@ -1,4 +1,4 @@
-# 岱境235 V2.4独立分支 state.bin 完整性加固 任务分解文档
+# RaftKV V2.4独立分支 state.bin 完整性加固 任务分解文档
 
 > **文档版本**: 1.0
 > **生成时间**: 2026-08-31
@@ -179,16 +179,16 @@
 - [ ] 在 `_state_protection_research/Dockerfile.research` 中实现两阶段构建（golang:1.24-alpine builder → alpine:3.21 runtime），对应 design.md 3.1
 - [ ] 在 builder 阶段通过 `ARG TARGETOS / TARGETARCH` 接收 buildx 注入的目标架构，执行 `CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o /gateway_research ./cmd/state-protection-research/`
 - [ ] 在 runtime 阶段预创建 /app/data 与 /app/keys 目录，复制 gateway_research，EXPOSE 9500 9000
-- [ ] 验收：docker build 成功生成镜像；镜像名 == daijin235-state-protection-research；与 V2.2-S 商业镜像名不同；对应 FA-14、RC-03
+- [ ] 验收：docker build 成功生成镜像；镜像名 == raftkv-state-protection-research；与 V2.2-S 商业镜像名不同；对应 FA-14、RC-03
 
 ### 7.2 交叉编译与镜像构建脚本
 - [ ] 在 `_state_protection_research/build_research.sh` 中实现交叉编译 ARM64 与 amd64 两个二进制产物至 dist/ 目录，对应 design.md 3.2
-- [ ] 在脚本中调用 `docker buildx build --platform linux/arm64,linux/amd64 -t daijin235-state-protection-research:v2.4-research -f Dockerfile.research .` 构建多架构镜像
+- [ ] 在脚本中调用 `docker buildx build --platform linux/arm64,linux/amd64 -t raftkv-state-protection-research:v2.4-research -f Dockerfile.research .` 构建多架构镜像
 - [ ] 脚本使用 `set -euo pipefail` 严格模式
-- [ ] 验收：执行后 dist/ 下生成 gateway_research_arm64 与 gateway_research_amd64；docker images 含 daijin235-state-protection-research:v2.4-research；对应 FA-13、FA-14
+- [ ] 验收：执行后 dist/ 下生成 gateway_research_arm64 与 gateway_research_amd64；docker images 含 raftkv-state-protection-research:v2.4-research；对应 FA-13、FA-14
 
 ### 7.3 3 节点集群编排
-- [ ] 在 `_state_protection_research/docker-compose.research.yml` 中定义 node-1 / node-2 / node-3 三个服务，均使用 daijin235-state-protection-research:v2.4-research 镜像，对应 design.md 4.1
+- [ ] 在 `_state_protection_research/docker-compose.research.yml` 中定义 node-1 / node-2 / node-3 三个服务，均使用 raftkv-state-protection-research:v2.4-research 镜像，对应 design.md 4.1
 - [ ] 每个节点配置 NODE_ID / GRPC_PORT / HTTP_PORT / PEERS / STATE_BIN_PATH / STATE_HMAC_PATH / STATE_HMAC_KEY_PATH 环境变量
 - [ ] 端口映射：node-1 (9500/9000)、node-2 (9501/9001)、node-3 (9502/9002)
 - [ ] 每节点独立 volume（node1-data / node2-data / node3-data）与 research-net bridge 网络
@@ -264,14 +264,14 @@
 > 依赖：所有任务组完成
 
 ### 10.1 V2.2-S 主线零改动验证
-- [ ] 计算 `D:\岱境235源码备份\daijin235_go_engine\raft.go` 的 MD5，校验 == DD6F667133D2C9343CF43BC11A5B7C00
-- [ ] 对比加固前后 `D:\岱境235源码备份\daijin235_go_engine\` 全目录文件列表与 MD5，确认零改动
+- [ ] 计算 `D:\RaftKV源码备份\raftkv_go_engine\raft.go` 的 MD5，校验 == DD6F667133D2C9343CF43BC11A5B7C00
+- [ ] 对比加固前后 `D:\RaftKV源码备份\raftkv_go_engine\` 全目录文件列表与 MD5，确认零改动
 - [ ] 验收：MD5 一致；全目录无变更；对应 RC-01、RC-05
 
 ### 10.2 V2.4 核心 raft.go 零改动验证
-- [ ] 计算 `<ARCHIVE>\V2.4_Performance_Sandbox\raft.go` 加固前后 MD5，校验一致
-- [ ] 计算 `<ARCHIVE>\V2.4_Performance_Sandbox\main.go` 加固前后 MD5，校验一致
-- [ ] 计算 `<ARCHIVE>\V2.4_Performance_Sandbox\types.go` 加固前后 MD5，校验一致
+- [ ] 计算 `.\raft.go` 加固前后 MD5，校验一致
+- [ ] 计算 `.\main.go` 加固前后 MD5，校验一致
+- [ ] 计算 `.\types.go` 加固前后 MD5，校验一致
 - [ ] 验收：三个核心文件 MD5 加固前后一致；对应 RC-02
 
 ### 10.3 独立分支隔离验证
@@ -279,7 +279,7 @@
 - [ ] 验收：git diff 范围仅含 _state_protection_research/ 下文件；对应 FA-12
 
 ### 10.4 研究镜像隔离验证
-- [ ] 执行 `docker images` 列出所有镜像，确认 daijin235-state-protection-research 与 V2.2-S 商业镜像名不同
+- [ ] 执行 `docker images` 列出所有镜像，确认 raftkv-state-protection-research 与 V2.2-S 商业镜像名不同
 - [ ] 对比研究镜像与商业镜像的 image name / tag / entrypoint 二进制名，确认完全隔离
 - [ ] 验收：镜像名不同、标签体系不同、入口二进制不同；对应 FA-14、RC-03
 
@@ -296,8 +296,8 @@
 
 ### 11.2 报告三处同步
 - [ ] 将报告同步至桌面：`<HOME>\Desktop\V2.4独立分支state.bin完整性加固验证报告.md`
-- [ ] 将报告同步至 D 盘备份：`<ARCHIVE>\V2.4独立分支state.bin完整性加固验证报告.md`
-- [ ] 将报告同步至归档04：`D:\岱境235_20260810_硬核工程产出归档\04_压力测试与工程验证工具\V2.4独立分支state.bin完整性加固验证报告.md`
+- [ ] 将报告同步至 D 盘备份：`<BACKUP_DIR>/V2.4独立分支state.bin完整性加固验证报告.md`
+- [ ] 将报告同步至归档04：`D:\RaftKV_20260810_硬核工程产出归档\04_压力测试与工程验证工具\V2.4独立分支state.bin完整性加固验证报告.md`
 - [ ] 计算三处文件 MD5，校验完全一致
 - [ ] 验收：三处文件存在且 MD5 一致；对应 spec 8.1
 

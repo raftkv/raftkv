@@ -1,3 +1,3 @@
-module daijin235/observability-module
+module raftkv/observability-module
 
 go 1.21

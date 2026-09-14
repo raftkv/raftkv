@@ -135,7 +135,7 @@ func SetDegradedMode(reason string) {
 func GetMachineFingerprint() string {
 	// 1. 稳定锚点（最高优先级）：运维注入的稳定物理特征，消除容器重启漂移
 	if anchor := strings.TrimSpace(os.Getenv(FingerprintAnchorEnvKey)); anchor != "" {
-		h := sha256.Sum256([]byte("daijin235-anchor:" + anchor))
+		h := sha256.Sum256([]byte("raftkv-anchor:" + anchor))
 		return fmt.Sprintf("%x", h[:16])
 	}
 	// 2. Linux DMI product_uuid（物理机/虚拟机稳定，不漂移）
@@ -149,7 +149,7 @@ func GetMachineFingerprint() string {
 	}
 	// 3. 稳定 CPU/machine-id 标识（优先于漂移的 MAC，容器挂载持久卷后 machine-id 稳定）
 	if cpuPart := getCPUIdentifier(); cpuPart != "" && cpuPart != "nocpu" {
-		h := sha256.Sum256([]byte("daijin235-cpu:" + cpuPart))
+		h := sha256.Sum256([]byte("raftkv-cpu:" + cpuPart))
 		return fmt.Sprintf("%x", h[:16])
 	}
 	// 4. 兜底：MAC + hostname（最不稳定，仅在无任何稳定特征可用时回退）

@@ -17,7 +17,7 @@
 | P4 | FAIL | 0 |
 
 ## 20min 对照压测
-验收结果文件不存在: <ARCHIVE>\V2.4_Performance_Sandbox\tests\auto\auto-run-20260910-055757\phase2_accept.json
+验收结果文件不存在: .\tests\auto\auto-run-20260910-055757\phase2_accept.json
 
 ## E08 30min 终审
 | 指标 | 实测 | 阈值 | 判据 | 结果 |
@@ -31,11 +31,11 @@
 <details><summary>压测输出尾部</summary>
 
 ```
-<ARCHIVE>\V2.4_Performance_Sandbox\e04_loadtest.exe : invalid value "$dur" for flag -duration: parse error
+.\e04_loadtest.exe : invalid value "$dur" for flag -duration: parse error
     + CategoryInfo          : NotSpecified: (invalid value "...on: parse error:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-Usage of <ARCHIVE>\V2.4_Performance_Sandbox\e04_loadtest.exe:
+Usage of .\e04_loadtest.exe:
   -concurrency int
     	并发goroutine数 (default 500)
   -duration duration
@@ -49,11 +49,11 @@ Usage of <ARCHIVE>\V2.4_Performance_Sandbox\e04_loadtest.exe:
 </details>
 
 ## 节点存活检查
-- daijin235-node-2	Up About a minute (healthy)
-- daijin235-node-5	Up About a minute (healthy)
-- daijin235-node-1	Up About a minute (healthy)
-- daijin235-node-4	Up About a minute (healthy)
-- daijin235-node-3	Up About a minute (healthy)
+- raft-node-2	Up About a minute (healthy)
+- raft-node-5	Up About a minute (healthy)
+- raft-node-1	Up About a minute (healthy)
+- raft-node-4	Up About a minute (healthy)
+- raft-node-3	Up About a minute (healthy)
 
 ## 内存采样峰值
 - phase4_mem.csv : 峰值 38.77MiB (node-1)

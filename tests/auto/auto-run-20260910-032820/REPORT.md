@@ -81,11 +81,11 @@ Max:        131.5045ms
 </details>
 
 ## 节点存活检查
-- daijin235-node-5	Up About a minute (healthy)
-- daijin235-node-2	Up About a minute (healthy)
-- daijin235-node-4	Up About a minute (healthy)
-- daijin235-node-3	Up About a minute (healthy)
-- daijin235-node-1	Up About a minute (healthy)
+- raft-node-5	Up About a minute (healthy)
+- raft-node-2	Up About a minute (healthy)
+- raft-node-4	Up About a minute (healthy)
+- raft-node-3	Up About a minute (healthy)
+- raft-node-1	Up About a minute (healthy)
 
 ## 内存采样峰值
 - phase2_mem.csv : 峰值 41.37MiB (node-1)

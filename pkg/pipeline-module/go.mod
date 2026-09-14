@@ -1,3 +1,3 @@
-module daijin235/pipeline-module
+module raftkv/pipeline-module
 
 go 1.21

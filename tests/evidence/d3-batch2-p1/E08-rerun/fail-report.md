@@ -1,7 +1,7 @@
 # E08 重跑 FAIL 报告
 
 > **测试时间**：2026-09-08 20:35 ~ 22:35 CST（2h0m0s）
-> **镜像**：daijin235-v26:ci-knife（含修复E/F，commit 77bf664）
+> **镜像**：raftkv:latest-knife（含修复E/F，commit 77bf664）
 > **起点状态**：term=2577, leader=node-5, commit=14472
 > **判定位**：0失败（或leader切换但客户端自愈→redirectCnt>0且0失败→PASS）
 

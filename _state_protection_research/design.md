@@ -1,4 +1,4 @@
-# 岱境235 V2.4独立分支 state.bin 完整性加固 技术设计文档
+# RaftKV V2.4独立分支 state.bin 完整性加固 技术设计文档
 
 > **文档版本**: 1.0
 > **生成时间**: 2026-08-31
@@ -16,7 +16,7 @@
 
 ### 1.1.1 已实现功能
 
-经全量代码扫描（V2.2-S 主线 `D:\岱境235源码备份\daijin235_go_engine\` 与 V2.4 `<ARCHIVE>\V2.4_Performance_Sandbox\`），与本次需求相关的存量功能匹配情况如下：
+经全量代码扫描（V2.2-S 主线 `D:\RaftKV源码备份\raftkv_go_engine\` 与 V2.4 `.\`），与本次需求相关的存量功能匹配情况如下：
 
 | 需求功能 | 存量功能 | 代码位置 | 匹配度 |
 |---------|---------|---------|--------|
@@ -101,7 +101,7 @@
 | 独立分支 main 入口 | 启动参数 | 无（进程） | 复用 V2.4 main.go 逻辑 + 注入 StateProtector | V2.4 main.go |
 | ARM64 交叉编译 | Go 源码 | ARM64 二进制 | GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build | go toolchain |
 | amd64 交叉编译 | Go 源码 | amd64 二进制 | GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build | go toolchain |
-| 研究镜像构建 | Dockerfile.research, 二进制 | Docker 镜像 | docker build -t daijin235-state-protection-research . | docker |
+| 研究镜像构建 | Dockerfile.research, 二进制 | Docker 镜像 | docker build -t raftkv-state-protection-research . | docker |
 
 #### 模块 F：沙箱验证
 
@@ -237,7 +237,7 @@
 - Dockerfile 属于 V2.4 根目录，红线不可修改。
 - 必须在独立分支内通过 **新 Dockerfile**（Dockerfile.research）实现：
   1. 多架构支持（ARM64 + amd64）
-  2. 研究镜像标签（daijin235-state-protection-research）
+  2. 研究镜像标签（raftkv-state-protection-research）
   3. 复用 V2.4 的两阶段构建模式
 
 **约束**：
@@ -1166,7 +1166,7 @@ ENTRYPOINT ["./gateway_research"]
 1. **复用 V2.4 两阶段构建模式**：golang:1.24-alpine → alpine:3.21，与 V2.4 Dockerfile 一致。
 2. **多架构支持**：通过 `ARG TARGETOS/TARGETARCH` 接收 docker buildx 注入的目标架构，支持 ARM64 与 amd64。
 3. **独立入口**：构建 `./cmd/state-protection-research/` 下的 main_research.go，而非根目录 main.go，确保独立分支入口。
-4. **研究镜像标签**：`daijin235-state-protection-research`，与商业镜像名完全隔离。
+4. **研究镜像标签**：`raftkv-state-protection-research`，与商业镜像名完全隔离。
 5. **数据/密钥目录**：预创建 /app/data 与 /app/keys，分别存放 state.bin 与 RSA 公钥。
 
 ## 3.2 交叉编译脚本 build_research.sh
@@ -1176,7 +1176,7 @@ ENTRYPOINT ["./gateway_research"]
 # build_research.sh - 独立分支交叉编译 + 研究镜像构建
 set -euo pipefail
 
-IMAGE_NAME="daijin235-state-protection-research"
+IMAGE_NAME="raftkv-state-protection-research"
 IMAGE_TAG="v2.4-research"
 
 # 1. 交叉编译 ARM64
@@ -1208,10 +1208,10 @@ echo "[BUILD] 完成: ${IMAGE_NAME}:${IMAGE_TAG}"
 
 | 隔离维度 | V2.2-S 商业镜像 | 研究镜像 | 隔离手段 |
 |---------|----------------|---------|---------|
-| 镜像名 | daijin235-gateway | daijin235-state-protection-research | _research 后缀 |
+| 镜像名 | raftkv-gateway | raftkv-state-protection-research | _research 后缀 |
 | 标签 | v22s | v2.4-research | 不同标签体系 |
 | 入口二进制 | /gateway | /gateway_research | 不同二进制名 |
-| 源码路径 | daijin235_go_engine/ | _state_protection_research/ | 不同源码目录 |
+| 源码路径 | raftkv_go_engine/ | _state_protection_research/ | 不同源码目录 |
 | 构建上下文 | V2.2-S 源码 | 独立分支源码 | 不同 Dockerfile |
 
 ---
@@ -1224,7 +1224,7 @@ echo "[BUILD] 完成: ${IMAGE_NAME}:${IMAGE_TAG}"
 version: '3.8'
 services:
   node-1:
-    image: daijin235-state-protection-research:v2.4-research
+    image: raftkv-state-protection-research:v2.4-research
     container_name: research-node-1
     environment:
       NODE_ID: node-1
@@ -1243,7 +1243,7 @@ services:
       - research-net
 
   node-2:
-    image: daijin235-state-protection-research:v2.4-research
+    image: raftkv-state-protection-research:v2.4-research
     container_name: research-node-2
     environment:
       NODE_ID: node-2
@@ -1262,7 +1262,7 @@ services:
       - research-net
 
   node-3:
-    image: daijin235-state-protection-research:v2.4-research
+    image: raftkv-state-protection-research:v2.4-research
     container_name: research-node-3
     environment:
       NODE_ID: node-3
@@ -1365,7 +1365,7 @@ cat > "$REPORT_FILE" <<EOF
 ## 红线确认
 - V2.2-S raft.go MD5: DD6F667133D2C9343CF43BC11A5B7C00（未变）
 - V2.4 raft.go: 零改动
-- 研究镜像: daijin235-state-protection-research（与商业镜像隔离）
+- 研究镜像: raftkv-state-protection-research（与商业镜像隔离）
 EOF
 
 echo "验证报告已生成: $REPORT_FILE"
@@ -1382,7 +1382,7 @@ echo "验证报告已生成: $REPORT_FILE"
 | 5 | docker logs node-3 \| grep corrupted | 命中 local-cache-corrupted | SV-03, FA-07 |
 | 6 | 等待 10s，curl node-3 /raft/status | state=Follower，term 一致 | SV-04, FA-10 |
 | 7 | 全程 curl 3 节点 /raft/status | Leader 数量始终=1 | SV-05, NFA-06 |
-| 8 | docker inspect node-3 Image | daijin235-state-protection-research | SV-06, RC-03 |
+| 8 | docker inspect node-3 Image | raftkv-state-protection-research | SV-06, RC-03 |
 
 ---
 

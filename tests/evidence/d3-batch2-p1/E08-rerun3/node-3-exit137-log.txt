@@ -1,6 +1,6 @@
 ﻿docker : [pipeline] 2026/09/08 23:49:28 快照触发: 346354 条, WAL 释放 474 字节
 At line:1 char:32
-+ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 50 2>&1; $log | ...
++ ... ,3,5) { $log = docker logs "raftkv-node-$n" --tail 50 2>&1; $log | ...
 +                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: ([pipeline] 2026..., WAL 释放 474 字节:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError

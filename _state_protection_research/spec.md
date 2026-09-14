@@ -1,4 +1,4 @@
-# 岱境235 V2.4独立分支 state.bin 完整性加固 需求规格说明书
+# RaftKV V2.4独立分支 state.bin 完整性加固 需求规格说明书
 
 > **文档版本**: 1.0
 > **生成时间**: 2026-08-31
@@ -31,7 +31,7 @@
 
 ## **1.4 职责边界**
 本组件**不负责**以下事项：
-1. **不修改** V2.2-S 主线源码（D:\岱境235源码备份\daijin235_go_engine\ 下任何文件）。
+1. **不修改** V2.2-S 主线源码（D:\RaftKV源码备份\raftkv_go_engine\ 下任何文件）。
 2. **不修改** V2.4_Performance_Sandbox 根目录下的核心 raft.go（保持 Raft 共识逻辑零污染）。
 3. **不实现** 新的 Raft 共识算法或选举策略（仅复用现有 Raft 日志重同步能力）。
 4. **不负责** V2.2-S 商业镜像的任何变更（新镜像带 _research 后缀，与商业镜像完全隔离）。
@@ -69,7 +69,7 @@
 : V2.4_Performance_Sandbox/_state_protection_research 子目录，与 V2.2-S 主线和 V2.4 核心 raft.go 完全隔离的实验性代码空间。
 
 **研究镜像**
-: 带 _research 后缀的 Docker 镜像（如 daijin235-state-protection-research），与 V2.2-S 商业镜像完全隔离，仅用于沙箱验证。
+: 带 _research 后缀的 Docker 镜像（如 raftkv-state-protection-research），与 V2.2-S 商业镜像完全隔离，仅用于沙箱验证。
 
 ---
 
@@ -154,11 +154,11 @@ peers --> comp : 返回最新日志条目
 ## **4.5 兼容性**
 
 1. **V2.2-S 主线零改动**：本加固方案必须不修改 V2.2-S 主线任何文件，raft.go MD5 必须保持 DD6F667133D2C9343CF43BC11A5B7C00。
-   - 验收条件：加固前后计算 D:\岱境235源码备份\daijin235_go_engine\raft.go MD5 → 均为 DD6F667133D2C9343CF43BC11A5B7C00。
+   - 验收条件：加固前后计算 D:\RaftKV源码备份\raftkv_go_engine\raft.go MD5 → 均为 DD6F667133D2C9343CF43BC11A5B7C00。
 2. **V2.4 raft.go 零改动**：本加固方案必须不修改 V2.4_Performance_Sandbox 根目录下 raft.go。
    - 验收条件：加固前后计算 V2.4 raft.go MD5 → 一致。
 3. **研究镜像隔离**：研究镜像必须带 _research 后缀，与 V2.2-S 商业镜像 image name 不同。
-   - 验收条件：docker images 列表 → daijin235-state-protection-research 与商业镜像名不同。
+   - 验收条件：docker images 列表 → raftkv-state-protection-research 与商业镜像名不同。
 4. **存量 state.bin 兼容**：首次启动遇无 state.bin.hmac 的存量 state.bin 时，必须视为"未加固存量"，触发一次校验和初始化而非直接判废。
    - 验收条件：放置无 hmac 的存量 state.bin 启动 → 初始化 hmac 后正常加载，不进入 corrupted 状态。
 
@@ -333,8 +333,8 @@ self -> follower : 以正常 Follower 加入集群
    - 验收条件：git diff 范围 → 仅 _state_protection_research 子目录内文件变更。
 2. **交叉编译规则**：系统必须支持 GOOS=linux GOARCH=arm64 与 GOOS=linux GOARCH=amd64 两种交叉编译产物，CGO_ENABLED=0。
    - 验收条件：执行交叉编译 → 生成 ARM64 与 amd64 两个二进制产物。
-3. **研究镜像构建规则**：系统必须构建带 _research 后缀的 Docker 镜像（如 daijin235-state-protection-research），与 V2.2-S 商业镜像完全隔离。
-   - 验收条件：docker images → 存在 daijin235-state-protection-research 镜像，且与商业镜像名不同。
+3. **研究镜像构建规则**：系统必须构建带 _research 后缀的 Docker 镜像（如 raftkv-state-protection-research），与 V2.2-S 商业镜像完全隔离。
+   - 验收条件：docker images → 存在 raftkv-state-protection-research 镜像，且与商业镜像名不同。
 4. **禁止项**：禁止研究镜像复用 V2.2-S 商业镜像的任何标签或镜像 ID。
    - 验收条件：对比研究镜像与商业镜像 → image name 与 tag 完全不同。
 
@@ -352,7 +352,7 @@ sre -> compiler : GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build
 compiler --> sre : ARM64 二进制产物
 sre -> compiler : GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build
 compiler --> sre : amd64 二进制产物
-sre -> docker : docker build -t daijin235-state-protection-research .
+sre -> docker : docker build -t raftkv-state-protection-research .
 docker --> sre : 研究镜像构建完成
 
 @enduml
@@ -384,7 +384,7 @@ docker --> sre : 研究镜像构建完成
 5. **无脑裂验证规则**：验证必须确认全流程（篡改-检测-降级-恢复）中集群 Leader 数量始终 = 1。
    - 验收条件：全流程监控 Leader 数量 → 始终为 1。
 6. **禁止项**：禁止使用 V2.2-S 商业镜像执行本次验证（必须使用研究镜像）。
-   - 验收条件：验证所用镜像 → 为 daijin235-state-protection-research。
+   - 验收条件：验证所用镜像 → 为 raftkv-state-protection-research。
 
 ### **5.5.2 交互流程**
 
@@ -483,7 +483,7 @@ tester -> tester : 生成加固验证报告
 | FA-11 | 重同步超时处理 | 5.3.1 规则3 | 模拟超时 → 3 次重试后保持 corrupted |
 | FA-12 | 独立分支隔离 | 5.4.1 规则1 | git diff → 仅子目录内变更 |
 | FA-13 | 交叉编译产物 | 5.4.1 规则2 | 生成 ARM64 与 amd64 两个二进制 |
-| FA-14 | 研究镜像隔离 | 5.4.1 规则3 | docker images → daijin235-state-protection-research 存在且与商业镜像不同 |
+| FA-14 | 研究镜像隔离 | 5.4.1 规则3 | docker images → raftkv-state-protection-research 存在且与商业镜像不同 |
 
 ## **7.2 非功能验收清单**
 
@@ -508,7 +508,7 @@ tester -> tester : 生成加固验证报告
 | RC-02 | V2.4 raft.go 零改动 | 4.5 规则2 | 加固前后 MD5 一致 |
 | RC-03 | 研究镜像与商业镜像隔离 | 4.5 规则3 | image name 不同 |
 | RC-04 | 存量兼容 | 4.5 规则4 | 无 hmac 存量启动 → 初始化而非判废 |
-| RC-05 | V2.2-S 主线零改动 | 1.4 职责边界 | D:\岱境235源码备份\daijin235_go_engine\ 全程未变 |
+| RC-05 | V2.2-S 主线零改动 | 1.4 职责边界 | D:\RaftKV源码备份\raftkv_go_engine\ 全程未变 |
 
 ## **7.4 沙箱验证验收清单**
 
@@ -519,7 +519,7 @@ tester -> tester : 生成加固验证报告
 | SV-03 | 安全降级验证 | 5.5.1 规则3 | 节点进入 local-cache-corrupted |
 | SV-04 | 重同步恢复验证 | 5.5.1 规则4 | 恢复后状态与集群一致 |
 | SV-05 | 无脑裂验证 | 5.5.1 规则5 | 全流程 Leader 数量 = 1 |
-| SV-06 | 研究镜像使用 | 5.5.1 规则6 | 验证使用 daijin235-state-protection-research |
+| SV-06 | 研究镜像使用 | 5.5.1 规则6 | 验证使用 raftkv-state-protection-research |
 
 ---
 
@@ -530,8 +530,8 @@ tester -> tester : 生成加固验证报告
 2. **必须包含声明**："此加固方案已在V2.4独立分支中验证成功，将作为V2.5升级功能储备，暂时不合并进V2.2-S主线。"
 3. **同步位置**：
    - 桌面：<HOME>\Desktop\
-   - D 盘备份：<ARCHIVE>\
-   - 归档04：D:\岱境235_20260810_硬核工程产出归档\04_压力测试与工程验证工具\
+   - D 盘备份：<BACKUP_DIR>/
+   - 归档04：D:\RaftKV_20260810_硬核工程产出归档\04_压力测试与工程验证工具\
 4. **三处一致**：三处同步文件 MD5 必须一致。
 
 ## **8.2 完成确认语**

@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module05 — 工业级自愈与进程守护系统 沙箱验证测试
+// RaftKV Module05 — 工业级自愈与进程守护系统 沙箱验证测试
 //
 // 验证项：
 //   a) 3 个子进程拉起与守护
@@ -27,7 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	selfheal "daijin235/supervisor-module"
+	selfheal "raftkv/supervisor-module"
 )
 
 // -------------------------------------------------------------------------
@@ -57,7 +57,7 @@ func section(s string)     { fmt.Printf("\n%s\n", title(s)) }
 // -------------------------------------------------------------------------
 
 func main() {
-	fmt.Printf("%s%s🚀 岱境235 Module05 — 工业级自愈与进程守护系统 沙箱验证%s\n", cBold, cCyan, cReset)
+	fmt.Printf("%s%s🚀 RaftKV Module05 — 工业级自愈与进程守护系统 沙箱验证%s\n", cBold, cCyan, cReset)
 	fmt.Printf("%s🔑 零外部依赖 | 纯标准库 | GOOS=%s GOARCH=%s | Go %s%s\n",
 		cCyan, runtime.GOOS, runtime.GOARCH, runtime.Version(), cReset)
 	fmt.Printf("%s🛡️ 五态状态机 | 指数退避 | 心跳自愈 | 风暴抑制 | 优雅关闭%s\n", cCyan, cReset)
@@ -76,7 +76,7 @@ func main() {
 	section("汇总")
 	if allPass {
 		fmt.Printf("%s✅ 7/7 项验证全部通过%s\n", cGreen, cReset)
-		fmt.Printf("%s🔒 岱境235 Module05 工业级自愈与进程守护系统 — 交付合格%s\n", cGreen, cReset)
+		fmt.Printf("%s🔒 RaftKV Module05 工业级自愈与进程守护系统 — 交付合格%s\n", cGreen, cReset)
 	} else {
 		fmt.Printf("%s💀 存在失败项，需修复%s\n", cRed, cReset)
 	}

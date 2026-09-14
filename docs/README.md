@@ -1,4 +1,4 @@
-# 岱境235 — 确定性共识引擎
+# RaftKV — 确定性共识引擎
 
 > V2.4 Performance Sandbox
 > 日期: 2026-09-13

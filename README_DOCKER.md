@@ -1,4 +1,4 @@
-# 岱境235 确定性管控中枢 — Docker 部署与验证手册
+# RaftKV 确定性管控中枢 — Docker 部署与验证手册
 
 ---
 
@@ -12,7 +12,7 @@
 ## 第一步：进入项目目录
 
 ```powershell
-cd "<HOME>\Desktop\岱境235\daijin235_go_engine"
+cd "<HOME>\Desktop\RaftKV\raftkv_go_engine"
 ```
 
 确认文件齐全：
@@ -36,10 +36,10 @@ docker-compose up -d --build
 ```
 [+] Building 120.0s (15/15) FINISHED
 [+] Running 5/5
- ✔ Container daijin235-node-1     Started
- ✔ Container daijin235-frontend   Started
- ✔ Container daijin235-node-2     Started
- ✔ Container daijin235-node-3     Started
+ ✔ Container raft-node-1     Started
+ ✔ Container raftkv-frontend   Started
+ ✔ Container raft-node-2     Started
+ ✔ Container raft-node-3     Started
 ```
 
 ---
@@ -92,7 +92,7 @@ curl http://localhost:9003/raft/stats
 http://localhost:8096
 ```
 
-你应该看到岱境235 确定性管控中枢大屏，包含：
+你应该看到RaftKV 确定性管控中枢大屏，包含：
 - 左上：系统总览 KPI 指标
 - 左中：确定性引擎参数
 - 中上：7 步 Agent Pipeline
@@ -114,7 +114,7 @@ http://localhost:8096/deepseek.html
 停止 node-2 和 node-3：
 
 ```powershell
-docker stop daijin235-node-2 daijin235-node-3
+docker stop raft-node-2 raft-node-3
 ```
 
 ### 5.2 验证仲裁丢失
@@ -139,7 +139,7 @@ curl http://localhost:9001/raft/stats
 ### 5.4 恢复验证
 
 ```powershell
-docker start daijin235-node-2 daijin235-node-3
+docker start raft-node-2 raft-node-3
 ```
 
 等待约 10 秒，刷新前端大屏——降级横幅自动消失，按钮恢复可用。
@@ -161,7 +161,7 @@ curl http://localhost:9001/raft/status
 ### 6.2 降级模式（2 节点离线）
 
 ```powershell
-docker stop daijin235-node-2 daijin235-node-3
+docker stop raft-node-2 raft-node-3
 curl http://localhost:9001/raft/stats
 # 预期: peers=0，写操作被拒绝
 ```
@@ -175,7 +175,7 @@ curl http://localhost:9001/raft/stats
 docker-compose ps
 
 # 查看节点 1 日志
-docker logs -f daijin235-node-1
+docker logs -f raft-node-1
 
 # 查看所有节点日志
 docker-compose logs -f
@@ -226,7 +226,7 @@ taskkill /PID <PID> /F         # 终止占用
 
 **前端大屏不显示：**
 ```powershell
-docker logs daijin235-frontend  # 检查 nginx 日志
+docker logs raftkv-frontend  # 检查 nginx 日志
 ```
 
 ---
@@ -238,14 +238,14 @@ docker logs daijin235-frontend  # 检查 nginx 日志
 ```yaml
   node-4:
     build: .
-    image: daijin235-gateway:latest
-    container_name: daijin235-node-4
+    image: raftkv-gateway:latest
+    container_name: raft-node-4
     restart: always
     environment:
       - NODE_ID=node-4
       - GRPC_PORT=9503
       - HTTP_PORT=9000
-      - PEERS=node-1=daijin235-node-1:9500,node-2=daijin235-node-2:9501,node-3=daijin235-node-3:9502,node-5=daijin235-node-5:9504
+      - PEERS=node-1=raft-node-1:9500,node-2=raft-node-2:9501,node-3=raft-node-3:9502,node-5=raft-node-5:9504
     ports:
       - "9503:9503"
       - "9004:9000"
@@ -254,14 +254,14 @@ docker logs daijin235-frontend  # 检查 nginx 日志
 
   node-5:
     build: .
-    image: daijin235-gateway:latest
-    container_name: daijin235-node-5
+    image: raftkv-gateway:latest
+    container_name: raft-node-5
     restart: always
     environment:
       - NODE_ID=node-5
       - GRPC_PORT=9504
       - HTTP_PORT=9000
-      - PEERS=node-1=daijin235-node-1:9500,node-2=daijin235-node-2:9501,node-3=daijin235-node-3:9502,node-4=daijin235-node-4:9503
+      - PEERS=node-1=raft-node-1:9500,node-2=raft-node-2:9501,node-3=raft-node-3:9502,node-4=raft-node-4:9503
     ports:
       - "9504:9504"
       - "9005:9000"

@@ -1,8 +1,8 @@
 ﻿$ErrorActionPreference = "Continue"
-$testDir = "<ARCHIVE>\V2.4_Performance_Sandbox\tests\evidence\d3-batch2-p1\E08-rerun5"
+$testDir = ".\tests\evidence\d3-batch2-p1\E08-rerun5"
 $outputFile = "$testDir\raw-output.txt"
-$exePath = "<ARCHIVE>\V2.4_Performance_Sandbox\e04_loadtest.exe"
-$workDir = "<ARCHIVE>\V2.4_Performance_Sandbox"
+$exePath = ".\e04_loadtest.exe"
+$workDir = "."
 
 $startMem = Get-CimInstance Win32_OperatingSystem
 $freeGB = [math]::Round($startMem.FreePhysicalMemory/1MB, 1)
@@ -27,7 +27,7 @@ while ($job.State -eq "Running") {
     if ($minute -ge ($lastSnapMinute + 30) -and $minute -le 125) {
         $lastSnapMinute = $minute
         $snapFile = "$testDir\docker-snapshot-${minute}min.txt"
-        $snap = docker ps -a --filter "name=daijin235" --format "{{.Names}}: {{.Status}}" 2>&1
+        $snap = docker ps -a --filter "name=raftkv" --format "{{.Names}}: {{.Status}}" 2>&1
         $snap | Out-File -FilePath $snapFile -Encoding UTF8
         $exited = $snap | Where-Object { $_ -match "Exited \((?!0\))" }
         if ($exited) {

@@ -17,10 +17,10 @@
 | P4 | FAIL | 0 |
 
 ## 20min 对照压测
-验收结果文件不存在: <ARCHIVE>\V2.4_Performance_Sandbox\tests\auto\auto-run-20260910-063504\phase2_accept.json
+验收结果文件不存在: .\tests\auto\auto-run-20260910-063504\phase2_accept.json
 
 ## E08 30min 终审
-验收结果文件不存在: <ARCHIVE>\V2.4_Performance_Sandbox\tests\auto\auto-run-20260910-063504\phase4_accept.json
+验收结果文件不存在: .\tests\auto\auto-run-20260910-063504\phase4_accept.json
 
 <details><summary>压测输出尾部</summary>
 
@@ -45,11 +45,11 @@ Max:        1.7773317s
 </details>
 
 ## 节点存活检查
-- daijin235-node-4	Up 16 minutes (healthy)
-- daijin235-node-3	Up 16 minutes (healthy)
-- daijin235-node-5	Up 16 minutes (healthy)
-- daijin235-node-2	Up 16 minutes (healthy)
-- daijin235-node-1	Up 16 minutes (healthy)
+- raft-node-4	Up 16 minutes (healthy)
+- raft-node-3	Up 16 minutes (healthy)
+- raft-node-5	Up 16 minutes (healthy)
+- raft-node-2	Up 16 minutes (healthy)
+- raft-node-1	Up 16 minutes (healthy)
 
 ## 内存采样峰值
 - phase4_mem.csv : 峰值 681.9MiB (node-1)

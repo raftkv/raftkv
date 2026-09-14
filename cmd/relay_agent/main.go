@@ -78,7 +78,7 @@ func c(color, text string) string {
 func banner() {
 	sep := strings.Repeat("=", 60)
 	fmt.Println(c(C_CYAN, sep))
-	fmt.Println(c(C_CYAN, C_BOLD+"  ⚙️  岱境235 日志加密传输代理 "+VERSION+C_RESET))
+	fmt.Println(c(C_CYAN, C_BOLD+"  ⚙️  RaftKV 日志加密传输代理 "+VERSION+C_RESET))
 	fmt.Println(c(C_CYAN, "  加密: AES-256-GCM | 断网: 本地缓存+指数退避"))
 	fmt.Println(c(C_CYAN, "  存证: SM3哈希链防篡改 | 流控: WriteThrottle | 归档: gzip"))
 	fmt.Println(c(C_CYAN, sep))
@@ -297,7 +297,7 @@ func rotateAndCompressLog(logPath string) {
 	}
 
 	yesterday := time.Now().Add(-24 * time.Hour).Format("20060102")
-	rotatedName := fmt.Sprintf("daijin235_%s.log", yesterday)
+	rotatedName := fmt.Sprintf("raftkv_%s.log", yesterday)
 	rotatedPath := filepath.Join(filepath.Dir(logPath), rotatedName)
 
 	if _, err := os.Stat(logPath); err != nil {
@@ -509,7 +509,7 @@ func loadConfig(path string) *Config {
 	cfg := &Config{
 		Mode:            "File",
 		Target:          "./relay_output/",
-		EncryptKey:      "daijin235_relay_2026_secure_key",
+		EncryptKey:      "raftkv_relay_2026_secure_key",
 		Interval:        30 * time.Second,
 		MaxLocalCacheMB: 20,
 		PackThresholdMB: 5,
@@ -681,14 +681,14 @@ func transmitFile(data []byte, filename string, cfg *Config) error {
 	case "USB":
 		drives := []string{"D:\\", "E:\\", "F:\\", "G:\\"}
 		for _, d := range drives {
-			marker := filepath.Join(d, ".daijin235_usb")
+			marker := filepath.Join(d, ".raftkv_usb")
 			if _, err := os.Stat(marker); err == nil {
-				targetDir := filepath.Join(d, "daijin235_relay")
+				targetDir := filepath.Join(d, "raftkv_relay")
 				os.MkdirAll(targetDir, 0755)
 				return os.WriteFile(filepath.Join(targetDir, filename), data, 0644)
 			}
 		}
-		return fmt.Errorf("未检测到岱境235标记USB设备")
+		return fmt.Errorf("未检测到RaftKV标记USB设备")
 
 	case "HTTP":
 		tmpFile := filepath.Join(os.TempDir(), filename)
@@ -831,7 +831,7 @@ func heartbeatLoop(url string, interval time.Duration) {
 
 	for range ticker.C {
 		payload := HeartbeatPayload{
-			DeviceID: "daijin235",
+			DeviceID: "raftkv",
 			Status:   "alive",
 			Ts:       time.Now().Format("2006-01-02T15:04:05Z07:00"),
 		}
@@ -944,7 +944,7 @@ func main() {
 			}
 
 			timestamp := time.Now().Format("20060102_150405")
-			encFilename := fmt.Sprintf("daijin235_relay_%s.enc", timestamp)
+			encFilename := fmt.Sprintf("raftkv_relay_%s.enc", timestamp)
 
 			err = transmitFile(encrypted, encFilename, cfg)
 			if err != nil {

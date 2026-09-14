@@ -140,7 +140,7 @@
 - **动作**:
   1. 在 `cmd/chaos_injector/collector.go` 中新增 `CollectElectionForensics(leaderID string, killTimeout time.Duration) (*ElectionForensics, error)` 方法
   2. 采集前通过 `/raft/stats` 读取当前 electionTimeout 配置（electionTimeoutMin=5000ms / electionTimeoutMax=7000ms）和随机区间
-  3. kill 当前 leader（`docker kill --signal=9 daijin235-node-N`）
+  3. kill 当前 leader（`docker kill --signal=9 raft-node-N`）
   4. 100ms 轮询各节点 `/raft/stats` 的 `state/voted/term` 字段，记录 6.895s 内的选举轮数与每轮选票分布
   5. 记录 kill_to_election_complete（wall-clock 秒）
   6. 落盘至 `tests/evidence/d3-batch22/election_forensics.json`，结构含：
@@ -653,7 +653,7 @@
 - **并行**: 可与 T5.1 并行
 - **动作**:
   1. 检查 5 节点集群状态：遍历 `/raft/stats` 确认每节点 state
-  2. 若有节点被 kill 未恢复：`docker start daijin235-node-N` 重启
+  2. 若有节点被 kill 未恢复：`docker start raft-node-N` 重启
   3. 等待所有节点健康：轮询 `/health/live` 返回 200
   4. 确认集群恢复到健康稳态：1 leader + 4 follower
   5. 记录集群最终状态至 `tests/evidence/d3-batch22/cluster_final_state.json`

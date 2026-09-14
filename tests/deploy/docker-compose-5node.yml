@@ -1,5 +1,5 @@
 # =========================================================================
-# 岱境235 — 5节点Raft集群部署compose（D3-batch0R基线）
+# RaftKV — 5节点Raft集群部署compose（D3-batch0R基线）
 #
 # 基于D2部署compose(docker-compose.yml)扩展至5节点，匹配原始设计(docker-compose.yml根目录)
 #
@@ -25,9 +25,9 @@ services:
 
   node-1:
     image: ${IMAGE_NAME}
-    container_name: daijin235-node-1
+    container_name: raft-node-1
     networks:
-      daijin235-net:
+      raftkv-net:
         aliases:
           - node-1
     environment:
@@ -52,9 +52,9 @@ services:
 
   node-2:
     image: ${IMAGE_NAME}
-    container_name: daijin235-node-2
+    container_name: raft-node-2
     networks:
-      daijin235-net:
+      raftkv-net:
         aliases:
           - node-2
     environment:
@@ -79,9 +79,9 @@ services:
 
   node-3:
     image: ${IMAGE_NAME}
-    container_name: daijin235-node-3
+    container_name: raft-node-3
     networks:
-      daijin235-net:
+      raftkv-net:
         aliases:
           - node-3
     environment:
@@ -106,9 +106,9 @@ services:
 
   node-4:
     image: ${IMAGE_NAME}
-    container_name: daijin235-node-4
+    container_name: raft-node-4
     networks:
-      daijin235-net:
+      raftkv-net:
         aliases:
           - node-4
     environment:
@@ -133,9 +133,9 @@ services:
 
   node-5:
     image: ${IMAGE_NAME}
-    container_name: daijin235-node-5
+    container_name: raft-node-5
     networks:
-      daijin235-net:
+      raftkv-net:
         aliases:
           - node-5
     environment:
@@ -159,7 +159,7 @@ services:
       start_period: 15s
 
 networks:
-  daijin235-net:
+  raftkv-net:
     driver: bridge
 
 volumes:

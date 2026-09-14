@@ -396,7 +396,7 @@ func (s *Scheduler) executeDiskFull(scenarioID string) (*ScenarioResult, error) 
 		return result, fmt.Errorf("no followers available: %v", err)
 	}
 	targetNode := followers[0]
-	container := fmt.Sprintf("daijin235-%s", targetNode)
+	container := fmt.Sprintf("raft-%s", targetNode)
 	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "target_follower", NodeID: targetNode})
 
 	snapshots, _ := s.nodeCtl.SnapshotConfirmedEntries(leaderID, 20)
@@ -471,7 +471,7 @@ func indexOf(s, substr string) int {
 	return -1
 }
 
-const networkName = "deploy5_daijin235-net"
+const networkName = "deploy5_raft-net"
 
 func (s *Scheduler) executeNetworkPartition(scenarioID string) (*ScenarioResult, error) {
 	result := &ScenarioResult{ScenarioID: scenarioID, ScenarioType: "network_partition"}
@@ -695,7 +695,7 @@ func (s *Scheduler) executeCompositePartitionDiskFull(scenarioID string) (*Scena
 	}
 	timeline = append(timeline, TimelineEvent{Timestamp: time.Now(), EventType: "nodes_disconnected", Detail: fmt.Sprintf("%v", partitionedNodes)})
 
-	diskContainer := fmt.Sprintf("daijin235-%s", diskFullTarget)
+	diskContainer := fmt.Sprintf("raft-%s", diskFullTarget)
 	if err := s.diskCtl.InjectDiskFull(diskContainer, "soft"); err != nil {
 		log.Printf("[composite] disk_full inject failed: %v", err)
 	} else {

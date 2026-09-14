@@ -113,7 +113,7 @@
 - `DefaultPipelineConfig`：pipeline 默认配置（含 WAL/Sink 开关、阈值）。
 - 配置项：`WAL_ENABLE`(line 391)、`WAL_PATH`(394)、`SINK_ENABLE`(398)、`SINK_DSN`(402)、`SINK_TABLE`(405)。
 - `OnCommit`：commit 回调，已挂快照触发（`WAL_SNAPSHOT_THRESHOLD` 默认 10000，`f4_git.sh:19`）。
-- SM4Key 单点：`raft_pipeline.go:53` 硬编码 `"daijin235_012345"`（安全 P1，本批次不动）。
+- SM4Key 单点：`raft_pipeline.go:53` 硬编码 `"test_sm4_key_0123"`（安全 P1，本批次不动）。
 
 **业务规则**：
 - 既有 group commit 攒批层：请求到达后攒批，窗口触发后批量提交。spec.md 术语"攒批窗口空等"指无请求时窗口空转等待，可能引入超时形态失败——batch11 成功率 99.40%~99.97% 的可能成因之一。
@@ -1123,7 +1123,7 @@ title 复工前置流程（spec.md 5.0）
 start
 :切换工作目录至 D 盘仓库 (唯一活仓库, spec.md 4.2.9);
 partition "5.0.1 bundle 全量备份" {
-  :git bundle create ../daijin235-v24-backup-pre-batch12.bundle --all;
+  :git bundle create ../raftkv-v24-backup-pre-batch12.bundle --all;
   :git bundle verify 验证可读;
   if (bundle 验证通过?) then (否)
     :A 级停机项 (spec.md 5.0.1 异常)\n落盘 decisions.md, 停机等面审;
@@ -1164,12 +1164,12 @@ stop
 **目标**：开工前在 D 盘仓库执行 git bundle 全量备份，验证可读后作为全量回滚安全垫。
 
 **备份命令**：
-- `git bundle create ../daijin235-v24-backup-pre-batch12.bundle --all`：落盘全量备份至仓库上级目录，包含全量分支与 tag。
-- 备份产物：`../daijin235-v24-backup-pre-batch12.bundle`（spec.md 1.3.1 核心输出）。
+- `git bundle create ../raftkv-v24-backup-pre-batch12.bundle --all`：落盘全量备份至仓库上级目录，包含全量分支与 tag。
+- 备份产物：`../raftkv-v24-backup-pre-batch12.bundle`（spec.md 1.3.1 核心输出）。
 
 **验证可读**：
-- `git bundle verify ../daijin235-v24-backup-pre-batch12.bundle`：验证 bundle 可读。
-- 或 `git clone ../daijin235-v24-backup-pre-batch12.bundle /tmp/verify-bundle`：clone 测试验证可读。
+- `git bundle verify ../raftkv-v24-backup-pre-batch12.bundle`：验证 bundle 可读。
+- 或 `git clone ../raftkv-v24-backup-pre-batch12.bundle /tmp/verify-bundle`：clone 测试验证可读。
 
 **验收条件**（spec.md 5.0.1）：
 - bundle 文件已生成且包含全量分支与 tag。

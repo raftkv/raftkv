@@ -24,7 +24,7 @@ func sm3Like(data []byte) string {
 }
 
 func main() {
-	prevHash := sm3Like([]byte("岱境235创世区块"))
+	prevHash := sm3Like([]byte("RaftKV创世区块"))
 	chainInput := "当前状态数据" + prevHash
 	currHash := sm3Like([]byte(chainInput))
 

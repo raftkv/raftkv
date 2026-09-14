@@ -1,5 +1,5 @@
 #!/bin/bash
-# 岱境235 V2.2-S mTLS 证书生成脚本（红线2：部署前必须先执行 bash gen_certs.sh）
+# RaftKV V2.2-S mTLS 证书生成脚本（红线2：部署前必须先执行 bash gen_certs.sh）
 set -euo pipefail
 CERT_DIR="${CERT_DIR:-./certs}"
 NODES="${NODES:-node-1 node-2 node-3 node-4 node-5}"
@@ -8,7 +8,7 @@ mkdir -p "$CERT_DIR"
 cd "$CERT_DIR"
 if [ ! -f ca-key.pem ]; then
   openssl genrsa -out ca-key.pem 4096 2>/dev/null
-  openssl req -new -x509 -key ca-key.pem -out ca-cert.pem -days "$DAYS" -subj "/CN=daijin235-ca" 2>/dev/null
+  openssl req -new -x509 -key ca-key.pem -out ca-cert.pem -days "$DAYS" -subj "/CN=raft-ca" 2>/dev/null
   echo "✅ CA 证书已生成 (ca-cert.pem / ca-key.pem)"
 fi
 for node in $NODES; do

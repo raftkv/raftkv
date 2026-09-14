@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# manage_node.sh — 岱境235 集群节点一键扩缩容管理脚本
+# manage_node.sh — RaftKV 集群节点一键扩缩容管理脚本
 #
 # 功能:
 #   add <node_id> <grpc_port> <http_port> <host>
@@ -35,7 +35,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # 默认配置
-BASE_DIR="${DAIJIN_BASE_DIR:-/root/daijin235_cluster}"
+BASE_DIR="${DAIJIN_BASE_DIR:-/root/raftkv_cluster}"
 CONFIG_FILE="${DAIJIN_CONFIG:-config.toml}"
 DAEMON_SCRIPT="daemon.sh"
 
@@ -52,7 +52,7 @@ NODE_GRPC_PORT[node-5]=9605;  NODE_HTTP_PORT[node-5]=9105
 KNOWN_NODES=("node-1" "node-2" "node-3" "node-4" "node-5")
 
 usage() {
-    echo -e "${CYAN}岱境235 集群节点管理工具${NC}"
+    echo -e "${CYAN}RaftKV 集群节点管理工具${NC}"
     echo ""
     echo -e "用法:"
     echo -e "  ${GREEN}bash manage_node.sh list${NC}                          列出当前集群节点"
@@ -149,7 +149,7 @@ cmd_add() {
     echo "  GRPC_PORT=$new_grpc \\"
     echo "  HTTP_PORT=$new_http \\"
     echo "  PEERS=\"$peers\" \\"
-    echo "  $BASE_DIR/daijin235_gateway &"
+    echo "  $BASE_DIR/raftkv_gateway &"
     echo ""
 
     # 生成需要更新的现有节点 PEERS
@@ -170,7 +170,7 @@ cmd_add() {
     echo "  2. 逐个重启现有节点 (每节点间隔10秒):"
     for node in "${KNOWN_NODES[@]}"; do
         if [ "$node" != "$new_id" ]; then
-            echo "     docker restart daijin235-gw-${node#node-}"
+            echo "     docker restart raftkv-gw-${node#node-}"
         fi
     done
     echo "  3. 等待15秒, 验证集群状态"
@@ -221,8 +221,8 @@ cmd_remove() {
     # 生成更新后的 PEERS
     echo -e "${YELLOW}[1] 停止目标节点:${NC}"
     echo ""
-    echo "  docker stop daijin235-gw-${target#node-}"
-    echo "  docker rm daijin235-gw-${target#node-}"
+    echo "  docker stop raftkv-gw-${target#node-}"
+    echo "  docker rm raftkv-gw-${target#node-}"
     echo ""
 
     echo -e "${YELLOW}[2] 更新剩余节点 PEERS (移除 $target):${NC}"
@@ -237,7 +237,7 @@ cmd_remove() {
     echo ""
     echo "  逐个重启 (每节点间隔10秒):"
     for node in "${KNOWN_NODES[@]}"; do
-        echo "    docker restart daijin235-gw-${node#node-}"
+        echo "    docker restart raftkv-gw-${node#node-}"
     done
     echo "  等待15秒, 验证集群状态"
     echo ""

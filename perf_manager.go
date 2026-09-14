@@ -31,7 +31,7 @@ func NewV24PerfManager() *V24PerfManager {
 
 	walPath := os.Getenv("V24_WAL_PATH")
 	if walPath == "" {
-		walPath = "/tmp/daijin235_v24_compact.wal"
+		walPath = "/tmp/raftkv_v24_compact.wal"
 	}
 	cw, err := NewCompactWAL(walPath)
 	if err != nil {

@@ -192,9 +192,9 @@
 - **依赖**: T2.1
 - **并行**: 可与 T2.2b/T2.4/T2.5 并行
 - **动作**:
-  1. 在 `cmd/chaos_injector/node_ctl.go` 中实现 `NodeController` 结构体（containerPrefix="daijin235-node-", httpPortBase=9001）
-  2. 实现 `KillNode(nodeID)`：`docker kill --signal=9 daijin235-node-N`，确认进程在 ≤1s 内终止
-  3. 实现 `RestartNode(nodeID)`：`docker start daijin235-node-N`，WAL 卷保留
+  1. 在 `cmd/chaos_injector/node_ctl.go` 中实现 `NodeController` 结构体（containerPrefix="raft-node-", httpPortBase=9001）
+  2. 实现 `KillNode(nodeID)`：`docker kill --signal=9 raft-node-N`，确认进程在 ≤1s 内终止
+  3. 实现 `RestartNode(nodeID)`：`docker start raft-node-N`，WAL 卷保留
   4. 实现 `WaitNodeHealthy(nodeID, timeout=30s)`：轮询 `http://localhost:900{N}/health/live` 返回 200，最长 30s
   5. Docker CLI 调用通过 `os/exec`，捕获 stderr 输出
 - **输出**: `cmd/chaos_injector/node_ctl.go`（Docker 操作部分）

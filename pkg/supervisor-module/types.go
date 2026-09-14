@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module05 — 工业级自愈与进程守护系统
+// RaftKV Module05 — 工业级自愈与进程守护系统
 //
 // 文件：types.go
 // 职责：枚举（WorkerMode / WorkerState / CrashReason / SupervisorState）+

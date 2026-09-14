@@ -104,16 +104,16 @@
 ### 1.2.3 `docker-compose-5node.yml` 集群编排
 
 **接口契约**：
-- 容器名：`daijin235-node-1` 到 `daijin235-node-5`
+- 容器名：`raft-node-1` 到 `raft-node-5`
 - 容器内端口：HTTP 9000, gRPC 9500
 - Host 端口映射（via ports overlay）：9001-9005 → 9000, 9501-9505 → 9500
 - 健康检查：`curl -f http://localhost:9000/health/live`，5s 间隔，5 次重试，15s 启动宽限
-- 镜像：`${IMAGE_NAME}`（当前 `daijin235-v26:batch20`）
+- 镜像：`${IMAGE_NAME}`（当前 `raftkv:latest`）
 - WAL 持久化卷：`wal-node-1` 到 `wal-node-5`
 
 **业务规则**：
-- `docker kill --signal=9 daijin235-node-N` 终止节点 N（SIGKILL）
-- `docker start daijin235-node-N` 重启节点 N（容器内进程重新初始化，WAL 卷保留）
+- `docker kill --signal=9 raft-node-N` 终止节点 N（SIGKILL）
+- `docker start raft-node-N` 重启节点 N（容器内进程重新初始化，WAL 卷保留）
 - 重启后节点从 WAL 恢复，重新加入集群成为 follower
 
 **约束**：
@@ -183,7 +183,7 @@ skinparam ArrowFontColor #00d4ff
 
 rectangle "测试指挥官\n(用户)" as Commander
 rectangle "chaos_injector\n(Go主工具)" as FI_Tool
-rectangle "5节点Raft集群\n(daijin235-node-1..5)" as Cluster
+rectangle "5节点Raft集群\n(raft-node-1..5)" as Cluster
 rectangle "loadgen\n(负载驱动器)" as LoadGen
 rectangle "Docker引擎\n(docker kill/start)" as Docker
 rectangle "judge_batch21.py\n(Python判定脚本)" as Judge
@@ -273,7 +273,7 @@ Judge --> Verdict : "逐字段对照产出"
 | 配置项 | 取值 | 来源 |
 |--------|------|------|
 | 集群节点数 | 5 | 固定（docker-compose-5node） |
-| 容器名前缀 | `daijin235-node-` | docker-compose-5node.yml |
+| 容器名前缀 | `raft-node-` | docker-compose-5node.yml |
 | HTTP 端口基址 | 9001-9005 | docker-compose-5node-ports.yml |
 | leader 查询端点 | `/raft/status`（JSON） | main.go:288 |
 | 选举轮询间隔 | 100ms | spec 4.1 性能约束 |
@@ -442,7 +442,7 @@ chaos_injector \
 **接口签名**：
 ```go
 type NodeController struct {
-    containerPrefix string  // "daijin235-node-"
+    containerPrefix string  // "raft-node-"
     httpPortBase    int     // 9001
     httpClient      *http.Client
 }
@@ -473,7 +473,7 @@ func (nc *NodeController) VerifyEntrySurvival(newLeaderID string, snapshots []En
 
 **调用示例**：
 ```go
-nc := NewNodeController("daijin235-node-", 9001)
+nc := NewNodeController("raft-node-", 9001)
 leaderID, _ := nc.QueryLeader()
 nc.KillNode(leaderID)
 // ... 等待选举 ...
@@ -919,7 +919,7 @@ timebox:
 **初始内容设计**：
 
 ```markdown
-# 岱境235 挂账台账
+# RaftKV 挂账台账
 
 > 格式: [欠账ID/来源批次/应清批次/状态]
 > 状态: 待清 / 已清偿 / 到期未清

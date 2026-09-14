@@ -15,7 +15,12 @@ import (
 	"time"
 )
 
-const defaultPrivateKeyPath = `<ARCHIVE>\岱境235_RSA密钥备份\daijin235_rsa_private.pem`
+func defaultPrivateKeyPath() string {
+	if p := os.Getenv("RSA_PRIVATE_KEY_PATH"); p != "" {
+		return p
+	}
+	return "private.pem"
+}
 
 var licenseFieldOrder = []string{
 	"LICENSE_ID", "PRODUCT", "TYPE", "ISSUED_TO",
@@ -27,15 +32,15 @@ var licenseFieldOrder = []string{
 func main() {
 	fmt.Println()
 	fmt.Println("╔══════════════════════════════════════════════════════════╗")
-	fmt.Println("║  岱境235 正式商业授权密钥生成工具 (License Tool)          ║")
+	fmt.Println("║  RaftKV 正式商业授权密钥生成工具 (License Tool)          ║")
 	fmt.Println("║  RSA-2048 / SHA256 非对称数字签名                        ║")
 	fmt.Println("╚══════════════════════════════════════════════════════════╝")
 	fmt.Println()
 
 	reader := bufio.NewReader(os.Stdin)
 
-	privateKeyPath := defaultPrivateKeyPath
-	fmt.Printf("私钥文件路径 [默认: %s]:\n> ", defaultPrivateKeyPath)
+	privateKeyPath := defaultPrivateKeyPath()
+	fmt.Printf("私钥文件路径 [默认: %s]:\n> ", defaultPrivateKeyPath())
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		privateKeyPath = strings.TrimSpace(input)
 	}
@@ -97,7 +102,7 @@ func main() {
 
 	fields := map[string]string{
 		"LICENSE_ID":        licenseID,
-		"PRODUCT":           "岱境235_微内核模块化商业组件",
+		"PRODUCT":           "RaftKV_微内核模块化商业组件",
 		"TYPE":              "COMMERCIAL",
 		"ISSUED_TO":         issuedTo,
 		"ISSUED_AT":         now.Format("2006-01-02"),
@@ -107,7 +112,7 @@ func main() {
 		"HARDWARE_BINDING":  fingerprint,
 		"GRACE_PERIOD_DAYS": "7",
 		"SIGNATURE_ALG":     "RSA-2048-SHA256",
-		"ISSUER":            "岱境235 商业授权中心",
+		"ISSUER":            "RaftKV 商业授权中心",
 		"CONTACT":           "授权咨询请联系我方商务团队",
 	}
 
@@ -131,7 +136,7 @@ func main() {
 
 	var licenseFile strings.Builder
 	licenseFile.WriteString("# ============================================================\n")
-	licenseFile.WriteString("#  岱境235 正式商业授权密钥 (COMMERCIAL LICENSE KEY)\n")
+	licenseFile.WriteString("#  RaftKV 正式商业授权密钥 (COMMERCIAL LICENSE KEY)\n")
 	licenseFile.WriteString("# ============================================================\n")
 	licenseFile.WriteString("#  本密钥绑定硬件指纹，具备完整法律效力。\n")
 	licenseFile.WriteString("#  任何篡改将导致 RSA 签名验证失败。\n")

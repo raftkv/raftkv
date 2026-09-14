@@ -4,7 +4,7 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  56.69MB
+Sending build context to Docker daemon  56.69MB
 Step 1/17 : FROM golang:1.24-alpine AS builder
  ---> 8bee1901f1e5
 Step 2/17 : ENV GOPROXY=https://goproxy.cn,direct
@@ -55,6 +55,6 @@ Step 17/17 : ENTRYPOINT ["./gateway"]
  ---> Using cache
  ---> 8bb36e2b61e4
 Successfully built 8bb36e2b61e4
-Successfully tagged daijin235-v26:ci-knife
+Successfully tagged raftkv-v26:ci-knife
 [build] key leak scan...
 key leak hits: 0

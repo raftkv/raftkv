@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 — Raft 管线全链路集成测试
+// RaftKV — Raft 管线全链路集成测试
 //
 // 验证: Raft commit → SM4-CTR 加密 WAL → TiDB/MySQL 异步落盘
 //
@@ -16,14 +16,14 @@ import (
 	"testing"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 
-	"daijin235/pkg/adapters"
+	"raftkv/pkg/adapters"
 )
 
 func TestPipelineFullChain(t *testing.T) {
 	t.Log("══════════════════════════════════════════════════")
-	t.Log("  岱境235 Raft 管线全链路集成测试")
+	t.Log("  RaftKV Raft 管线全链路集成测试")
 	t.Log("  Raft commit → SM4-CTR WAL → MySQL 异步落盘")
 	t.Log("══════════════════════════════════════════════════")
 
@@ -35,7 +35,7 @@ func TestPipelineFullChain(t *testing.T) {
 
 	sinkCfg := adapters.SinkConfig{
 		Enable:        true,
-		DSN:           "root:CHANGE_ME@tcp(127.0.0.1:3306)/daijin235_logs?charset=utf8mb4&parseTime=true&loc=Local",
+		DSN:           "root:CHANGE_ME@tcp(127.0.0.1:3306)/raftkv_logs?charset=utf8mb4&parseTime=true&loc=Local",
 		BatchSize:     100,
 		FlushInterval: 200 * time.Millisecond,
 		ChannelSize:   4096,
@@ -48,7 +48,7 @@ func TestPipelineFullChain(t *testing.T) {
 	pipelineCfg := PipelineConfig{
 		EnableWAL:  true,
 		WALPath:    walPath,
-		SM4Key:     []byte("daijin235_012345"), // 16 字节
+		SM4Key:     []byte("raftkv_sm4test01"), // 16 字节
 		EnableSink: true,
 		SinkConfig: sinkCfg,
 	}
@@ -155,7 +155,7 @@ func TestPipelineFullChain(t *testing.T) {
 	replayCfg := PipelineConfig{
 		EnableWAL:  true,
 		WALPath:    walPath,
-		SM4Key:     []byte("daijin235_012345"), // 16 字节
+		SM4Key:     []byte("raftkv_sm4test01"), // 16 字节
 		EnableSink: false,
 	}
 	replayPipeline, err := NewRaftPipeline(replayCfg)
@@ -188,7 +188,7 @@ func TestPipelineFullChain(t *testing.T) {
 		node2.SetOnCommit(pipeline2.OnCommit)
 
 		t.Log("  → 停止 MySQL 容器...")
-		exec.Command("docker", "stop", "daijin235-mysql").Run()
+		exec.Command("docker", "stop", "raftkv-mysql").Run()
 		time.Sleep(3 * time.Second)
 
 		t.Log("  → MySQL 已停，提交 30 条日志...")
@@ -212,7 +212,7 @@ func TestPipelineFullChain(t *testing.T) {
 		t.Logf("  ✅ 30 条提交完成，耗时: %v (零阻塞)", elapsed)
 
 		t.Log("  → 恢复 MySQL 容器...")
-		exec.Command("docker", "start", "daijin235-mysql").Run()
+		exec.Command("docker", "start", "raftkv-mysql").Run()
 		time.Sleep(5 * time.Second)
 
 		t.Log("  → 等待 fallback 自动追平 (5s)...")

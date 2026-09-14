@@ -1,4 +1,4 @@
-﻿$csv = '<ARCHIVE>\V2.4_Performance_Sandbox\tests\auto\auto-run-20260910-040350\phase4_mem.csv'
+﻿$csv = '.\tests\auto\auto-run-20260910-040350\phase4_mem.csv'
 $lines = Get-Content $csv | Select-Object -Skip 1
 $nodePeaks = @{}
 $globalPeak = 0

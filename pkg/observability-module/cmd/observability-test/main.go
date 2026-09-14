@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module04 — 微秒级原生可观测性底座（Latency 直采引擎）
+// RaftKV Module04 — 微秒级原生可观测性底座（Latency 直采引擎）
 //
 // cmd/observability-test/main.go — 独立沙箱验证测试程序
 //
@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	obs "daijin235/observability-module"
+	obs "raftkv/observability-module"
 )
 
 // -------------------------------------------------------------------------
@@ -66,7 +66,7 @@ func info(format string, args ...interface{}) {
 
 func header() {
 	fmt.Printf("%s%s\n", cyan, strings.Repeat("═", 64))
-	fmt.Printf("🚀 %s岱境235 Module04 — 微秒级原生可观测性底座（Latency 直采引擎）%s\n", bold, reset)
+	fmt.Printf("🚀 %sRaftKV Module04 — 微秒级原生可观测性底座（Latency 直采引擎）%s\n", bold, reset)
 	fmt.Printf("%s%s\n", cyan, strings.Repeat("═", 64))
 	fmt.Printf("  %s🔑 零外部依赖%s | %s🔒 纯标准库%s | %s⚡ 微秒级直采%s | %s📊 P50/P90/P99/P999%s\n",
 		cyan, reset, cyan, reset, cyan, reset, cyan, reset)

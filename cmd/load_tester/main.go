@@ -112,7 +112,7 @@ func main() {
 	}
 
 	fmt.Printf("============================================================\n")
-	fmt.Printf("  岱境235 工业级极限负载压测工具\n")
+	fmt.Printf("  RaftKV 工业级极限负载压测工具\n")
 	fmt.Printf("============================================================\n")
 	fmt.Printf("  目标地址     : %s\n", *target)
 	fmt.Printf("  并发数       : %d goroutines\n", *concurrency)

@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 )
 
 var fiveNodeAddrs = []string{
@@ -79,7 +79,7 @@ func BenchmarkRealGRPC16Clients(b *testing.B) {
 		clients[i] = clientInfo{client: c, conn: conn, addr: addr}
 	}
 
-	b.Logf("=== 岱境235 真实gRPC压力测试（5节点集群）===")
+	b.Logf("=== RaftKV 真实gRPC压力测试（5节点集群）===")
 	b.Logf("并发客户端数: %d", concurrency)
 	b.Logf("每客户端请求数: %d", requestsPerClient)
 	b.Logf("目标节点: %v", fiveNodeAddrs)
@@ -170,7 +170,7 @@ func BenchmarkRealGRPC16Clients(b *testing.B) {
 	}
 
 	b.Logf("========================================")
-	b.Logf("=== 岱境235 真实gRPC压力测试结果（5节点）===")
+	b.Logf("=== RaftKV 真实gRPC压力测试结果（5节点）===")
 	b.Logf("========================================")
 	b.Logf("总请求数:     %d", totalReqs)
 	b.Logf("成功:         %d", totalSuccess)

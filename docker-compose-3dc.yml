@@ -1,5 +1,5 @@
 # =========================================================================
-# 岱境235 跨機房容災模擬 — 9節點3子網Raft集群
+# RaftKV 跨機房容災模擬 — 9節點3子網Raft集群
 #
 # 拓撲:
 #   DC1 (10.1.0.0/24): dc1-n1, dc1-n2, dc1-n3
@@ -21,14 +21,14 @@ services:
 
   # ==================== DC1 — 機房1 ====================
   dc1-n1:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc1-n1
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc1-n1
     restart: always
     environment:
       NODE_ID: dc1-n1
       GRPC_PORT: "9700"
       HTTP_PORT: "9000"
-      PEERS: dc1-n2=daijin235-dc1-n2:9701,dc1-n3=daijin235-dc1-n3:9702,dc2-n1=daijin235-dc2-n1:9710,dc2-n2=daijin235-dc2-n2:9711,dc2-n3=daijin235-dc2-n3:9712,dc3-n1=daijin235-dc3-n1:9720,dc3-n2=daijin235-dc3-n2:9721,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n2=raftkv-dc1-n2:9701,dc1-n3=raftkv-dc1-n3:9702,dc2-n1=raftkv-dc2-n1:9710,dc2-n2=raftkv-dc2-n2:9711,dc2-n3=raftkv-dc2-n3:9712,dc3-n1=raftkv-dc3-n1:9720,dc3-n2=raftkv-dc3-n2:9721,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9700:9700"
       - "9201:9000"
@@ -44,14 +44,14 @@ services:
       start_period: 15s
 
   dc1-n2:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc1-n2
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc1-n2
     restart: always
     environment:
       NODE_ID: dc1-n2
       GRPC_PORT: "9701"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n3=daijin235-dc1-n3:9702,dc2-n1=daijin235-dc2-n1:9710,dc2-n2=daijin235-dc2-n2:9711,dc2-n3=daijin235-dc2-n3:9712,dc3-n1=daijin235-dc3-n1:9720,dc3-n2=daijin235-dc3-n2:9721,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n3=raftkv-dc1-n3:9702,dc2-n1=raftkv-dc2-n1:9710,dc2-n2=raftkv-dc2-n2:9711,dc2-n3=raftkv-dc2-n3:9712,dc3-n1=raftkv-dc3-n1:9720,dc3-n2=raftkv-dc3-n2:9721,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9701:9701"
       - "9202:9000"
@@ -67,14 +67,14 @@ services:
       start_period: 15s
 
   dc1-n3:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc1-n3
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc1-n3
     restart: always
     environment:
       NODE_ID: dc1-n3
       GRPC_PORT: "9702"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n2=daijin235-dc1-n2:9701,dc2-n1=daijin235-dc2-n1:9710,dc2-n2=daijin235-dc2-n2:9711,dc2-n3=daijin235-dc2-n3:9712,dc3-n1=daijin235-dc3-n1:9720,dc3-n2=daijin235-dc3-n2:9721,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n2=raftkv-dc1-n2:9701,dc2-n1=raftkv-dc2-n1:9710,dc2-n2=raftkv-dc2-n2:9711,dc2-n3=raftkv-dc2-n3:9712,dc3-n1=raftkv-dc3-n1:9720,dc3-n2=raftkv-dc3-n2:9721,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9702:9702"
       - "9203:9000"
@@ -91,14 +91,14 @@ services:
 
   # ==================== DC2 — 機房2 ====================
   dc2-n1:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc2-n1
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc2-n1
     restart: always
     environment:
       NODE_ID: dc2-n1
       GRPC_PORT: "9710"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n2=daijin235-dc1-n2:9701,dc1-n3=daijin235-dc1-n3:9702,dc2-n2=daijin235-dc2-n2:9711,dc2-n3=daijin235-dc2-n3:9712,dc3-n1=daijin235-dc3-n1:9720,dc3-n2=daijin235-dc3-n2:9721,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n2=raftkv-dc1-n2:9701,dc1-n3=raftkv-dc1-n3:9702,dc2-n2=raftkv-dc2-n2:9711,dc2-n3=raftkv-dc2-n3:9712,dc3-n1=raftkv-dc3-n1:9720,dc3-n2=raftkv-dc3-n2:9721,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9710:9710"
       - "9211:9000"
@@ -114,14 +114,14 @@ services:
       start_period: 15s
 
   dc2-n2:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc2-n2
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc2-n2
     restart: always
     environment:
       NODE_ID: dc2-n2
       GRPC_PORT: "9711"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n2=daijin235-dc1-n2:9701,dc1-n3=daijin235-dc1-n3:9702,dc2-n1=daijin235-dc2-n1:9710,dc2-n3=daijin235-dc2-n3:9712,dc3-n1=daijin235-dc3-n1:9720,dc3-n2=daijin235-dc3-n2:9721,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n2=raftkv-dc1-n2:9701,dc1-n3=raftkv-dc1-n3:9702,dc2-n1=raftkv-dc2-n1:9710,dc2-n3=raftkv-dc2-n3:9712,dc3-n1=raftkv-dc3-n1:9720,dc3-n2=raftkv-dc3-n2:9721,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9711:9711"
       - "9212:9000"
@@ -137,14 +137,14 @@ services:
       start_period: 15s
 
   dc2-n3:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc2-n3
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc2-n3
     restart: always
     environment:
       NODE_ID: dc2-n3
       GRPC_PORT: "9712"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n2=daijin235-dc1-n2:9701,dc1-n3=daijin235-dc1-n3:9702,dc2-n1=daijin235-dc2-n1:9710,dc2-n2=daijin235-dc2-n2:9711,dc3-n1=daijin235-dc3-n1:9720,dc3-n2=daijin235-dc3-n2:9721,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n2=raftkv-dc1-n2:9701,dc1-n3=raftkv-dc1-n3:9702,dc2-n1=raftkv-dc2-n1:9710,dc2-n2=raftkv-dc2-n2:9711,dc3-n1=raftkv-dc3-n1:9720,dc3-n2=raftkv-dc3-n2:9721,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9712:9712"
       - "9213:9000"
@@ -161,14 +161,14 @@ services:
 
   # ==================== DC3 — 機房3 ====================
   dc3-n1:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc3-n1
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc3-n1
     restart: always
     environment:
       NODE_ID: dc3-n1
       GRPC_PORT: "9720"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n2=daijin235-dc1-n2:9701,dc1-n3=daijin235-dc1-n3:9702,dc2-n1=daijin235-dc2-n1:9710,dc2-n2=daijin235-dc2-n2:9711,dc2-n3=daijin235-dc2-n3:9712,dc3-n2=daijin235-dc3-n2:9721,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n2=raftkv-dc1-n2:9701,dc1-n3=raftkv-dc1-n3:9702,dc2-n1=raftkv-dc2-n1:9710,dc2-n2=raftkv-dc2-n2:9711,dc2-n3=raftkv-dc2-n3:9712,dc3-n2=raftkv-dc3-n2:9721,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9720:9720"
       - "9221:9000"
@@ -184,14 +184,14 @@ services:
       start_period: 15s
 
   dc3-n2:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc3-n2
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc3-n2
     restart: always
     environment:
       NODE_ID: dc3-n2
       GRPC_PORT: "9721"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n2=daijin235-dc1-n2:9701,dc1-n3=daijin235-dc1-n3:9702,dc2-n1=daijin235-dc2-n1:9710,dc2-n2=daijin235-dc2-n2:9711,dc2-n3=daijin235-dc2-n3:9712,dc3-n1=daijin235-dc3-n1:9720,dc3-n3=daijin235-dc3-n3:9722
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n2=raftkv-dc1-n2:9701,dc1-n3=raftkv-dc1-n3:9702,dc2-n1=raftkv-dc2-n1:9710,dc2-n2=raftkv-dc2-n2:9711,dc2-n3=raftkv-dc2-n3:9712,dc3-n1=raftkv-dc3-n1:9720,dc3-n3=raftkv-dc3-n3:9722
     ports:
       - "9721:9721"
       - "9222:9000"
@@ -207,14 +207,14 @@ services:
       start_period: 15s
 
   dc3-n3:
-    image: daijin235-gateway:latest
-    container_name: daijin235-dc3-n3
+    image: raftkv-gateway:latest
+    container_name: raftkv-dc3-n3
     restart: always
     environment:
       NODE_ID: dc3-n3
       GRPC_PORT: "9722"
       HTTP_PORT: "9000"
-      PEERS: dc1-n1=daijin235-dc1-n1:9700,dc1-n2=daijin235-dc1-n2:9701,dc1-n3=daijin235-dc1-n3:9702,dc2-n1=daijin235-dc2-n1:9710,dc2-n2=daijin235-dc2-n2:9711,dc2-n3=daijin235-dc2-n3:9712,dc3-n1=daijin235-dc3-n1:9720,dc3-n2=daijin235-dc3-n2:9721
+      PEERS: dc1-n1=raftkv-dc1-n1:9700,dc1-n2=raftkv-dc1-n2:9701,dc1-n3=raftkv-dc1-n3:9702,dc2-n1=raftkv-dc2-n1:9710,dc2-n2=raftkv-dc2-n2:9711,dc2-n3=raftkv-dc2-n3:9712,dc3-n1=raftkv-dc3-n1:9720,dc3-n2=raftkv-dc3-n2:9721
     ports:
       - "9722:9722"
       - "9223:9000"

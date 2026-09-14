@@ -1,11 +1,11 @@
 # =========================================================================
-# 岱境235 一键部署 — 5节点Raft集群
+# RaftKV 一键部署 — 5节点Raft集群
 # 启动: docker-compose -f docker-compose-edge.yml up -d
 # 停止: docker-compose -f docker-compose-edge.yml down
 # =========================================================================
 services:
   node-1:
-    image: daijin235-edge:latest
+    image: raftkv-edge:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m
@@ -19,7 +19,7 @@ services:
     networks: [edge-net]
 
   node-2:
-    image: daijin235-edge:latest
+    image: raftkv-edge:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m
@@ -33,7 +33,7 @@ services:
     networks: [edge-net]
 
   node-3:
-    image: daijin235-edge:latest
+    image: raftkv-edge:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m
@@ -47,7 +47,7 @@ services:
     networks: [edge-net]
 
   node-4:
-    image: daijin235-edge:latest
+    image: raftkv-edge:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m
@@ -61,7 +61,7 @@ services:
     networks: [edge-net]
 
   node-5:
-    image: daijin235-edge:latest
+    image: raftkv-edge:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m

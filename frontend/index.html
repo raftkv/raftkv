@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>岱境235 · 确定性管控中枢</title>
+<title>RaftKV · 确定性管控中枢</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
 /* ============================================================
-   岱境235 · 确定性管控中枢 — 基础骨架与CSS布局
+   RaftKV · 确定性管控中枢 — 基础骨架与CSS布局
    配色：虚空黑 + 确定性蓝(cy) + 精度金(gd) + 准确率紫(pr)
    6 面板布局：左2 + 中2 + 右2，上下错落，暗黑科技风
    响应式设计：大屏三列 / 中屏两列 / 小屏单列
@@ -1251,7 +1251,7 @@ body {
      ============================================================ -->
 <script>
 /* ============================================================
-   岱境235 · 数据模型 & 仿真引擎
+   RaftKV · 数据模型 & 仿真引擎
    16 DIE · 7步精度/准确率衰减 · 混沌注入测试
    ============================================================ */
 (function() {
@@ -2427,7 +2427,7 @@ function exportAuditPDF() {
   var chain = SM3Chain.records;
   if (chain.length === 0) { alert('暂无审计日志可导出'); return; }
   var now = new Date().toISOString().substring(0, 19).replace(/:/g, '-');
-  var html2 = '<html><head><meta charset="UTF-8"><title>岱境235 SM3审计日志</title><style>' +
+  var html2 = '<html><head><meta charset="UTF-8"><title>RaftKV SM3审计日志</title><style>' +
     'body{font:10px "JetBrains Mono",monospace;padding:16px;background:#000510;color:#d0d8ff}' +
     'h1{color:#ffd740;font-size:16px;border-bottom:1px solid rgba(255,215,64,.3);padding-bottom:6px}' +
     'h1 span{font-size:10px;color:#3a5470;margin-left:10px}' +
@@ -2439,7 +2439,7 @@ function exportAuditPDF() {
     '@media print{body{padding:10px;background:#fff;color:#000}h1{color:#000}th{background:#eee;color:#000}td{border-bottom:1px solid #ddd}.hash{font-size:6px}}' +
     '</style></head><body>' +
     '<!-- toast inserted by app -->' +
-    '<h1>岱境235 · SM3哈希链审计日志 <span>Export: ' + now + ' | Records: ' + chain.length + '</span></h1>' +
+    '<h1>RaftKV · SM3哈希链审计日志 <span>Export: ' + now + ' | Records: ' + chain.length + '</span></h1>' +
     '<table><tr><th>#</th><th>Timestamp</th><th>Action</th><th>Description</th><th>PrevHash</th><th>CurrHash</th></tr>';
   for (var i = chain.length - 1; i >= 0; i--) {
     var r = chain[i];
@@ -2447,7 +2447,7 @@ function exportAuditPDF() {
              '<td class="hash">' + r.previousHash + '</td><td class="hash">' + r.currentHash + '</td></tr>';
   }
   html2 += '</table><p style="font-size:8px;color:#3a5470;margin-top:10px">Chain integrity: ' +
-           (SM3Chain.verify().valid ? 'VERIFIED ✓' : 'FAILED ✗') + ' | SM3 (GM/T 0004-2012) | 岱境235管控中枢</p></body></html>';
+           (SM3Chain.verify().valid ? 'VERIFIED ✓' : 'FAILED ✗') + ' | SM3 (GM/T 0004-2012) | RaftKV管控中枢</p></body></html>';
   var w = window.open('', '_blank');
   w.document.write(html2);
   w.document.close();
@@ -2458,7 +2458,7 @@ function exportAuditPDF() {
 
 
 // =====================================================
-// Backend API Client — 岱境235 Go 分布式后端对接
+// Backend API Client — RaftKV Go 分布式后端对接
 // =====================================================
 var API_BASE = 'http://localhost:9001';
 
@@ -2733,7 +2733,7 @@ function exportEventPDF() {
     'th{background:rgba(255,215,64,.1);color:#ffd740;padding:4px 6px;text-align:left;font-size:9px}'+
     'td{padding:3px 6px;border-bottom:1px solid rgba(255,255,255,.03);font-size:9px}'+
     '@media print{body{background:#fff;color:#000}h1{color:#000}th{background:#eee;color:#000}}'+
-    '</style></head><body><h1>岱境235 · 审计日志 <span style="font-size:10px;color:#3a5470">'+
+    '</style></head><body><h1>RaftKV · 审计日志 <span style="font-size:10px;color:#3a5470">'+
     new Date().toISOString()+'</span></h1><table><tr><th>时间</th><th>级别</th><th>类别</th><th>消息</th></tr>';
   for (var j = 0; j < items.length; j++) {
     ph += '<tr><td>'+items[j].time+'</td><td>'+items[j].level+'</td><td>'+items[j].cat+'</td><td>'+items[j].msg+'</td></tr>';
@@ -2989,11 +2989,11 @@ function initDies() {
     S235.dies.push(new Die(i));
   }
   // Seed initial events
-  addEvent('sys', '岱境235确定性管控中枢启动·' + S235.dieCount + '个Die就绪', 'boost');
+  addEvent('sys', 'RaftKV确定性管控中枢启动·' + S235.dieCount + '个Die就绪', 'boost');
   addEvent('sys', '确定性引擎: Temp=0·MoE=FIXED·FP64·Seed=0x235DAI', 'precision');
   addEvent('sys', '7步Agent链路: Orchstrator→Planner→Decomposer→Executor→Verifier→Recovery→Finalizer', 'accuracy');
   // Seed SM3 hash chain with genesis record
-  SM3Chain.log('genesis', '岱境235管控中枢SM3哈希链初始化·确定性审计日志启动');
+  SM3Chain.log('genesis', 'RaftKV管控中枢SM3哈希链初始化·确定性审计日志启动');
 }
 
 initDies();

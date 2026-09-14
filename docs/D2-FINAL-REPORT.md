@@ -1,7 +1,7 @@
 # D2 收官总报告（交付文档）
 
 生成时间: 2026-09-07
-用途: 半年后完全失忆也能照着重建岱境235环境
+用途: 半年后完全失忆也能照着重建RaftKV环境
 状态: D2批次正式关账
 
 ---
@@ -9,7 +9,7 @@
 ## 1. 资产清单
 
 ### 1.1 Git 仓库
-- 仓库路径: `<ARCHIVE>\V2.4_Performance_Sandbox`
+- 仓库路径: `.`
 - 当前分支: `v1.0-dev`
 - commit 总数: **59**
 - tag 总数: **17**
@@ -66,8 +66,8 @@ tests/evidence/
 | 类别 | 释放量 | 数据去向 |
 |---|---|---|
 | Docker迁移 | 24.51GB | D:\DockerData (VHDX+联接) |
-| B类 (Temp+npm) | 3.88GB | <ARCHIVE>\quarantine |
-| C类 (Desktop+取证) | 13.17GB | <ARCHIVE>\archive-20260906 |
+| B类 (Temp+npm) | 3.88GB | <BACKUP_DIR>/quarantine |
+| C类 (Desktop+取证) | 13.17GB | <BACKUP_DIR>/archive-20260906 |
 | D类 (.jdks+go) | 0.92GB | 归档+隔离区 |
 
 C盘: 205.60GB → 163.36GB
@@ -96,7 +96,7 @@ C盘: 205.60GB → 163.36GB
 - **替代**: git bundle 单文件离线备份
 
 ### bundle 文件
-- 路径: `<ARCHIVE>\backup\v24-full-backup-20260907.bundle`
+- 路径: `<BACKUP_DIR>/backup\v24-full-backup-20260907.bundle`
 - 大小: 26298277 字节 (25.08MB)
 - refs: 36 (17分支 + 1远程 + 17tag + HEAD)
 - verify: 通过（"is okay" + "complete history"）
@@ -105,7 +105,7 @@ C盘: 205.60GB → 163.36GB
 ### 恢复命令
 ```bash
 git clone <bundle完整路径>
-# 例: git clone "<ARCHIVE>\backup\v24-full-backup-20260907.bundle"
+# 例: git clone "<BACKUP_DIR>/backup\v24-full-backup-20260907.bundle"
 ```
 
 ### 异地备份
@@ -142,21 +142,21 @@ git clone <bundle完整路径>
 
 ### 5.1 从bundle恢复仓库
 ```bash
-git clone "<ARCHIVE>\backup\v24-full-backup-20260907.bundle"
+git clone "<BACKUP_DIR>/backup\v24-full-backup-20260907.bundle"
 # 或拷贝整个 V2.4_Performance_Sandbox 目录
 ```
 
 ### 5.2 恢复Docker镜像
-镜像清单: `daijin235-v26:ci-knife` (41.2MB) 为核心运行镜像
-- 方式1: 从源机器 `docker save daijin235-v26:ci-knife > image.tar` 导出，新机器 `docker load < image.tar`
-- 方式2: 在新机器 `docker build -t daijin235-v26:ci-knife -f Dockerfile .`
+镜像清单: `raftkv:latest-knife` (41.2MB) 为核心运行镜像
+- 方式1: 从源机器 `docker save raftkv:latest-knife > image.tar` 导出，新机器 `docker load < image.tar`
+- 方式2: 在新机器 `docker build -t raftkv:latest-knife -f Dockerfile .`
 
 ### 5.3 配置 deploy.env
 ```bash
 cd tests/deploy
 cp deploy.env.example deploy.env
 # 编辑 deploy.env 填入:
-#   IMAGE_NAME=daijin235-v26:ci-knife
+#   IMAGE_NAME=raftkv:latest-knife
 #   LICENSE_DIR=<license目录绝对路径>
 #   SM4_KEY=  (留空自动生成复用)
 ```
@@ -165,7 +165,7 @@ cp deploy.env.example deploy.env
 ```bash
 cd tests/deploy
 bash deploy_up.sh
-# 预期输出: Leader=daijin235-node-1 after 5s
+# 预期输出: Leader=raft-node-1 after 5s
 ```
 
 ### 5.5 一键验收
@@ -178,7 +178,7 @@ bash deploy_verify.sh
 ### 5.6 关账确认
 - deploy_up.sh 集群就绪
 - deploy_verify.sh 9/9 PASS
-- docker ps -a 无残留 `daijin235-node` 容器
+- docker ps -a 无残留 `raftkv-node` 容器
 
 ---
 

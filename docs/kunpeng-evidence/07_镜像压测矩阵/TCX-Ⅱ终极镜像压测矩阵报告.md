@@ -1,9 +1,9 @@
 # TCX-Ⅱ 终极镜像压测矩阵报告
 
 **测试日期**: 2026-08-31  
-**执行人**: 岱境235首席技术合伙人  
+**执行人**: RaftKV首席技术合伙人  
 **测试环境**: Docker 29.7.2 / Windows 11 / 18核CPU / 15.4GB内存  
-**镜像清单**: daijin235-gateway:v22s (56.8MB) / daijin235-gateway:v24test (41.1MB)  
+**镜像清单**: raftkv-gateway:v22s (56.8MB) / raftkv-gateway:v24test (41.1MB)  
 **红线确认**: raft.go MD5=DD6F667133D2C9343CF43BC11A5B7C00 未变 ✅  
 
 ---
@@ -26,7 +26,7 @@
 - 节点数: 50（单Raft组, Quorum=26）
 - 资源限制: --cpus=0.25 --memory=256m 每节点
 - 网络模式: Docker bridge (tcx2-50node)
-- 镜像: daijin235-gateway:v22s
+- 镜像: raftkv-gateway:v22s
 - 压测参数: 100并发 × 30秒 × 100%写入
 
 ### 2.2 测试结果
@@ -83,7 +83,7 @@
 ### 4.1 测试配置
 - 节点数: 5（Quorum=3）
 - 资源限制: --cpus=0.5 --memory=512m 每节点
-- 镜像: daijin235-gateway:v22s
+- 镜像: raftkv-gateway:v22s
 - 操作: 每30秒重启一个节点，连续滚动重启所有5个节点
 
 ### 4.2 测试结果
@@ -119,7 +119,7 @@
 ### 5.1 测试配置
 - 节点数: 3（V2.4镜像, Quorum=2）
 - 资源限制: --cpus=0.5 --memory=512m 每节点
-- 镜像: daijin235-gateway:v24test
+- 镜像: raftkv-gateway:v24test
 - 压测参数: 1000并发 × 300秒 × 80%写入+20%读取
 
 ### 5.2 测试结果
@@ -154,7 +154,7 @@
 ### 6.1 测试配置
 - 节点数: 1（V2.2-S镜像, 降级只读模式）
 - 资源限制: --cpus=1 --memory=512m
-- 镜像: daijin235-gateway:v22s
+- 镜像: raftkv-gateway:v22s
 - 压测参数: 1000并发 × 60秒 × 100%写入
 - 模拟: 每个gRPC请求都触发licenseGuardInterceptor→IsDegradedMode()授权检查
 
@@ -233,18 +233,18 @@
 ### 9.1 测试镜像
 | 镜像 | ID | 大小 | 用途 |
 |------|----|------|------|
-| daijin235-gateway:v22s | 25bfcbbfa491 | 56.8MB | V2.2-S商业镜像 |
-| daijin235-gateway:v24test | 4ff3d683525a | 41.1MB | V2.4测试镜像 |
+| raftkv-gateway:v22s | 25bfcbbfa491 | 56.8MB | V2.2-S商业镜像 |
+| raftkv-gateway:v24test | 4ff3d683525a | 41.1MB | V2.4测试镜像 |
 
 ### 9.2 压测客户端
-- 路径: <HOME>\.daijin235\tcx2-stress-client\tcx2-stress.exe
+- 路径: <HOME>/.raftkv\tcx2-stress-client\tcx2-stress.exe
 - 大小: 15.2MB
 - 功能: gRPC AppendEntries压测，支持并发/持续时间/读写比例配置
 
 ### 9.3 红线确认
 - raft.go MD5=DD6F667133D2C9343CF43BC11A5B7C00 未变 ✅
 - 全程仅使用本地Docker镜像，未触碰D盘/桌面已冻结的商业交付包 ✅
-- 权威编译目录: <HOME>\Desktop\岱境235\daijin235_go_engine\ ✅
+- 权威编译目录: <BUILD_DIR>/ ✅
 
 ---
 

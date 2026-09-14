@@ -1,5 +1,5 @@
 ﻿=== E03 并发写入确定性 ===
-leader=daijin235-node-1
+leader=raftkv-node-1
 写入前: commit=27 logs=27
 写入: 10带idem_token(同token) + 10不带
 写入后各节点:

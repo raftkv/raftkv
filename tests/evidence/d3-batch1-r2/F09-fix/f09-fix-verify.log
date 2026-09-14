@@ -2,7 +2,7 @@
 [20:59:43] === F09修复验证: IDEM_TOKEN_CAPACITY=5 ===
 [20:59:43] 
 [20:59:43] --- 启动5节点集群(IDEM_TOKEN_CAPACITY=5) ---
-[20:59:54] Leader: daijin235-node-2
+[20:59:54] Leader: raftkv-node-2
 [20:59:54] 
 [20:59:54] --- 写入7个不同token (CAPACITY=5, 期望淘汰最早2个) ---
 [20:59:54]   token[1]: {"index":2,"success":true}

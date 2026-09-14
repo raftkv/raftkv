@@ -77,7 +77,7 @@ tests/evidence/d3-batch1/
 
 **Leader当选时**（smoke-run1.log 第55-56行）：
 ```
-[19:33:02] [PASS] Leader=daijin235-node-2 after 3s
+[19:33:02] [PASS] Leader=raft-node-2 after 3s
 [19:33:02]   stats: id=node-2 state=Leader term=1 leader=node-2 commit=1 applied=1 logs=1 peers=4 voted=node-2
 ```
 

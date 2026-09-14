@@ -82,7 +82,7 @@ nslookup node-1 → server can't find node-1: NXDOMAIN
 
 node-1的Docker网络别名丢失：
 ```
-docker inspect daijin235-node-1 → Aliases=[]
+docker inspect raft-node-1 → Aliases=[]
 ```
 
 **因果链**：
@@ -382,8 +382,8 @@ SyncLoop (每200ms)
 | E05故障期压测原始输出 | tests/evidence/d3-batch2-p1/E05-fault-raw.txt |
 | E05 FAIL报告 | tests/evidence/d3-batch2-p1/E05/FAIL-REPORT.md |
 | gap增长曲线 | tests/evidence/d3-batch2-p1/E05/gap-curve.txt |
-| leader批量同步失败日志 | docker logs daijin235-node-2 (保留在容器中) |
-| node-1选举失败日志 | docker logs daijin235-node-1 (保留在容器中) |
+| leader批量同步失败日志 | docker logs raft-node-2 (保留在容器中) |
+| node-1选举失败日志 | docker logs raft-node-1 (保留在容器中) |
 | R-01 fix diff | git diff 96e0e73~1 96e0e73 (仅grpc_server.go, 9行) |
 | batch_sync.go代码 | batch_sync.go:124-200 (SyncFollower) |
 | raft.go代码 | raft.go:302-393 (IdentifyLaggingFollowers + UpdateFollowerProgress) |

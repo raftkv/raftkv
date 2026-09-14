@@ -4,7 +4,7 @@
 [20:57:19] 
 [20:57:19] --- 启动5节点集群 ---
 [20:57:27] --- F01 Leader选举 ---
-[20:57:27] F01: Leader=daijin235-node-3, peers=4
+[20:57:27] F01: Leader=raftkv-node-3, peers=4
 [20:57:27] --- F02 数据写入 ---
 [20:57:27]   write[1]: {"index":2,"success":true}
 [20:57:27]   write[2]: {"index":3,"success":true}

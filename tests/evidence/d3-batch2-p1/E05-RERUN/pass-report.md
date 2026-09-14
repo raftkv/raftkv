@@ -4,7 +4,7 @@
 2026-09-08 01:24–01:27 (UTC+8)
 
 ## 测试环境
-- 镜像: daijin235-v26:ci-knife (含R-04修复A/B/C/D)
+- 镜像: raftkv:latest-knife (含R-04修复A/B/C/D)
 - 集群: 5节点 (node-1..5), Leader=node-4→node-2
 - 故障注入: docker network disconnect/connect node-1
 

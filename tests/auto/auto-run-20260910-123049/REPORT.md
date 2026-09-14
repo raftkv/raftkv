@@ -17,7 +17,7 @@
 | P4 | PASS | 914 |
 
 ## 20min 对照压测
-验收结果文件不存在: <ARCHIVE>\V2.4_Performance_Sandbox\tests\auto\auto-run-20260910-123049\phase2_accept.json
+验收结果文件不存在: .\tests\auto\auto-run-20260910-123049\phase2_accept.json
 
 ## E08 30min 终审
 | 指标 | 实测 | 阈值 | 判据 | 结果 |
@@ -51,11 +51,11 @@ Max:        169.4034ms
 </details>
 
 ## 节点存活检查
-- daijin235-node-1	Up 15 minutes (healthy)
-- daijin235-node-4	Up 15 minutes (healthy)
-- daijin235-node-5	Up 15 minutes (healthy)
-- daijin235-node-2	Up 15 minutes (healthy)
-- daijin235-node-3	Up 15 minutes (healthy)
+- raft-node-1	Up 15 minutes (healthy)
+- raft-node-4	Up 15 minutes (healthy)
+- raft-node-5	Up 15 minutes (healthy)
+- raft-node-2	Up 15 minutes (healthy)
+- raft-node-3	Up 15 minutes (healthy)
 
 ## 内存采样峰值
 - phase4_mem.csv : 峰值 610.8MiB (node-4)

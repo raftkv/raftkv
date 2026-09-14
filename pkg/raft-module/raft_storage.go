@@ -1,12 +1,12 @@
 // =========================================================================
-// 岱境235 Module01 — AES-128-GCM 落盘加密存储层
+// RaftKV Module01 — AES-128-GCM 落盘加密存储层
 //
 // 改造三（白皮书 Phase 2 ✅ [可立刻试点]）：
 //   1. AES-128-GCM 认证加密（标准库 crypto/aes + crypto/cipher）
 //   2. 每条记录随机 Nonce，输出 = Nonce(12B) + ciphertext + GCM-Tag(16B)
 //   3. 透明叠加在 WAL 之上：写入前加密，读取时解密
 //
-// 本文件从原 daijin235/raft_storage.go 改造：
+// 本文件从原 raftkv/raft_storage.go 改造：
 //   - github.com/tjfoc/gmsm/sm4 (SM4-CTR 国密) → crypto/aes (AES-128-GCM 标准库)
 //   - 保持相同的透明叠加架构和接口语义
 //

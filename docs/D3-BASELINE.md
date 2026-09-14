@@ -40,18 +40,18 @@ D3-batch0R修正: 创建tests/deploy/docker-compose-5node.yml，基于D2部署�
 ### A3. 镜像清单（82镜像含中间层，顶层31个，总1.9GB）
 | 镜像 | 大小 |
 |---|---|
-| daijin235-v26:ci-knife | 41.2MB (核心运行镜像) |
-| daijin235-v26:ci-rollback | 41.2MB |
+| raftkv:latest-knife | 41.2MB (核心运行镜像) |
+| raftkv:latest-rollback | 41.2MB |
 | grpc-health-probe:ci | 40.2MB |
-| daijin235-v26:grpc-health | 41.2MB |
-| daijin235-v26:mut-m1/m2 | 41.1MB |
-| daijin235-v26:v100-dev1~dev5b | 各41.1MB |
-| daijin235-v26:fixa/fix8/fixc/fixd/fixf/fixg | 各41.1MB |
-| daijin235-v26:v095-audit | 41.1MB |
-| daijin235-v25:amd64test/test | 41.1/40.8MB |
-| daijin235-redteam:v22s-auth | 40.9MB |
-| daijin235-gateway:v24test/v22s | 41.1/56.8MB |
-| daijin235-state-protection-research:v2.4-research | 31.4MB |
+| raftkv:latest-health | 41.2MB |
+| raftkv:latest-m1/m2 | 41.1MB |
+| raftkv:latest-dev1~dev5b | 各41.1MB |
+| raftkv:latest/fix8/fixc/fixd/fixf/fixg | 各41.1MB |
+| raftkv:latest-audit | 41.1MB |
+| raftkv-v25:amd64test/test | 41.1/40.8MB |
+| raftkv-redteam:v22s-auth | 40.9MB |
+| raftkv-gateway:v24test/v22s | 41.1/56.8MB |
+| raftkv-state-protection-research:v2.4-research | 31.4MB |
 | alpine/git:latest | 144MB |
 | golang:1.25-alpine | 329MB |
 | golang:1.24-alpine | 395MB |
@@ -63,15 +63,15 @@ D3-batch0R修正: 创建tests/deploy/docker-compose-5node.yml，基于D2部署�
 ### A4. compose 服务清单（5节点，D3-batch0R）
 | 服务 | 镜像 | gRPC端口(容器内) | HTTP端口(容器内) | 健康检查 | License挂载 |
 |---|---|---|---|---|---|
-| node-1 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-1.key |
-| node-2 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-2.key |
-| node-3 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-3.key |
-| node-4 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-4.key |
-| node-5 | daijin235-v26:ci-knife | 9500 | 9000 | /health/live | node-5.key |
+| node-1 | raftkv:latest-knife | 9500 | 9000 | /health/live | node-1.key |
+| node-2 | raftkv:latest-knife | 9500 | 9000 | /health/live | node-2.key |
+| node-3 | raftkv:latest-knife | 9500 | 9000 | /health/live | node-3.key |
+| node-4 | raftkv:latest-knife | 9500 | 9000 | /health/live | node-4.key |
+| node-5 | raftkv:latest-knife | 9500 | 9000 | /health/live | node-5.key |
 
 compose文件: tests/deploy/docker-compose-5node.yml
 项目名: deploy5 (docker compose -p deploy5)
-网络: deploy5_daijin235-net (bridge)
+网络: deploy5_raft-net (bridge)
 WAL卷: deploy5_wal-node-{1..5}
 SM4_KEY: 从tests/deploy/.sm4_key复用 (837e01cd...)
 FP_ANCHOR: tcx4-v25-test
@@ -114,7 +114,7 @@ LICENSE_FAIL_MODE: closed (fail-closed授权防线)
 | 项 | 结果 |
 |---|---|
 | docker compose up | PASS, 5容器启动 |
-| Leader选举 | PASS, daijin235-node-2 after 3s |
+| Leader选举 | PASS, raft-node-2 after 3s |
 | /health/live | 5/5 PASS (HTTP 200) |
 | 容器Running | 5/5 PASS |
 | 写入10条 | 10/10 success (index 2-11) |
@@ -129,7 +129,7 @@ LICENSE_FAIL_MODE: closed (fail-closed授权防线)
 | 项 | 结果 |
 |---|---|
 | docker compose up | PASS, 5容器启动 |
-| Leader选举 | PASS, daijin235-node-4 after 4s |
+| Leader选举 | PASS, raft-node-4 after 4s |
 | /health/live | 5/5 PASS (HTTP 200) |
 | 容器Running | 5/5 PASS |
 | 写入10条 | 10/10 success (index 2-11) |
@@ -162,7 +162,7 @@ LICENSE_FAIL_MODE: closed (fail-closed授权防线)
 - 5节点compose(docker-compose-5node.yml)创建并验证:
   - 一键up → 5/5容器Running → 5/5 /health/live 200 → Leader当选 → 10条写入 → 4/4 Follower同步 → 一键down -v → 无残留
   - 2遍重复，功能结果差异为0，11/11 PASS
-- 核心镜像 daijin235-v26:ci-knife (41.2MB) 在本地，无拉取依赖
+- 核心镜像 raftkv:latest-knife (41.2MB) 在本地，无拉取依赖
 - D3-batch0的2节点裁剪缺陷已修正为5节点原始设计
 
 ---

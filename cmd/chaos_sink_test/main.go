@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 TiDB 适配器 — 背压与故障注入极限测试
+// RaftKV TiDB 适配器 — 背压与故障注入极限测试
 //
 // 测试链路:
 //   Phase 1: DB 健康 → 写入 200 条 → Sync 验证
@@ -21,7 +21,7 @@ import (
 	"os/exec"
 	"time"
 
-	"daijin235/pkg/adapters"
+	"raftkv/pkg/adapters"
 )
 
 const (
@@ -34,7 +34,7 @@ var dsn = os.Getenv("SINK_DSN")
 
 func main() {
 	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║  岱境235 TiDB 适配器 — 背压与故障注入极限测试                  ║")
+	fmt.Println("║  RaftKV TiDB 适配器 — 背压与故障注入极限测试                  ║")
 	fmt.Println("║  验证目标: 0 阻塞 · 0 丢失 · 0 崩溃                          ║")
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 	fmt.Println()
@@ -107,8 +107,8 @@ func main() {
 	fmt.Println("Phase 2: docker stop MySQL — 故障注入 + 写入 300 条")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-	fmt.Print("  执行 docker stop daijin235-mysql...")
-	stopCmd := exec.Command("docker", "stop", "daijin235-mysql")
+	fmt.Print("  执行 docker stop raftkv-mysql...")
+	stopCmd := exec.Command("docker", "stop", "raftkv-mysql")
 	if err := stopCmd.Run(); err != nil {
 		fmt.Printf(" 失败: %v\n", err)
 	} else {
@@ -158,8 +158,8 @@ func main() {
 	fmt.Println("Phase 3: docker start MySQL — 故障恢复 + 自动追平")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-	fmt.Print("  执行 docker start daijin235-mysql...")
-	startCmd := exec.Command("docker", "start", "daijin235-mysql")
+	fmt.Print("  执行 docker start raftkv-mysql...")
+	startCmd := exec.Command("docker", "start", "raftkv-mysql")
 	if err := startCmd.Run(); err != nil {
 		fmt.Printf(" 失败: %v\n", err)
 	} else {

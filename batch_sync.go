@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 )
 
 type BatchSyncState int32

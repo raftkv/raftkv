@@ -5,11 +5,11 @@ from concurrent import futures
 os.chdir('/tmp/write_test')
 
 subprocess.run([sys.executable, '-m', 'grpc_tools.protoc',
-    '--python_out=.', '--grpc_python_out=.', '-I.', 'daijin235.proto'],
+    '--python_out=.', '--grpc_python_out=.', '-I.', 'raftkv.proto'],
     check=True)
 
-import daijin235_pb2 as pb
-import daijin235_pb2_grpc as pb_grpc
+import raftkv_pb2 as pb
+import raftkv_pb2_grpc as pb_grpc
 import grpc
 
 HTTP_PORTS = ['9001', '9002', '9003', '9104', '9105']

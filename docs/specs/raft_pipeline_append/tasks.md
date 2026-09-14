@@ -19,7 +19,7 @@
 **写作指导**：开工前依次完成 bundle 全量备份、三个未提交改动验尸、SDD 产物迁移、打回滚锚点、创建取证目录。三项前置安全完成后方从 tag v2.4-post-batch11 干净锚点开工。（spec.md 5.0 / design.md 2.6）
 
 ### 0.1 bundle 全量备份与验证 [DONE | P0]
-- [x] 在 D 盘仓库执行 `git bundle create ../daijin235-v24-backup-pre-batch12.bundle --all` 落盘全量备份（spec.md 5.0.1）
+- [x] 在 D 盘仓库执行 `git bundle create ../raftkv-v24-backup-pre-batch12.bundle --all` 落盘全量备份（spec.md 5.0.1）
 - [x] 执行 `git bundle verify` 验证 bundle 可读（spec.md 5.0.1）
 - [x] 前置门禁：bundle 未验证通过前禁止后续所有操作（spec.md 5.0.1 规则 3）
 - **验收条件**：bundle 文件已生成且包含全量分支与 tag；验证通过
