@@ -1,8 +1,8 @@
 # =========================================================================
-# 岱境235 确定性管控中枢 — 5 节点 Raft 集群 + 前端大屏
+# RaftKV 确定性管控中枢 — 5 节点 Raft 集群 + 前端大屏
 #
 # 关键规则:
-#   1. PEERS 环境变量必须使用 Docker 容器名（如 daijin235-node-2:9501），
+#   1. PEERS 环境变量必须使用 Docker 容器名（如 raft-node-2:9501），
 #      不能使用 localhost —— 每个容器有独立的网络命名空间。
 #   2. 所有节点同时启动（Raft 选举要求多数节点同时在线），
 #      不要用 depends_on 限制启动顺序。
@@ -26,7 +26,7 @@ services:
   # ==================== 前端大屏 (Nginx) ====================
   frontend:
     image: nginx:alpine
-    container_name: daijin235-frontend
+    container_name: raftkv-frontend
     restart: always
     ports:
       - "8096:80"
@@ -38,8 +38,8 @@ services:
   # ==================== Raft 节点 1 ====================
   node-1:
     build: .
-    image: daijin235-gateway:latest
-    container_name: daijin235-node-1
+    image: raftkv-gateway:latest
+    container_name: raft-node-1
     restart: always
     environment:
       NODE_ID: node-1
@@ -48,7 +48,7 @@ services:
       # 双模式授权防线（2026-09-01 姜总裁决二）：closed=授权失败拒绝启动（出厂默认）
       # 严禁改为 open，除非甲方已签署并生效《授权到期降级只读补充条款》
       LICENSE_FAIL_MODE: "closed"
-      PEERS: node-2=daijin235-node-2:9501,node-3=daijin235-node-3:9502,node-4=daijin235-node-4:9604,node-5=daijin235-node-5:9605
+      PEERS: node-2=raft-node-2:9501,node-3=raft-node-3:9502,node-4=raft-node-4:9604,node-5=raft-node-5:9605
     ports:
       - "9500:9500"
       - "9001:9000"
@@ -64,8 +64,8 @@ services:
   # ==================== Raft 节点 2 ====================
   node-2:
     build: .
-    image: daijin235-gateway:latest
-    container_name: daijin235-node-2
+    image: raftkv-gateway:latest
+    container_name: raft-node-2
     restart: always
     environment:
       NODE_ID: node-2
@@ -74,7 +74,7 @@ services:
       # 双模式授权防线（2026-09-01 姜总裁决二）：closed=授权失败拒绝启动（出厂默认）
       # 严禁改为 open，除非甲方已签署并生效《授权到期降级只读补充条款》
       LICENSE_FAIL_MODE: "closed"
-      PEERS: node-1=daijin235-node-1:9500,node-3=daijin235-node-3:9502,node-4=daijin235-node-4:9604,node-5=daijin235-node-5:9605
+      PEERS: node-1=raft-node-1:9500,node-3=raft-node-3:9502,node-4=raft-node-4:9604,node-5=raft-node-5:9605
     ports:
       - "9501:9501"
       - "9002:9000"
@@ -90,8 +90,8 @@ services:
   # ==================== Raft 节点 3 ====================
   node-3:
     build: .
-    image: daijin235-gateway:latest
-    container_name: daijin235-node-3
+    image: raftkv-gateway:latest
+    container_name: raft-node-3
     restart: always
     environment:
       NODE_ID: node-3
@@ -100,7 +100,7 @@ services:
       # 双模式授权防线（2026-09-01 姜总裁决二）：closed=授权失败拒绝启动（出厂默认）
       # 严禁改为 open，除非甲方已签署并生效《授权到期降级只读补充条款》
       LICENSE_FAIL_MODE: "closed"
-      PEERS: node-1=daijin235-node-1:9500,node-2=daijin235-node-2:9501,node-4=daijin235-node-4:9604,node-5=daijin235-node-5:9605
+      PEERS: node-1=raft-node-1:9500,node-2=raft-node-2:9501,node-4=raft-node-4:9604,node-5=raft-node-5:9605
     ports:
       - "9502:9502"
       - "9003:9000"
@@ -116,8 +116,8 @@ services:
   # ==================== Raft 节点 4 ====================
   node-4:
     build: .
-    image: daijin235-gateway:latest
-    container_name: daijin235-node-4
+    image: raftkv-gateway:latest
+    container_name: raft-node-4
     restart: always
     environment:
       NODE_ID: node-4
@@ -126,7 +126,7 @@ services:
       # 双模式授权防线（2026-09-01 姜总裁决二）：closed=授权失败拒绝启动（出厂默认）
       # 严禁改为 open，除非甲方已签署并生效《授权到期降级只读补充条款》
       LICENSE_FAIL_MODE: "closed"
-      PEERS: node-1=daijin235-node-1:9500,node-2=daijin235-node-2:9501,node-3=daijin235-node-3:9502,node-5=daijin235-node-5:9605
+      PEERS: node-1=raft-node-1:9500,node-2=raft-node-2:9501,node-3=raft-node-3:9502,node-5=raft-node-5:9605
     ports:
       - "9604:9604"
       - "9104:9000"
@@ -142,8 +142,8 @@ services:
   # ==================== Raft 节点 5 ====================
   node-5:
     build: .
-    image: daijin235-gateway:latest
-    container_name: daijin235-node-5
+    image: raftkv-gateway:latest
+    container_name: raft-node-5
     restart: always
     environment:
       NODE_ID: node-5
@@ -152,7 +152,7 @@ services:
       # 双模式授权防线（2026-09-01 姜总裁决二）：closed=授权失败拒绝启动（出厂默认）
       # 严禁改为 open，除非甲方已签署并生效《授权到期降级只读补充条款》
       LICENSE_FAIL_MODE: "closed"
-      PEERS: node-1=daijin235-node-1:9500,node-2=daijin235-node-2:9501,node-3=daijin235-node-3:9502,node-4=daijin235-node-4:9604
+      PEERS: node-1=raft-node-1:9500,node-2=raft-node-2:9501,node-3=raft-node-3:9502,node-4=raft-node-4:9604
     ports:
       - "9605:9605"
       - "9105:9000"

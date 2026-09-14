@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -149,7 +149,7 @@ func main() {
 	}
 
 	fmt.Printf("╔══════════════════════════════════════════════════════════╗\n")
-	fmt.Printf("║  岱境235 分布式集群压测 — 故障自愈验证                    ║\n")
+	fmt.Printf("║  RaftKV 分布式集群压测 — 故障自愈验证                    ║\n")
 	fmt.Printf("╠══════════════════════════════════════════════════════════╣\n")
 	fmt.Printf("║  并发: %-3d goroutine    持续: %-6v              ║\n", *concurrency, *duration)
 	fmt.Printf("║  节点: %d 个  模式: gRPC → Leader → Pipeline → MySQL     ║\n", len(nodes))

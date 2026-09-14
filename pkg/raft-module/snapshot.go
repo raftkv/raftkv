@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module01 — 快照子系统接口契约（SnapshotManager）
+// RaftKV Module01 — 快照子系统接口契约（SnapshotManager）
 //
 // 定义快照子系统的抽象契约，RaftNode 通过方法集隐式实现本接口。
 // 与 design.md 2.2.2 接口清单一致（chain2-campaign4-design-v1）。

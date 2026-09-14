@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 )
 
 type MockNode struct {

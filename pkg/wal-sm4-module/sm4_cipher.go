@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module02 — SM4 分组密码 cipher.Block 接口适配
+// RaftKV Module02 — SM4 分组密码 cipher.Block 接口适配
 //
 // 实现 Go 标准 crypto/cipher.Block 接口，使自研 SM4 可直接配合
 // crypto/cipher 的 CTR / CBC / OFB 等分组模式使用。

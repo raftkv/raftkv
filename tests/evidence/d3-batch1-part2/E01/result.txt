@@ -1,8 +1,8 @@
 ﻿=== E01 节点崩溃恢复 ===
-崩溃前: leader=daijin235-node-5 commit C1=1
-崩溃节点: daijin235-node-1
+崩溃前: leader=raftkv-node-5 commit C1=1
+崩溃节点: raftkv-node-1
 写入后: commit C2=4
-重启后: daijin235-node-1 state=Follower commit C3=4
+重启后: raftkv-node-1 state=Follower commit C3=4
 预期: C3 == C2
 实际: C3=4, C2=4
 结果: PASS (重启节点commit追平leader)

@@ -5,9 +5,9 @@
 ## 集群部署
 
 5 节点 Docker Compose 部署:
-- 镜像: daijin235-v26:batch27
+- 镜像: raftkv:latest
 - 端口: 9001-9005 (HTTP), 9501-9505 (gRPC)
-- 网络: deploy5_daijin235-net
+- 网络: deploy5_raft-net
 
 ## 健康检查
 

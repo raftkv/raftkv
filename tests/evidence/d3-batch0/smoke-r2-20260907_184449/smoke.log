@@ -5,57 +5,57 @@ SM4_KEY: d953883b...(一次性随机)
 --- 1. 一键up全栈 ---
    Volume deploy_wal-node-2 Creating 
    Volume deploy_wal-node-1 Creating 
-   Network deploy_daijin235-net Creating 
+   Network deploy_raftkv-net Creating 
    Volume deploy_wal-node-2 Creating 
    Volume deploy_wal-node-1 Creating 
-   Network deploy_daijin235-net Creating 
+   Network deploy_raftkv-net Creating 
    Volume deploy_wal-node-2 Created 
    Volume deploy_wal-node-2 Created 
    Volume deploy_wal-node-1 Created 
    Volume deploy_wal-node-1 Created 
-   Network deploy_daijin235-net Created 
-   Network deploy_daijin235-net Created 
-   Container daijin235-node-1 Creating 
-   Container daijin235-node-2 Creating 
-   Container daijin235-node-2 Created 
-   Container daijin235-node-1 Created 
-   Container daijin235-node-1 Starting 
-   Container daijin235-node-2 Starting 
-   Container daijin235-node-2 Started 
-   Container daijin235-node-1 Started 
+   Network deploy_raftkv-net Created 
+   Network deploy_raftkv-net Created 
+   Container raftkv-node-1 Creating 
+   Container raftkv-node-2 Creating 
+   Container raftkv-node-2 Created 
+   Container raftkv-node-1 Created 
+   Container raftkv-node-1 Starting 
+   Container raftkv-node-2 Starting 
+   Container raftkv-node-2 Started 
+   Container raftkv-node-1 Started 
   up耗时: 1.1s
 
 --- 2. 等待Leader ---
-  [PASS] Leader=daijin235-node-2 after 6s
+  [PASS] Leader=raftkv-node-2 after 6s
 
 --- 3. docker ps 容器状态 ---
   NAMES              IMAGE                    STATUS
-  daijin235-node-2   daijin235-v26:ci-knife   Up 8 seconds
-  daijin235-node-1   daijin235-v26:ci-knife   Up 8 seconds
+  raftkv-node-2   raftkv-v26:ci-knife   Up 8 seconds
+  raftkv-node-1   raftkv-v26:ci-knife   Up 8 seconds
   Up容器数: 2 / 2
   [PASS] 预期2/2 Up
 
 --- 4. curl探活HTTP服务 ---
-  daijin235-node-1 : HTTP 200, 耗时 188.6ms
+  raftkv-node-1 : HTTP 200, 耗时 188.6ms
     [PASS]
-  daijin235-node-2 : HTTP 200, 耗时 187.8ms
+  raftkv-node-2 : HTTP 200, 耗时 187.8ms
     [PASS]
 
 --- 5. 一键down ---
-   Container daijin235-node-1 Stopping 
-   Container daijin235-node-2 Stopping 
-   Container daijin235-node-1 Stopped 
-   Container daijin235-node-1 Removing 
-   Container daijin235-node-2 Stopped 
-   Container daijin235-node-2 Removing 
-   Container daijin235-node-1 Removed 
-   Container daijin235-node-2 Removed 
+   Container raftkv-node-1 Stopping 
+   Container raftkv-node-2 Stopping 
+   Container raftkv-node-1 Stopped 
+   Container raftkv-node-1 Removing 
+   Container raftkv-node-2 Stopped 
+   Container raftkv-node-2 Removing 
+   Container raftkv-node-1 Removed 
+   Container raftkv-node-2 Removed 
    Volume deploy_wal-node-1 Removing 
    Volume deploy_wal-node-2 Removing 
-   Network deploy_daijin235-net Removing 
+   Network deploy_raftkv-net Removing 
    Volume deploy_wal-node-1 Removed 
    Volume deploy_wal-node-2 Removed 
-   Network deploy_daijin235-net Removed 
+   Network deploy_raftkv-net Removed 
 
 --- 6. 确认无残留 ---
   [PASS] 无残留容器

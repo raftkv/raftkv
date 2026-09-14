@@ -1,16 +1,16 @@
 // =========================================================================
-// 岱境235 统一资源模型 — DeepSeek 集群 + Agent Harness 双系统控制面
+// RaftKV 统一资源模型 — DeepSeek 集群 + Agent Harness 双系统控制面
 //
 // 设计原则:
 //   1. ResourceUnit 统一描述异构 GPU 计算节点（K8s Node / Slurm / YARN NodeManager）
 //   2. TaskUnit 统一描述推理/训练任务（Ray Actor / Volcano Pod / Slurm Job）
-//   3. 两者通过 岱境235 确定性引擎调度器桥接
+//   3. 两者通过 RaftKV 确定性引擎调度器桥接
 //   4. 支持 Temp=0 / MoE=Fixed / Seed=Locked 确定性约束注入
 //
 // 架构:
 //
 //   ┌─────────────────────────────────────────────────────┐
-//   │              岱境235 确定性引擎 (控制面)               │
+//   │              RaftKV 确定性引擎 (控制面)               │
 //   │   Raft 强共识 + SM3 哈希链 + DegradationManager     │
 //   └──────────┬────────────────────┬─────────────────────┘
 //              │                    │
@@ -85,7 +85,7 @@ type NodeRole string
 
 const (
 	RoleCompute NodeRole = "compute" // 纯计算节点（GPU Worker）
-	RoleControl NodeRole = "control" // 控制面节点（岱境235 引擎实例）
+	RoleControl NodeRole = "control" // 控制面节点（RaftKV 引擎实例）
 	RoleStorage NodeRole = "storage" // 存储节点（分布式文件系统）
 	RoleEdge    NodeRole = "edge"    // 边缘推理节点
 )
@@ -302,7 +302,7 @@ type ResourceUnit struct {
 	// 已分配的系统内存 (MiB)
 	AllocatedMemory int `json:"allocated_memory"`
 
-	// === 岱境235 确定性控制字段 ===
+	// === RaftKV 确定性控制字段 ===
 	// 节点是否被确定性引擎锁定（不允许非确定性任务调度到此节点）
 	DeterministicLocked bool `json:"deterministic_locked"`
 
@@ -573,7 +573,7 @@ type TaskUnit struct {
 	// GPU 利用率 (0.0 - 1.0)
 	GPUUtilization float64 `json:"gpu_utilization"`
 
-	// === 岱境235 确定性控制字段 ===
+	// === RaftKV 确定性控制字段 ===
 	// 是否启用确定性推理 (Temp=0)
 	DeterministicMode bool `json:"deterministic_mode"`
 
@@ -881,8 +881,8 @@ func MapTaskUnitToDeepSeekRequest(tu *TaskUnit, prompt string, maxTokens int) ma
 		"frequency_penalty": 0,
 		"presence_penalty":  0,
 		"stream":            false,
-		// 岱境235 控制面扩展字段
-		"__daijin235__": map[string]interface{}{
+		// RaftKV 控制面扩展字段
+		"__raftkv__": map[string]interface{}{
 			"task_id":            tu.ID,
 			"deterministic_mode": tu.DeterministicMode,
 			"moe_mode":           tu.MoEMode,

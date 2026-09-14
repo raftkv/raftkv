@@ -1,10 +1,10 @@
 ﻿$ErrorActionPreference = "Continue"
-$logDir = "D:\235备份文件\V2.4_Performance_Sandbox\tests\auto"
+$logDir = ".\tests\auto"
 $stdout = "$logDir\soak-stdout.log"
 $stderr = "$logDir\soak-stderr.log"
 
 $p = Start-Process -FilePath "powershell.exe" `
-    -ArgumentList @("-ExecutionPolicy", "Bypass", "-File", "D:\235备份文件\V2.4_Performance_Sandbox\tests\auto\run_e08_auto.ps1", "-Soak") `
+    -ArgumentList @("-ExecutionPolicy", "Bypass", "-File", ".\tests\auto\run_e08_auto.ps1", "-Soak") `
     -RedirectStandardOutput $stdout `
     -RedirectStandardError $stderr `
     -PassThru `

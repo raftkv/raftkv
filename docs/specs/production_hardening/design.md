@@ -658,7 +658,7 @@ func feedbackLoop():
 ```
 
 **证书字段要求**：
-- CA：X.509 v3，RSA 4096 bit，自签，CN=daijin235-ca，有效期 3650 天
+- CA：X.509 v3，RSA 4096 bit，自签，CN=raft-ca，有效期 3650 天
 - 节点证书：X.509 v3，RSA 2048 bit，CA 签发，CN={node-id}，有效期 3650 天
 - TLS 最低版本：TLS 1.2（tls.VersionTLS12），禁止 TLS 1.0/1.1
 - InsecureSkipVerify：false（硬编码，禁止跳过）

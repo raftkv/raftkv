@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 确定性引擎 — Raft 日志处理管线
+// RaftKV 确定性引擎 — Raft 日志处理管线
 //
 // 串联完整数据流转闭环:
 //   Raft commit → SM4-CTR 加密 WAL → TiDB/MySQL 异步落盘
@@ -30,7 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"daijin235/pkg/adapters"
+	"raftkv/pkg/adapters"
 )
 
 // =========================================================================
@@ -67,7 +67,7 @@ func loadSM4KeyFromEnv() []byte {
 func DefaultPipelineConfig() PipelineConfig {
 	return PipelineConfig{
 		EnableWAL:  true,
-		WALPath:    filepath.Join("/app/wal-data", "daijin235_raft.wal"),
+		WALPath:    filepath.Join("/app/wal-data", "raftkv.wal"),
 		SM4Key:     loadSM4KeyFromEnv(),
 		EnableSink: false,
 		SinkConfig: adapters.DefaultSinkConfig(),

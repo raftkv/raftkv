@@ -10,7 +10,7 @@ wal2-snap-1788669759-t20
 1048e843e1a9435e84370c075f6724fcfc5773b2ea991e7eee226d34c74d72fd
 [harness] Leader=n1-snap-1788669759-t20 after 6s
   [PASS] t20: commit=61 (60 data + 1 no-op): 61 == 61
-  [PASS] t20: snapshot file exists: /app/wal-data/daijin235_raft.wal.snapshot.gz != 
+  [PASS] t20: snapshot file exists: /app/wal-data/raftkv_raft.wal.snapshot.gz != 
 n1-snap-1788669759-t20
 n2-snap-1788669759-t20
   [PASS] t20: commit after restart (60 data + 2 no-op): 62 == 62
@@ -49,7 +49,7 @@ c-snap-1788669759-t22
 vol-snap-1788669759-t22
 net-snap-1788669759-t22
 
-▶ t23: key_leak_scan: runtime strings search for daijin235_012345 → 0 hits
+▶ t23: key_leak_scan: runtime strings search for raftkv_012345 → 0 hits
 9dee0aadd76d671ab38cb6d59868a1de587769c30d70164802d26e6d8025ce5e
 wal1-snap-1788669759-t23
 wal2-snap-1788669759-t23

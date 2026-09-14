@@ -1,7 +1,7 @@
 package main
 
 import (
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 	"testing"
 	"time"
 )

@@ -609,7 +609,7 @@
 - **并行**: 可与 T4.1 并行
 - **动作**:
   1. 检查 5 节点集群状态：遍历 `/raft/stats` 确认每节点 state
-  2. 若有节点被 kill 未恢复：`docker start daijin235-node-N` 重启
+  2. 若有节点被 kill 未恢复：`docker start raft-node-N` 重启
   3. 清理所有节点 WAL 卷残留 fillfile：遍历 5 节点执行 `CleanupDiskFull(node)`（确保磁盘满注入后空间已清理）
   4. 等待所有节点健康：轮询 `/health/live` 返回 200
   5. 确认集群恢复到健康稳态：1 leader + 4 follower

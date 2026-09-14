@@ -11,7 +11,7 @@ mkdir -p "$CERTS_DIR"
 echo "[gen_certs] 生成 CA 证书..."
 openssl req -x509 -newkey rsa:2048 -keyout "$CERTS_DIR/ca-key.pem" \
   -out "$CERTS_DIR/ca-cert.pem" -days 3650 -nodes \
-  -subj "/CN=daijin235-ca" 2>/dev/null
+  -subj "/CN=raft-ca" 2>/dev/null
 
 IFS=',' read -ra NODE_ARRAY <<< "$NODES"
 for node in "${NODE_ARRAY[@]}"; do

@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 确定性引擎 — 主入口
+// RaftKV 确定性引擎 — 主入口
 //
 // 启动方式（三选一）：
 //   1. 命令行参数:
@@ -65,7 +65,7 @@ func main() {
 	peerList := envOr("PEERS", *peersRaw, "")
 
 	fmt.Println(strings.Repeat("═", 60))
-	fmt.Printf("  岱境235 确定性管控中枢 (Go gRPC 微服务版)\n")
+	fmt.Printf("  RaftKV 确定性管控中枢 (Go gRPC 微服务版)\n")
 	fmt.Printf("  双轨三总台五级联动分布式管控系统\n")
 	fmt.Printf("  版本: %s  构建: %s  提交: %s\n", Version, BuildTime, GitCommit)
 	fmt.Println(strings.Repeat("═", 60))

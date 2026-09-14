@@ -1,19 +1,19 @@
-﻿# 岱境235 4小时长稳监控脚本
+﻿# RaftKV 4小时长稳监控脚本
 # 每30分钟采集一次，共9个采集点(0h ~ 4h)
-$logFile = "C:\Users\27998\Desktop\edge_4h_monitor.log"
+$logFile = "<HOME>\Desktop\edge_4h_monitor.log"
 $nodes = @(
-    "daijin235_go_engine-node-1-1",
-    "daijin235_go_engine-node-2-1",
-    "daijin235_go_engine-node-3-1",
-    "daijin235_go_engine-node-4-1",
-    "daijin235_go_engine-node-5-1"
+    "raftkv_go_engine-node-1-1",
+    "raftkv_go_engine-node-2-1",
+    "raftkv_go_engine-node-3-1",
+    "raftkv_go_engine-node-4-1",
+    "raftkv_go_engine-node-5-1"
 )
 $nodeNames = @("node-1","node-2","node-3","node-4","node-5")
 $totalPoints = 9
 $startTime = Get-Date
 
 "============================================" | Out-File $logFile -Encoding UTF8
-"岱境235 边缘恶劣环境4小时长稳测试" | Out-File $logFile -Append -Encoding UTF8
+"RaftKV 边缘恶劣环境4小时长稳测试" | Out-File $logFile -Append -Encoding UTF8
 "开始时间: $($startTime.ToString('yyyy-MM-dd HH:mm:ss'))" | Out-File $logFile -Append -Encoding UTF8
 "配置: 0.5核/512MB/5%丢包/30ms抖动(适配50ms心跳)" | Out-File $logFile -Append -Encoding UTF8
 "采集间隔: 30分钟, 共 $totalPoints 个采集点" | Out-File $logFile -Append -Encoding UTF8

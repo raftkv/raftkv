@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module01 — Raft 共识引擎独立沙箱验证测试程序
+// RaftKV Module01 — Raft 共识引擎独立沙箱验证测试程序
 //
 // 验证目标：
 //   1. 3 节点 Raft 集群成功启动
@@ -30,7 +30,7 @@ import (
 	"syscall"
 	"time"
 
-	raft "daijin235/raft-module"
+	raft "raftkv/raft-module"
 )
 
 // =========================================================================
@@ -140,7 +140,7 @@ func startCluster() ([]*testNode, error) {
 	}
 
 	// WAL 临时目录
-	walDir := filepath.Join(os.TempDir(), "daijin235_raft_test_wal")
+	walDir := filepath.Join(os.TempDir(), "raftkv_test_wal")
 	if err := os.MkdirAll(walDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建 WAL 目录失败: %w", err)
 	}
@@ -415,7 +415,7 @@ func shutdownCluster(nodes []*testNode) {
 func printHeader() {
 	fmt.Println(colorCyan + colorBold)
 	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║   岱境235 Module01 — Raft 强一致性共识引擎 独立沙箱验证      ║")
+	fmt.Println("║   RaftKV Module01 — Raft 强一致性共识引擎 独立沙箱验证      ║")
 	fmt.Println("║   纯标准库零外部依赖 | 3 节点集群 | 10 条日志同步             ║")
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 	fmt.Println(colorReset)

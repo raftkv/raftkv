@@ -3,7 +3,7 @@
 ## T1: harness.sh RUN_ID守卫
 commit: 1df4525
 commit 1df4525af99dee033f8fe4e8a5d7870d03262d3a
-Author: daijin235-dev <dev@daijin235.local>
+Author: raftkv-dev <dev@raftkv.local>
 Date:   Sat Sep 5 17:50:13 2026 +0000
 
     fix(ci): T1 harness.sh RUN_ID守卫 (run_id=run-20260905_174313)
@@ -15,7 +15,7 @@ run_id: run-20260905_174313
 ## T2: do_rollback双节点冒烟
 commit: f5996e0
 commit f5996e009004e50a043ab759f18041ee3e33fadf
-Author: daijin235-dev <dev@daijin235.local>
+Author: raftkv-dev <dev@raftkv.local>
 Date:   Sat Sep 5 17:57:25 2026 +0000
 
     fix(ci): T2 do_rollback双节点冒烟 (run_id=run-20260905_175022)
@@ -27,7 +27,7 @@ run_id: run-20260905_175022
 ## T3: sleep→wait_for统一
 commit: 107cc3c
 commit 107cc3cb61a6263dbedaf1a01feaad0c9f3aaefb
-Author: daijin235-dev <dev@daijin235.local>
+Author: raftkv-dev <dev@raftkv.local>
 Date:   Sun Sep 6 04:19:44 2026 +0000
 
     fix(ci): T3 A2 no-op mode + generate_decision empty sha guard
@@ -59,7 +59,7 @@ merge: 5d47cba Merge fix/d1-batch2: knife_run PASS (v1.0.0-d2)
 [ 17:50:14] T2: do_rollback冒烟改双节点方案A
 [ 17:50:14] 方案: 移source至do_rollback前, 替换内联docker run为up_cluster/down_cluster, RID=rbk-${RUN_ID}
 [ 17:50:14] R7: 作用域可用性检查
-/workspace/tests/knife_run.sh:29:ROLLBACK_IMAGE="daijin235-v26:ci-rollback"
+/workspace/tests/knife_run.sh:29:ROLLBACK_IMAGE="raftkv:latest-rollback"
 /workspace/tests/knife_run.sh:33:RUN_EVIDENCE="${EVIDENCE_DIR}/${RUN_ID}"
 /workspace/tests/knife_run.sh:35:mkdir -p "$RUN_EVIDENCE"
 /workspace/tests/knife_run.sh:58:    cat > "${RUN_EVIDENCE}/FAIL" << EOF
@@ -149,7 +149,7 @@ merge: 5d47cba Merge fix/d1-batch2: knife_run PASS (v1.0.0-d2)
 5. .gitignore更新 — 添加tests/deploy/deploy.env和.sm4_key (md5=34a93e6c00a1b8713aaf60302cc93708)
 
 ## 两轮9/9证据指纹
-- 步骤2 Leader当选: step2-up-20260906_230231/deploy_up.log (Leader=daijin235-node-1 after 5s)
+- 步骤2 Leader当选: step2-up-20260906_230231/deploy_up.log (Leader=raft-node-1 after 5s)
 - 步骤3 全流程9/9 PASS: step3-verify-20260906_230624/verify.log (md5=ea6ab38d963e517b8aaaec0394ba216a)
 - 步骤4 可重复性9/9 PASS: step4-repeat-20260906_230722/verify.log (md5=7266d5a590940b3ede777206dd0dd68d)
 - compose config校验: compose-config-output.txt (退出码0, 修正D不冲突确认)
@@ -173,7 +173,7 @@ deploy_up.sh / deploy_verify.sh 为bash脚本，在本机经PowerShell(ps1)等�
 # 时间线补充记录
 
 ## Docker迁移验证 (2026-09-06)
-- 迁移: C:\Users\27998\AppData\Local\Docker → D:\DockerData (VHDX+目录联接)
+- 迁移: <HOME>\AppData\Local\Docker → D:\DockerData (VHDX+目录联接)
 - 验证: docker-migration-verify.log 6/6通过
   - 步骤1 docker version ✅
   - 步骤2 docker ps -a ✅ (4容器Exited0)
@@ -193,4 +193,4 @@ deploy_up.sh / deploy_verify.sh 为bash脚本，在本机经PowerShell(ps1)等�
   - D类处理: 0.92GB (.jdks僵尸 0.28 + go 0.64)
   - Ollama: 保留 (用户选择)
 - 数据安全: 全部迁移到D盘(归档区+隔离区+DockerData), 无永久删除
-- 报告: D:\235备份文件\c-cleanup-report.txt
+- 报告: <BACKUP_DIR>/c-cleanup-report.txt

@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 确定性引擎 — 纯 Go Raft 共识引擎
+// RaftKV 确定性引擎 — 纯 Go Raft 共识引擎
 //
 // 设计原则：
 //   1. 零外部 Raft 库依赖 — 纯 Go + goroutine + channel 实现
@@ -24,7 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 )
 
 // ErrCompacted 日志已压缩：请求的索引 < logStartIndex，调用方应走快照路径

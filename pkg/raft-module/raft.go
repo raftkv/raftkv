@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module01 — 纯 Go Raft 强一致性共识引擎
+// RaftKV Module01 — 纯 Go Raft 强一致性共识引擎
 //
 // 设计原则：
 //   1. 零外部 Raft 库依赖 — 纯 Go + goroutine + channel 实现
@@ -8,7 +8,7 @@
 //   4. 随机选举超时避免脑裂（150-300ms 范围）
 //   5. Leader 心跳间隔 50ms，同时承担日志复制
 //
-// 本文件从原 daijin235/raft.go 剥离并改造：
+// 本文件从原 raftkv/raft.go 剥离并改造：
 //   - gRPC proto (pb.*) → 本地结构体 (RequestVoteRequest 等)
 //   - pb.RaftServiceClient → Transport 接口
 //   - 新增 Propose / ProposeSync 客户端提案接口

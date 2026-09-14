@@ -13,9 +13,9 @@
 [21:03:37]   状态: exited, exitCode: 1
 [21:03:37] 
 [21:03:37] --- F15 WAL持久化 ---
-[21:03:49]   Leader: daijin235-node-5
+[21:03:49]   Leader: raftkv-node-5
 [21:03:50]   写入后 commit=4
-[21:03:57]   重启后 Leader: daijin235-node-3
+[21:03:57]   重启后 Leader: raftkv-node-3
 [21:03:58]   重启后 commit=5
 [21:03:58]   重启后 entry[index=2]: {"command":"d2FsLXBlcnNpc3QtMQ==","found":true,"index":2,"term":1}
 [21:03:59]   集群已关闭

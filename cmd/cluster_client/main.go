@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -30,7 +30,7 @@ func main() {
 	}
 
 	fmt.Printf("══════════════════════════════════════════════════\n")
-	fmt.Printf("  岱境235 集群写入客户端\n")
+	fmt.Printf("  RaftKV 集群写入客户端\n")
 	fmt.Printf("  目标: %s  条数: %d  批大小: %d\n", *target, *count, *batchSize)
 	fmt.Printf("══════════════════════════════════════════════════\n\n")
 

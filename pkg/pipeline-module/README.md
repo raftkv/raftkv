@@ -1,4 +1,4 @@
-# 岱境235 Module03 — 高吞吐数据流转 Pipeline（独立闭环模块）
+# RaftKV Module03 — 高吞吐数据流转 Pipeline（独立闭环模块）
 
 > 纯标准库零外部依赖 | 多阶段串联 | 背压流控 | 批处理聚合 | 多生产者多消费者并发安全 | TPS 吞吐量统计
 
@@ -6,7 +6,7 @@
 
 ## 1. 模块概述
 
-本模块从 `daijin235_go_engine` 主工程中剥离 **高吞吐数据流转 Pipeline 引擎**，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
+本模块从 `raftkv_go_engine` 主工程中剥离 **高吞吐数据流转 Pipeline 引擎**，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
 
 ### 核心能力
 
@@ -33,7 +33,7 @@
 
 | 原实现 | 改造为 | 说明 |
 |--------|--------|------|
-| `daijin235/pkg/adapters` (TiDB/MySQL) | 移除 | 落盘属下游模块，Pipeline 仅流转到 Output |
+| `raftkv/pkg/adapters` (TiDB/MySQL) | 移除 | 落盘属下游模块，Pipeline 仅流转到 Output |
 | `raft_pipeline.go` 与 raft 耦合 | 独立 `pipeline.go` | 去除 Raft/SM4 耦合，纯数据流转 |
 | 第三方库 | **禁止** | 零外部依赖，纯 Go 标准库 |
 
@@ -127,7 +127,7 @@ Pipeline.Close()
 `go.mod` 内容：
 
 ```
-module daijin235/pipeline-module
+module raftkv/pipeline-module
 
 go 1.21
 ```

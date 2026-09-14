@@ -1,5 +1,5 @@
 #!/bin/sh
-# 岱境235 边缘恶劣环境4小时长稳监测脚本
+# RaftKV 边缘恶劣环境4小时长稳监测脚本
 # 每30分钟采集一次CPU/内存/延迟数据
 # 共8个采集点(0h, 0.5h, 1h, 1.5h, 2h, 2.5h, 3h, 3.5h, 4h)
 
@@ -8,7 +8,7 @@ INTERVAL=1800  # 30分钟
 TOTAL_POINTS=9  # 0h到4h共9个点
 
 echo "============================================" > $LOGFILE
-echo "岱境235 边缘恶劣环境4小时长稳测试" >> $LOGFILE
+echo "RaftKV 边缘恶劣环境4小时长稳测试" >> $LOGFILE
 echo "开始时间: $(date '+%Y-%m-%d %H:%M:%S')" >> $LOGFILE
 echo "配置: 0.5核/512MB/10%丢包/100ms抖动" >> $LOGFILE
 echo "============================================" >> $LOGFILE
@@ -21,7 +21,7 @@ for i in $(seq 1 $TOTAL_POINTS); do
     
     # 采集每个节点的资源使用和Raft状态
     for node_id in 1 2 3 4 5; do
-        NODE="daijin235_go_engine-node-${node_id}-1"
+        NODE="raftkv_go_engine-node-${node_id}-1"
         
         # CPU和内存 (从docker stats)
         STATS=$(docker stats --no-stream --format "{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}" $NODE 2>/dev/null)
@@ -36,7 +36,7 @@ for i in $(seq 1 $TOTAL_POINTS); do
     done
     
     # 检查OOM事件
-    OOM=$(docker events --since 30m --filter event=oom --filter container=daijin235_go_engine-node-1-1 --filter container=daijin235_go_engine-node-2-1 --filter container=daijin235_go_engine-node-3-1 --filter container=daijin235_go_engine-node-4-1 --filter container=daijin235_go_engine-node-5-1 --until 0s 2>/dev/null | head -1)
+    OOM=$(docker events --since 30m --filter event=oom --filter container=raftkv_go_engine-node-1-1 --filter container=raftkv_go_engine-node-2-1 --filter container=raftkv_go_engine-node-3-1 --filter container=raftkv_go_engine-node-4-1 --filter container=raftkv_go_engine-node-5-1 --until 0s 2>/dev/null | head -1)
     if [ -n "$OOM" ]; then
         echo "  [WARNING] 检测到OOM事件: $OOM" >> $LOGFILE
     else

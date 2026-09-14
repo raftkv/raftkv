@@ -5,7 +5,7 @@
 [ 17:50:14] T2: do_rollback冒烟改双节点方案A
 [ 17:50:14] 方案: 移source至do_rollback前, 替换内联docker run为up_cluster/down_cluster, RID=rbk-${RUN_ID}
 [ 17:50:14] R7: 作用域可用性检查
-/workspace/tests/knife_run.sh:29:ROLLBACK_IMAGE="daijin235-v26:ci-rollback"
+/workspace/tests/knife_run.sh:29:ROLLBACK_IMAGE="raftkv-v26:ci-rollback"
 /workspace/tests/knife_run.sh:33:RUN_EVIDENCE="${EVIDENCE_DIR}/${RUN_ID}"
 /workspace/tests/knife_run.sh:35:mkdir -p "$RUN_EVIDENCE"
 /workspace/tests/knife_run.sh:58:    cat > "${RUN_EVIDENCE}/FAIL" << EOF

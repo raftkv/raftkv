@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy_up.sh — 一键拉起岱境235集群
+# deploy_up.sh — 一键拉起RaftKV集群
 # 修正A: SM4_KEY双模式（留空=生成复用, 显式=用指定值）
 # D3-sec-rotate: 默认改为5节点(docker-compose-5node.yml)
 # --legacy: 使用2节点裁剪版(docker-compose.yml), 历史形态，仅作对照
@@ -31,7 +31,7 @@ fi
 
 source "$ENV_FILE"
 
-IMAGE_NAME="${IMAGE_NAME:-daijin235-v26:ci-knife}"
+IMAGE_NAME="${IMAGE_NAME:-raftkv:latest-knife}"
 FP_ANCHOR="${FP_ANCHOR:-tcx4-v25-test}"
 GRPC_PORT="${GRPC_PORT:-9500}"
 HTTP_PORT="${HTTP_PORT:-9000}"
@@ -77,9 +77,9 @@ echo "[deploy] 等待Leader出现..."
 for i in $(seq 1 30); do
     sleep 1
     for n in $(seq 1 $NODE_COUNT); do
-        s=$(docker exec daijin235-node-$n curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || true)
+        s=$(docker exec raft-node-$n curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || true)
         if echo "$s" | grep -q "state=Leader"; then
-            echo "[deploy] Leader=daijin235-node-$n after ${i}s"
+            echo "[deploy] Leader=raft-node-$n after ${i}s"
             echo "[deploy] stats: $s"
             echo "[deploy] PASS: 集群已就绪"
             exit 0

@@ -134,33 +134,33 @@ proto 文件未修改 (RL-07 满足) ✓
 | v2.4-post-batch36 | 0307a5d | ✓ 已推送 | 锚定 |
 | chain2-campaign4 | 0307a5d | ✓ 已推送 | 锚定 |
 
-**V2.4_remote 路径**: `D:/235备份文件/V2.4_remote`（bare git 仓库）
+**V2.4_remote 路径**: `<BACKUP_DIR>/V2.4_remote`（bare git 仓库）
 **v1.0-dev 分支 HEAD**: 0307a5d（batch36-S 终点 commit）✓
 
 ### 8.2 Bundle 第二物理位置清单
 
 | Bundle | 主位置 (V2.4_Performance_Sandbox/) | 第二物理位置 (bundle/) | 大小 | 完整性验证 |
 |--------|-------------------------------------|------------------------|------|------------|
-| v2.4-post-batch33.bundle | ✓ | ✓ `D:/235备份文件/bundle/` | 27.8MB | ✓ okay |
-| v2.4-post-batch34.bundle | ✓ | ✓ `D:/235备份文件/bundle/` | 27.8MB | ✓ okay |
-| v2.4-post-batch35.bundle | ✓ | ✓ `D:/235备份文件/bundle/` | 27.8MB | ✓ okay |
-| v2.4-post-batch36.bundle | ✓ | ✓ `D:/235备份文件/bundle/` | 27.8MB | ✓ okay |
+| v2.4-post-batch33.bundle | ✓ | ✓ `<BACKUP_DIR>/bundle/` | 27.8MB | ✓ okay |
+| v2.4-post-batch34.bundle | ✓ | ✓ `<BACKUP_DIR>/bundle/` | 27.8MB | ✓ okay |
+| v2.4-post-batch35.bundle | ✓ | ✓ `<BACKUP_DIR>/bundle/` | 27.8MB | ✓ okay |
+| v2.4-post-batch36.bundle | ✓ | ✓ `<BACKUP_DIR>/bundle/` | 27.8MB | ✓ okay |
 
 ### 8.3 历史 Bundle 第二物理位置
 
 | Bundle | 第二物理位置 | 说明 |
 |--------|-------------|------|
 | v2.4-chain1-complete.bundle | V2.4_Performance_Sandbox/（主） | CHAIN-1 终点 |
-| v2.4-post-batch20.bundle | `D:/235备份文件/` | 散落备份 |
-| v2.4-post-batch24~27.bundle | `D:/235备份文件/` | 散落备份 |
-| v2.4-post-batch23.bundle | `D:/235备份文件/bundle/` | 已有备份 |
-| v24-full-backup-20260907-v2.bundle | `D:/235备份文件/backup/` | 全量备份 |
-| batch12-full-backup-20260911.bundle | `D:/235备份文件/` | batch12 全量 |
+| v2.4-post-batch20.bundle | `<BACKUP_DIR>/` | 散落备份 |
+| v2.4-post-batch24~27.bundle | `<BACKUP_DIR>/` | 散落备份 |
+| v2.4-post-batch23.bundle | `<BACKUP_DIR>/bundle/` | 已有备份 |
+| v24-full-backup-20260907-v2.bundle | `<BACKUP_DIR>/backup/` | 全量备份 |
+| batch12-full-backup-20260911.bundle | `<BACKUP_DIR>/` | batch12 全量 |
 
 ### 8.4 锚定结论
 
 - **Tag 推送**: 5 个 tag（v2.4-post-batch33~36 + chain2-campaign4）已推送 V2.4_remote ✓
-- **Bundle 双物理**: 4 个 CHAIN-2 bundle 均有第二物理位置 `D:/235备份文件/bundle/` ✓
+- **Bundle 双物理**: 4 个 CHAIN-2 bundle 均有第二物理位置 `<BACKUP_DIR>/bundle/` ✓
 - **Bundle 完整性**: 4 个 bundle 第二位置均通过 `git bundle verify` ✓
 - **Commit 可达**: V2.4_remote v1.0-dev HEAD = 0307a5d = batch36-S 终点 ✓
 

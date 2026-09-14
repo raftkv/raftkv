@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const licenseSalt = "daijin235_diag_v11_auth"
+const licenseSalt = "raftkv_diag_v11_auth"
 
 type DiagResult struct {
 	Mode     string       `json:"mode"`

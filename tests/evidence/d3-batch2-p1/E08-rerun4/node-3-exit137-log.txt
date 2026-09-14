@@ -1,7 +1,7 @@
 ﻿docker : 2026/09/09 00:34:49 [raft/node-3] [raft/node-3] R-04修复C [ERROR] follower node-5 gap=68300 持续>10s (commitIdx=68
 300, matchIdx=0, degraded=true)
 At line:1 char:32
-+ ... ,3,5) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++ ... ,3,5) { $log = docker logs "raftkv-node-$n" --tail 30 2>&1; $log | ...
 +                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (2026/09/09 00:3... degraded=true):String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError

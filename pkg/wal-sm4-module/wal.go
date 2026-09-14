@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module02 — WAL 预写式日志（1GB 预分配 + 批量 fsync group commit）
+// RaftKV Module02 — WAL 预写式日志（1GB 预分配 + 批量 fsync group commit）
 //
 // 设计要点（复用 Module01 Raft 引擎的 WAL 架构，独立化去除 Raft 耦合）：
 //   1. 文件预分配 1GB（f.Truncate(1<<30)），消除运行时扩展开销

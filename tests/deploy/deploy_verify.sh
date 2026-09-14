@@ -55,7 +55,7 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 source "$ENV_FILE"
 
-IMAGE_NAME="${IMAGE_NAME:-daijin235-v26:ci-knife}"
+IMAGE_NAME="${IMAGE_NAME:-raftkv:latest-knife}"
 FP_ANCHOR="${FP_ANCHOR:-tcx4-v25-test}"
 GRPC_PORT="${GRPC_PORT:-9500}"
 HTTP_PORT="${HTTP_PORT:-9000}"
@@ -76,16 +76,16 @@ docker compose up -d 2>&1 | tee -a "$LOG"
 leader=""
 for i in $(seq 1 30); do
     sleep 1
-    s1=$(docker exec daijin235-node-1 curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || true)
+    s1=$(docker exec raft-node-1 curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || true)
     if echo "$s1" | grep -q "state=Leader"; then
-        leader="daijin235-node-1"
+        leader="raft-node-1"
         log "[verify] Leader=$leader after ${i}s"
         log "[verify] stats: $s1"
         break
     fi
-    s2=$(docker exec daijin235-node-2 curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || true)
+    s2=$(docker exec raft-node-2 curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || true)
     if echo "$s2" | grep -q "state=Leader"; then
-        leader="daijin235-node-2"
+        leader="raft-node-2"
         log "[verify] Leader=$leader after ${i}s"
         log "[verify] stats: $s2"
         break
@@ -101,7 +101,7 @@ fi
 log ""
 log "--- 2. gRPC探针 (两节点SERVING) ---"
 if [ -f "$PROBE_BIN" ]; then
-    for node in daijin235-node-1 daijin235-node-2; do
+    for node in raft-node-1 raft-node-2; do
         docker cp "$PROBE_BIN" "${node}:/tmp/health-probe" 2>/dev/null || true
         docker exec "$node" chmod +x /tmp/health-probe 2>/dev/null || true
         if docker exec "$node" /tmp/health-probe localhost:9500 >/dev/null 2>&1; then
@@ -140,8 +140,8 @@ assert_eq "$found" "true" "entry[index=2] found=true"
 
 log ""
 log "--- 6. Follower同步 ---"
-follower="daijin235-node-2"
-if [ "$leader" = "daijin235-node-2" ]; then follower="daijin235-node-1"; fi
+follower="raft-node-2"
+if [ "$leader" = "raft-node-2" ]; then follower="raft-node-1"; fi
 fstats=$(docker exec "$follower" curl -s http://127.0.0.1:9000/raft/stats 2>/dev/null || true)
 log "  follower stats: $fstats"
 fcommit=$(extract_stat "$fstats" commit)
@@ -153,9 +153,9 @@ docker compose down -v 2>&1 | tee -a "$LOG"
 
 log ""
 log "--- 8. 无残留 ---"
-remain_c=$(docker ps -a --filter "name=daijin235-node" --format "{{.Names}}" 2>/dev/null || true)
+remain_c=$(docker ps -a --filter "name=raft-node" --format "{{.Names}}" 2>/dev/null || true)
 remain_v=$(docker volume ls --filter "name=deploy_wal" --format "{{.Name}}" 2>/dev/null || true)
-remain_n=$(docker network ls --filter "name=deploy_daijin235" --format "{{.Name}}" 2>/dev/null || true)
+remain_n=$(docker network ls --filter "name=deploy_raftkv" --format "{{.Name}}" 2>/dev/null || true)
 assert_eq "$remain_c" "" "无残留容器"
 assert_eq "$remain_v" "" "无残留卷"
 assert_eq "$remain_n" "" "无残留网络"

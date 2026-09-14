@@ -25,7 +25,7 @@
 [管线] committed=10071 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
 docker : 2026/09/09 02:33:26 [raft/node-1] [raft/node-1] 启动，初始状态: Follower, peers: [node-2 node-3 node-4 node-5]
 At line:1 char:32
-+ ... ,2,3) { $log = docker logs "daijin235-node-$n" --tail 30 2>&1; $log | ...
++ ... ,2,3) { $log = docker logs "raftkv-node-$n" --tail 30 2>&1; $log | ...
 +                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (2026/09/09 02:3... node-4 node-5]:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError

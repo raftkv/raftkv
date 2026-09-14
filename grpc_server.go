@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 确定性引擎 — gRPC 服务端 + Raft 服务实现 + Peer 客户端管理
+// RaftKV 确定性引擎 — gRPC 服务端 + Raft 服务实现 + Peer 客户端管理
 // =========================================================================
 
 package main
@@ -16,7 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -173,9 +173,9 @@ func (s *GRPCServer) Start() error {
 			}
 		}()
 		s.ready.Store(true)
-		fmt.Printf("[岱境235 网关] gRPC 服务启动成功，端口: %s\n", s.port)
+		fmt.Printf("[RaftKV 网关] gRPC 服务启动成功，端口: %s\n", s.port)
 		if err := s.server.Serve(lis); err != nil {
-			fmt.Printf("[岱境235 网关] gRPC 异常停止: %v\n", err)
+			fmt.Printf("[RaftKV 网关] gRPC 异常停止: %v\n", err)
 		}
 	}()
 
@@ -187,7 +187,7 @@ func (s *GRPCServer) Stop() {
 	if s.server != nil {
 		s.server.GracefulStop()
 	}
-	fmt.Printf("[岱境235 网关] gRPC 服务已关闭 (端口: %s)\n", s.port)
+	fmt.Printf("[RaftKV 网关] gRPC 服务已关闭 (端口: %s)\n", s.port)
 }
 
 // IsReady 检查 gRPC 服务是否已就绪

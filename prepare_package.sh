@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# prepare_package.sh — 岱境235 部署包打包前预处理脚本
+# prepare_package.sh — RaftKV 部署包打包前预处理脚本
 #
 # 功能:
 #   1. 强制将所有 .sh 脚本转换为 LF 换行符 (防止 Windows CRLF 导致 Linux 执行失败)
@@ -26,7 +26,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  岱境235 部署包打包前预处理${NC}"
+echo -e "${GREEN}  RaftKV 部署包打包前预处理${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 # 确定打包目录
@@ -81,7 +81,7 @@ done
 echo -e "\n${YELLOW}[步骤4] 关键文件校验${NC}"
 
 # 校验二进制
-BINARY=$(find "$PKG_DIR" -maxdepth 1 -name "gateway_arm64*" -o -name "daijin235_gateway" -type f | head -1)
+BINARY=$(find "$PKG_DIR" -maxdepth 1 -name "gateway_arm64*" -o -name "raftkv_gateway" -type f | head -1)
 if [ -n "$BINARY" ]; then
     BIN_SIZE=$(du -h "$BINARY" | cut -f1)
     echo -e "${GREEN}  ✅ 二进制: $(basename "$BINARY") ($BIN_SIZE)${NC}"

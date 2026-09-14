@@ -1,4 +1,4 @@
-# 岱境235 Module01 — Raft 强一致性共识引擎（独立闭环模块）
+# RaftKV Module01 — Raft 强一致性共识引擎（独立闭环模块）
 
 > 纯标准库零外部依赖 | 3 节点集群 | Leader 选举 + 日志复制 + WAL 持久化 + AES-GCM 加密
 
@@ -6,7 +6,7 @@
 
 ## 1. 模块概述
 
-本模块从 `daijin235_go_engine` 主工程中剥离 Raft 强一致性共识引擎，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
+本模块从 `raftkv_go_engine` 主工程中剥离 Raft 强一致性共识引擎，形成**独立闭环、零外部依赖**的纯 Go 标准库模块。
 
 ### 核心能力
 
@@ -22,7 +22,7 @@
 
 | 原依赖 | 改造为 | 说明 |
 |--------|--------|------|
-| `google.golang.org/grpc` + `daijin235/proto` | `net/http` + `encoding/json` | 纯标准库 HTTP RPC 传输层 |
+| `google.golang.org/grpc` + `raftkv/proto` | `net/http` + `encoding/json` | 纯标准库 HTTP RPC 传输层 |
 | `github.com/tjfoc/gmsm/sm4` (SM4-CTR) | `crypto/aes` + `crypto/cipher` (AES-128-GCM) | 标准库认证加密 |
 | `github.com/go-sql-driver/mysql` | 移除 | TiDB 落盘属下游模块，不在共识引擎范围 |
 
@@ -93,7 +93,7 @@ Client → Leader.ProposeSync(cmd)
 `go.mod` 内容：
 
 ```
-module daijin235/raft-module
+module raftkv/raft-module
 
 go 1.21
 ```

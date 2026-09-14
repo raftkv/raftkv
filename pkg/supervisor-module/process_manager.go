@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module05 — 工业级自愈与进程守护系统
+// RaftKV Module05 — 工业级自愈与进程守护系统
 //
 // 文件：process_manager.go
 // 职责：ProcessManager — launchWorker 双模式拉起 + waitExit 退出归因 +

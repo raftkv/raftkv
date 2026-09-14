@@ -1,6 +1,6 @@
 services:
   node-1:
-    image: daijin235-v23:latest
+    image: raftkv-v23:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m
@@ -14,7 +14,7 @@ services:
     networks: [v23-net]
 
   node-2:
-    image: daijin235-v23:latest
+    image: raftkv-v23:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m
@@ -28,7 +28,7 @@ services:
     networks: [v23-net]
 
   node-3:
-    image: daijin235-v23:latest
+    image: raftkv-v23:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m
@@ -42,7 +42,7 @@ services:
     networks: [v23-net]
 
   node-4:
-    image: daijin235-v23:latest
+    image: raftkv-v23:latest
     restart: always
     cap_add: [NET_ADMIN]
     mem_limit: 512m

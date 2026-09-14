@@ -5,7 +5,7 @@
 # 用法: ./tests/make_oldfmt_fixture.sh
 #
 # 产物:
-#   fixtures/oldfmt-wal-1/daijin235_raft.wal.gz  (压缩WAL)
+#   fixtures/oldfmt-wal-1/raftkv.wal.gz  (压缩WAL)
 #   fixtures/oldfmt-wal-1/sm4_key.txt            (生成时用的密钥)
 #   fixtures/oldfmt-wal-1/entry_count.txt        (条目数=20)
 
@@ -16,7 +16,7 @@ REPO_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 FIXTURE_DIR="${TESTS_DIR}/fixtures/oldfmt-wal-1"
 LICENSE_DIR="${LICENSE_DIR:-/licenses}"
 FP_ANCHOR="${FP_ANCHOR:-tcx4-v25-test}"
-DEV4_IMAGE="daijin235-v26:dev4-fixture"
+DEV4_IMAGE="raftkv:latest-fixture"
 ENTRY_COUNT=20
 
 mkdir -p "$FIXTURE_DIR"
@@ -80,7 +80,7 @@ fi
 # 4. 导出WAL并压缩
 echo "[5/5] export WAL..."
 docker run --rm -v "${FIX_VOL}:/app/wal-data" -v "${FIXTURE_DIR}:/out" alpine:3.21 \
-    sh -c 'gzip -c /app/wal-data/daijin235_raft.wal > /out/daijin235_raft.wal.gz'
+    sh -c 'gzip -c /app/wal-data/raftkv.wal > /out/raftkv.wal.gz'
 
 echo "$SM4_KEY" > "${FIXTURE_DIR}/sm4_key.txt"
 echo "$ENTRY_COUNT" > "${FIXTURE_DIR}/entry_count.txt"
@@ -96,11 +96,11 @@ git checkout - 2>&1 || true
 git stash pop 2>/dev/null || true
 
 # 验证产物
-WAL_GZ_SIZE=$(wc -c < "${FIXTURE_DIR}/daijin235_raft.wal.gz")
+WAL_GZ_SIZE=$(wc -c < "${FIXTURE_DIR}/raftkv.wal.gz")
 echo ""
 echo "═══════════════════════════════════════════════════"
 echo "  夹具生成完成"
-echo "  ${FIXTURE_DIR}/daijin235_raft.wal.gz  (${WAL_GZ_SIZE} bytes)"
+echo "  ${FIXTURE_DIR}/raftkv.wal.gz  (${WAL_GZ_SIZE} bytes)"
 echo "  ${FIXTURE_DIR}/sm4_key.txt"
 echo "  ${FIXTURE_DIR}/entry_count.txt (${ENTRY_COUNT})"
 echo "═══════════════════════════════════════════════════"

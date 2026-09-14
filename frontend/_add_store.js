@@ -1,5 +1,5 @@
 const fs = require('fs');
-const f = 'C:\\Users\\27998\\Desktop\\岱境235\\daijin235_go_engine\\frontend\\daijing_235_dashboard.html';
+const f = './dashboard.html';
 let h = fs.readFileSync(f, 'utf8');
 
 if (h.includes('skTurnover')) { console.log('Store module already exists, skipping'); process.exit(0); }

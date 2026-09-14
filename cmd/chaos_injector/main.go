@@ -48,7 +48,7 @@ func main() {
 	_ = resumeState
 
 	em := NewEvidenceManager(evidenceDir)
-	nc := NewNodeController("daijin235-node-", 9001)
+	nc := NewNodeController("raft-node-", 9001)
 	collector := NewCollector(nc)
 	scheduler := NewScheduler(nc, collector, em, rm, contractPath)
 

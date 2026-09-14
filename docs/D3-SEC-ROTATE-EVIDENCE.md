@@ -6,7 +6,7 @@
 2026-09-07 20:47:01 ~ 20:47:25
 
 ### 验证环境
-- 镜像: daijin235-v26:ci-knife
+- 镜像: raftkv:latest-knife
 - 集群: 5节点 (docker-compose-5node.yml)
 - 新密钥前8位: 856aa4fb
 - 旧密钥前8位: 837e01cd
@@ -16,7 +16,7 @@
 | 检查项 | 结果 |
 |--------|------|
 | 5节点启动 | PASS |
-| Leader当选 | daijin235-node-2 |
+| Leader当选 | raft-node-2 |
 | 健康节点 | 5/5 |
 | 数据写入 | success=true (index=2) |
 
@@ -48,7 +48,7 @@ tests/evidence/d3-sec-rotate/key-rotate-verify.log
 
 **新密钥验证通过（L51-L52）**：
 ```
-[20:47:09] [PASS] 新密钥: Leader=daijin235-node-2, 5节点启动成功
+[20:47:09] [PASS] 新密钥: Leader=raft-node-2, 5节点启动成功
 [20:47:09] 新密钥健康节点: 5/5
 ```
 
@@ -59,7 +59,7 @@ tests/evidence/d3-sec-rotate/key-rotate-verify.log
 
 **旧密钥行为——可启动空集群但无法解密新数据（L105-L108）**：
 ```
-[20:47:22] [INFO] 旧密钥: Leader=daijin235-node-4, 集群可启动
+[20:47:22] [INFO] 旧密钥: Leader=raft-node-4, 集群可启动
 [20:47:22] [INFO] SM4_KEY为数据加密密钥(非授权密钥), 旧密钥可启动集群但无法解密新密钥加密的WAL数据
 [20:47:23] 旧密钥健康节点: 5/5
 [20:47:23] [PASS] 旧密钥可启动新集群(空WAL), 但已作废: 新数据将用新密钥加密, 旧密钥无法解密
@@ -69,7 +69,7 @@ tests/evidence/d3-sec-rotate/key-rotate-verify.log
 
 | 项 | 内容 |
 |---|---|
-| 旧密钥存储 | C:\Users\27998\.sm4_key_old（已作废，前8位837e01cd） |
+| 旧密钥存储 | <HOME>\.sm4_key_old（已作废，前8位837e01cd） |
 | 新密钥存储 | tests/deploy/.sm4_key（gitignored，前8位856aa4fb） |
 | 旧密钥git历史 | commit a4e51db（按R2红线不改写历史） |
 | 轮换commit | 2490c22 (d3-sec-rotate-pass) |

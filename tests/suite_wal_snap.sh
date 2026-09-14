@@ -89,7 +89,7 @@ t_begin "t22" "old_volume_compat: old-format WAL → current code replay → rec
 
 FIXTURE_DIR="${TESTS_DIR}/fixtures/oldfmt-wal-1"
 FIXTURE_DIR_HOSTA="${FIXTURE_DIR_HOST:-${FIXTURE_DIR}}"
-FIXTURE_WAL_GZ="${FIXTURE_DIR}/daijin235_raft.wal.gz"
+FIXTURE_WAL_GZ="${FIXTURE_DIR}/raftkv.wal.gz"
 FIXTURE_KEY_FILE="${FIXTURE_DIR}/sm4_key.txt"
 
 if [ ! -f "$FIXTURE_WAL_GZ" ]; then
@@ -107,7 +107,7 @@ else
     
     # 解压旧格式WAL并复制到新卷 (FIXTURE_DIR_HOST用于Docker volume挂载)
     docker run --rm -v "${FIXTURE_DIR_HOSTA}:/fixture:ro" -v "$t22_vol:/app/wal-data" alpine:3.21 \
-        sh -c 'gunzip -c /fixture/daijin235_raft.wal.gz > /app/wal-data/daijin235_raft.wal'
+        sh -c 'gunzip -c /fixture/raftkv.wal.gz > /app/wal-data/raftkv.wal'
     
     # 用当前镜像启动, 挂载旧WAL
     docker run -d --name "$t22_c" --network "$t22_net" \
@@ -138,17 +138,17 @@ fi
 # ════════════════════════════════════════════════════════════
 # t23: key_leak_scan — 运行时自检: 二进制strings搜旧key=0次
 # ════════════════════════════════════════════════════════════
-t_begin "t23" "key_leak_scan: runtime strings search for daijin235_012345 → 0 hits"
+t_begin "t23" "key_leak_scan: runtime strings search for raftkv_sm4test01 → 0 hits"
 
 up_cluster "${RID}-t23" || { echo "[t23] FAIL: cluster up"; suite_end; exit 1; }
 
 # 在容器内扫描二进制
 leak_count=$(docker exec "$(_c_name 1)" \
-    sh -c 'grep -c "daijin235_012345" /app/gateway 2>/dev/null || true')
+    sh -c 'grep -c "raftkv_sm4test01" /app/gateway 2>/dev/null || true')
 assert_eq "$leak_count" "0" "t23: no hardcoded key in binary"
 
 # 也扫描容器环境变量(不应包含旧key)
-env_leak=$(docker exec "$(_c_name 1)" env 2>/dev/null | grep -c "daijin235_012345" || true)
+env_leak=$(docker exec "$(_c_name 1)" env 2>/dev/null | grep -c "raftkv_sm4test01" || true)
 assert_eq "$env_leak" "0" "t23: no hardcoded key in env"
 
 echo "binary_hits=$leak_count env_hits=$env_leak" | log_evidence "t23_leak.txt"

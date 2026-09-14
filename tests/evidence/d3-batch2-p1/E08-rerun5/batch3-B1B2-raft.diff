@@ -1,4 +1,4 @@
---- D:/235备份文件/V2.5_Sandbox_Backup_20260902/raft.go.batch3_pre	2026-09-09 17:38:48.605635300 +0800
+--- <BACKUP_DIR>/V2.5_Sandbox_Backup_20260902/raft.go.batch3_pre	2026-09-09 17:38:48.605635300 +0800
 +++ raft.go	2026-09-09 17:41:39.452650000 +0800
 @@ -76,6 +76,9 @@
  	stateChangeCh chan NodeState  // 状态变更通知

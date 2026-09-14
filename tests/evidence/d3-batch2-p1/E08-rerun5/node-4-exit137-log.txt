@@ -1,6 +1,6 @@
 ﻿docker : 2026/09/09 02:00:58 [raft/node-4] [raft/node-4] Propose: index=35195 term=2593 cmd_len=54
 At line:1 char:32
-+ ... ,2,4) { $log = docker logs "daijin235-node-$n" --tail 20 2>&1; $log | ...
++ ... ,2,4) { $log = docker logs "raftkv-node-$n" --tail 20 2>&1; $log | ...
 +                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (2026/09/09 02:0...2593 cmd_len=54:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError

@@ -1,15 +1,15 @@
 ﻿
 [19:32:55] === D3-batch0R 5节点冒烟测试 [run1] ===
-[19:32:55] IMAGE_NAME=daijin235-v26:ci-knife
+[19:32:55] IMAGE_NAME=raftkv-v26:ci-knife
 [19:32:55] SM4_KEY=837e01cd...(隐藏)
-[19:32:55] LICENSE_DIR=C:/Users/27998/.daijin235/tcx4_test/licenses_v25
+[19:32:55] LICENSE_DIR=<HOME>/.raftkv/tcx4_test/licenses_v25
 [19:32:55] 
 [19:32:55] --- 1. docker compose up -d (5节点) ---
-[19:32:56]    Network deploy5_daijin235-net Creating 
+[19:32:56]    Network deploy5_raftkv-net Creating 
 [19:32:56]    Volume deploy5_wal-node-5 Creating 
 [19:32:56]    Volume deploy5_wal-node-1 Creating 
 [19:32:56]    Volume deploy5_wal-node-5 Creating 
-[19:32:56]    Network deploy5_daijin235-net Creating 
+[19:32:56]    Network deploy5_raftkv-net Creating 
 [19:32:56]    Volume deploy5_wal-node-1 Creating 
 [19:32:56]    Volume deploy5_wal-node-3 Creating 
 [19:32:56]    Volume deploy5_wal-node-4 Creating 
@@ -27,48 +27,48 @@
 [19:32:56]    Volume deploy5_wal-node-4 Created 
 [19:32:56]    Volume deploy5_wal-node-2 Created 
 [19:32:56]    Volume deploy5_wal-node-2 Created 
-[19:32:56]    Network deploy5_daijin235-net Created 
-[19:32:56]    Network deploy5_daijin235-net Created 
-[19:32:56]    Container daijin235-node-1 Creating 
-[19:32:56]    Container daijin235-node-4 Creating 
-[19:32:56]    Container daijin235-node-5 Creating 
-[19:32:56]    Container daijin235-node-3 Creating 
-[19:32:56]    Container daijin235-node-2 Creating 
-[19:32:56]    Container daijin235-node-1 Created 
-[19:32:56]    Container daijin235-node-5 Created 
-[19:32:56]    Container daijin235-node-2 Created 
-[19:32:56]    Container daijin235-node-4 Created 
-[19:32:56]    Container daijin235-node-3 Created 
-[19:32:56]    Container daijin235-node-3 Starting 
-[19:32:56]    Container daijin235-node-5 Starting 
-[19:32:56]    Container daijin235-node-1 Starting 
-[19:32:56]    Container daijin235-node-4 Starting 
-[19:32:56]    Container daijin235-node-2 Starting 
-[19:32:56]    Container daijin235-node-4 Started 
-[19:32:56]    Container daijin235-node-1 Started 
-[19:32:56]    Container daijin235-node-5 Started 
-[19:32:56]    Container daijin235-node-3 Started 
-[19:32:56]    Container daijin235-node-2 Started 
+[19:32:56]    Network deploy5_raftkv-net Created 
+[19:32:56]    Network deploy5_raftkv-net Created 
+[19:32:56]    Container raftkv-node-1 Creating 
+[19:32:56]    Container raftkv-node-4 Creating 
+[19:32:56]    Container raftkv-node-5 Creating 
+[19:32:56]    Container raftkv-node-3 Creating 
+[19:32:56]    Container raftkv-node-2 Creating 
+[19:32:56]    Container raftkv-node-1 Created 
+[19:32:56]    Container raftkv-node-5 Created 
+[19:32:56]    Container raftkv-node-2 Created 
+[19:32:56]    Container raftkv-node-4 Created 
+[19:32:56]    Container raftkv-node-3 Created 
+[19:32:56]    Container raftkv-node-3 Starting 
+[19:32:56]    Container raftkv-node-5 Starting 
+[19:32:56]    Container raftkv-node-1 Starting 
+[19:32:56]    Container raftkv-node-4 Starting 
+[19:32:56]    Container raftkv-node-2 Starting 
+[19:32:56]    Container raftkv-node-4 Started 
+[19:32:56]    Container raftkv-node-1 Started 
+[19:32:56]    Container raftkv-node-5 Started 
+[19:32:56]    Container raftkv-node-3 Started 
+[19:32:56]    Container raftkv-node-2 Started 
 [19:32:56] [PASS] docker compose up 成功
 [19:32:56] 
 [19:32:56] --- 2. 等待Leader出现 (最多30s) ---
-[19:33:02] [PASS] Leader=daijin235-node-2 after 3s
+[19:33:02] [PASS] Leader=raftkv-node-2 after 3s
 [19:33:02]   stats: id=node-2 state=Leader term=1 leader=node-2 commit=1 applied=1 logs=1 peers=4 voted=node-2
 [19:33:02] 
 [19:33:02] --- 3. 检查5/5节点 /health/live ---
-[19:33:03]   [PASS] daijin235-node-1 /health/live -> 200
-[19:33:03]   [PASS] daijin235-node-2 /health/live -> 200
-[19:33:04]   [PASS] daijin235-node-3 /health/live -> 200
-[19:33:04]   [PASS] daijin235-node-4 /health/live -> 200
-[19:33:04]   [PASS] daijin235-node-5 /health/live -> 200
+[19:33:03]   [PASS] raftkv-node-1 /health/live -> 200
+[19:33:03]   [PASS] raftkv-node-2 /health/live -> 200
+[19:33:04]   [PASS] raftkv-node-3 /health/live -> 200
+[19:33:04]   [PASS] raftkv-node-4 /health/live -> 200
+[19:33:04]   [PASS] raftkv-node-5 /health/live -> 200
 [19:33:04] [PASS] 5/5节点健康
 [19:33:04] 
 [19:33:04] --- 4. 检查5/5容器Running ---
-[19:33:04]   [PASS] daijin235-node-1 Running=true
-[19:33:05]   [PASS] daijin235-node-2 Running=true
-[19:33:05]   [PASS] daijin235-node-3 Running=true
-[19:33:05]   [PASS] daijin235-node-4 Running=true
-[19:33:05]   [PASS] daijin235-node-5 Running=true
+[19:33:04]   [PASS] raftkv-node-1 Running=true
+[19:33:05]   [PASS] raftkv-node-2 Running=true
+[19:33:05]   [PASS] raftkv-node-3 Running=true
+[19:33:05]   [PASS] raftkv-node-4 Running=true
+[19:33:05]   [PASS] raftkv-node-5 Running=true
 [19:33:05] [PASS] 5/5容器Running
 [19:33:05] 
 [19:33:05] --- 5. 写入10条数据 ---
@@ -93,45 +93,45 @@
 [19:33:11] [PASS] entry[index=2] found=true
 [19:33:11] 
 [19:33:11] --- 8. Follower同步检查 (4个follower) ---
-[19:33:11]   [PASS] daijin235-node-1 commit=11 == leader commit=11
-[19:33:11]   [PASS] daijin235-node-3 commit=11 == leader commit=11
-[19:33:11]   [PASS] daijin235-node-4 commit=11 == leader commit=11
-[19:33:12]   [PASS] daijin235-node-5 commit=11 == leader commit=11
+[19:33:11]   [PASS] raftkv-node-1 commit=11 == leader commit=11
+[19:33:11]   [PASS] raftkv-node-3 commit=11 == leader commit=11
+[19:33:11]   [PASS] raftkv-node-4 commit=11 == leader commit=11
+[19:33:12]   [PASS] raftkv-node-5 commit=11 == leader commit=11
 [19:33:12] [PASS] 4/4 Follower同步
 [19:33:12] 
 [19:33:12] --- 9. 干净关闭 (down -v) ---
-[19:33:14]    Container daijin235-node-5 Stopping 
-[19:33:14]    Container daijin235-node-4 Stopping 
-[19:33:14]    Container daijin235-node-1 Stopping 
-[19:33:14]    Container daijin235-node-2 Stopping 
-[19:33:14]    Container daijin235-node-3 Stopping 
-[19:33:14]    Container daijin235-node-4 Stopped 
-[19:33:14]    Container daijin235-node-4 Removing 
-[19:33:14]    Container daijin235-node-4 Removed 
-[19:33:14]    Container daijin235-node-5 Stopped 
-[19:33:14]    Container daijin235-node-5 Removing 
-[19:33:14]    Container daijin235-node-2 Stopped 
-[19:33:14]    Container daijin235-node-2 Removing 
-[19:33:14]    Container daijin235-node-5 Removed 
-[19:33:14]    Container daijin235-node-2 Removed 
-[19:33:14]    Container daijin235-node-3 Stopped 
-[19:33:14]    Container daijin235-node-3 Removing 
-[19:33:14]    Container daijin235-node-1 Stopped 
-[19:33:14]    Container daijin235-node-1 Removing 
-[19:33:14]    Container daijin235-node-3 Removed 
-[19:33:14]    Container daijin235-node-1 Removed 
+[19:33:14]    Container raftkv-node-5 Stopping 
+[19:33:14]    Container raftkv-node-4 Stopping 
+[19:33:14]    Container raftkv-node-1 Stopping 
+[19:33:14]    Container raftkv-node-2 Stopping 
+[19:33:14]    Container raftkv-node-3 Stopping 
+[19:33:14]    Container raftkv-node-4 Stopped 
+[19:33:14]    Container raftkv-node-4 Removing 
+[19:33:14]    Container raftkv-node-4 Removed 
+[19:33:14]    Container raftkv-node-5 Stopped 
+[19:33:14]    Container raftkv-node-5 Removing 
+[19:33:14]    Container raftkv-node-2 Stopped 
+[19:33:14]    Container raftkv-node-2 Removing 
+[19:33:14]    Container raftkv-node-5 Removed 
+[19:33:14]    Container raftkv-node-2 Removed 
+[19:33:14]    Container raftkv-node-3 Stopped 
+[19:33:14]    Container raftkv-node-3 Removing 
+[19:33:14]    Container raftkv-node-1 Stopped 
+[19:33:14]    Container raftkv-node-1 Removing 
+[19:33:14]    Container raftkv-node-3 Removed 
+[19:33:14]    Container raftkv-node-1 Removed 
 [19:33:14]    Volume deploy5_wal-node-1 Removing 
 [19:33:14]    Volume deploy5_wal-node-5 Removing 
 [19:33:14]    Volume deploy5_wal-node-2 Removing 
 [19:33:14]    Volume deploy5_wal-node-4 Removing 
-[19:33:14]    Network deploy5_daijin235-net Removing 
+[19:33:14]    Network deploy5_raftkv-net Removing 
 [19:33:14]    Volume deploy5_wal-node-3 Removing 
 [19:33:14]    Volume deploy5_wal-node-1 Removed 
 [19:33:14]    Volume deploy5_wal-node-5 Removed 
 [19:33:14]    Volume deploy5_wal-node-2 Removed 
 [19:33:14]    Volume deploy5_wal-node-4 Removed 
 [19:33:14]    Volume deploy5_wal-node-3 Removed 
-[19:33:14]    Network deploy5_daijin235-net Removed 
+[19:33:14]    Network deploy5_raftkv-net Removed 
 [19:33:14] [PASS] down -v 成功
 [19:33:14] 
 [19:33:14] --- 10. 无残留检查 ---

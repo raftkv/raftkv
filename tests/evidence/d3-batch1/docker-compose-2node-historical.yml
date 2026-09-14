@@ -18,9 +18,9 @@
 services:
   node-1:
     image: ${IMAGE_NAME}
-    container_name: daijin235-node-1
+    container_name: raft-node-1
     networks:
-      - daijin235-net
+      - raftkv-net
     environment:
       - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
@@ -35,9 +35,9 @@ services:
       - wal-node-1:/app/wal-data
   node-2:
     image: ${IMAGE_NAME}
-    container_name: daijin235-node-2
+    container_name: raft-node-2
     networks:
-      - daijin235-net
+      - raftkv-net
     environment:
       - DAIJIN235_FP_ANCHOR=${FP_ANCHOR}
       - SM4_KEY=${SM4_KEY}
@@ -51,7 +51,7 @@ services:
       - ${LICENSE_DIR}/node-2.key:/app/license.key:ro
       - wal-node-2:/app/wal-data
 networks:
-  daijin235-net:
+  raftkv-net:
     driver: bridge
 volumes:
   wal-node-1:

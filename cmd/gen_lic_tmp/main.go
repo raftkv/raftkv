@@ -23,8 +23,8 @@ var licenseFieldOrder = []string{
 
 func main() {
 	fingerprint := "f91c7eddd47c9ad7a45a0c18621c6a5f"
-	privateKeyPath := `D:\235备份文件\岱境235_RSA密钥备份\daijin235_rsa_private.pem`
-	outputDir := `C:\Users\27998\.daijin235\tcx4_test\licenses_v25`
+	privateKeyPath := os.Getenv("RSA_PRIVATE_KEY_PATH")
+	outputDir := `<HOME>/.raftkv\tcx4_test\licenses_v25`
 
 	keyData, err := os.ReadFile(privateKeyPath)
 	if err != nil {
@@ -47,7 +47,7 @@ func main() {
 
 		fields := map[string]string{
 			"LICENSE_ID":        licenseID,
-			"PRODUCT":           "daijin235",
+			"PRODUCT":           "raftkv",
 			"TYPE":              "COMMERCIAL",
 			"ISSUED_TO":         nodeID,
 			"ISSUED_AT":         now.Format("2006-01-02"),
@@ -57,7 +57,7 @@ func main() {
 			"HARDWARE_BINDING":  fingerprint,
 			"GRACE_PERIOD_DAYS": "7",
 			"SIGNATURE_ALG":     "RSA-2048-SHA256",
-			"ISSUER":            "daijin235",
+			"ISSUER":            "raftkv",
 			"CONTACT":           "support",
 		}
 
@@ -79,7 +79,7 @@ func main() {
 
 		var licenseFile strings.Builder
 		licenseFile.WriteString("# ============================================\n")
-		licenseFile.WriteString("#  daijin235 COMMERCIAL LICENSE KEY\n")
+		licenseFile.WriteString("#  raftkv COMMERCIAL LICENSE KEY\n")
 		licenseFile.WriteString("# ============================================\n\n")
 
 		for _, key := range licenseFieldOrder {

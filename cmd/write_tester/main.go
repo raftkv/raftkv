@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -105,7 +105,7 @@ func main() {
 	minDurUs.Store(1 << 62)
 
 	fmt.Printf("============================================================\n")
-	fmt.Printf("  岱境235 gRPC AppendEntries 写入压测工具\n")
+	fmt.Printf("  RaftKV gRPC AppendEntries 写入压测工具\n")
 	fmt.Printf("============================================================\n")
 	fmt.Printf("  目标主机     : %s\n", *target)
 	fmt.Printf("  总请求数     : %d\n", *total)

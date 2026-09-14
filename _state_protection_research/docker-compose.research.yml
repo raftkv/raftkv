@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   research-node-1:
-    image: daijin235-state-protection-research:v2.4-research
+    image: raftkv-state-protection-research:v2.4-research
     container_name: research-node-1
     environment:
       - NODE_ID=node-1
@@ -23,7 +23,7 @@ services:
       - research-net
 
   research-node-2:
-    image: daijin235-state-protection-research:v2.4-research
+    image: raftkv-state-protection-research:v2.4-research
     container_name: research-node-2
     environment:
       - NODE_ID=node-2
@@ -44,7 +44,7 @@ services:
       - research-net
 
   research-node-3:
-    image: daijin235-state-protection-research:v2.4-research
+    image: raftkv-state-protection-research:v2.4-research
     container_name: research-node-3
     environment:
       - NODE_ID=node-3

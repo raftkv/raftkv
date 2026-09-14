@@ -11,11 +11,11 @@ pkg/integration-test/integration_test.wal
 
 # 编译产物
 *.exe
-daijin235-v2.3-linux-arm64
-daijin235-v2.4-linux-arm64
-daijin235_gateway_arm64
-daijin235_gateway_arm64_final
-daijin235_gateway_linux_arm64
+raftkv-v2.3-linux-arm64
+raftkv-v2.4-linux-arm64
+raftkv_gateway_arm64
+raftkv_gateway_arm64_final
+raftkv_gateway_linux_arm64
 gateway_cluster
 gateway-arm64
 gateway_arm64_final
@@ -46,7 +46,7 @@ pkg/observability-module/cmd/observability-test/observability-test
 # 压缩包/归档
 *.tar
 *.zip
-岱境235-三节点部署包.zip
+RaftKV-三节点部署包.zip
 
 # 密钥/敏感
 license.key

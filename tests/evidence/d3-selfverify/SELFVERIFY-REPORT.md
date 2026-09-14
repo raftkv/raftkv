@@ -39,7 +39,7 @@ func loadSM4KeyFromEnv() []byte {
 60: 	peerList := envOr("PEERS", *peersRaw, "")
 61:
 62: 	fmt.Println(strings.Repeat("═", 60))
-63: 	fmt.Printf("  岱境235 确定性管控中枢 (Go gRPC 微服务版)\n")
+63: 	fmt.Printf("  RaftKV 确定性管控中枢 (Go gRPC 微服务版)\n")
 ...
 67: 	PrintFingerprint()
 68: 	// ── 双模式授权防线 ──

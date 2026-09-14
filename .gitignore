@@ -45,7 +45,7 @@ pkg/observability-module/cmd/observability-test/observability-test
 # --- 压缩包/归档 ---
 *.tar
 *.zip
-岱境235-三节点部署包.zip
+RaftKV-三节点部署包.zip
 
 # --- 密钥/敏感 ---
 license.key

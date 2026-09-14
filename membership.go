@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 V2.3 — Raft Joint Consensus 动态成员变更
+// RaftKV V2.3 — Raft Joint Consensus 动态成员变更
 //
 // 实现原理（单节点变更法，Diego Ongaro 博士论文 §4.3）：
 //   1. C_old → C_old,new → C_new 三阶段变更
@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"sync"
 
-	pb "daijin235/proto"
+	pb "raftkv/proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

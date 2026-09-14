@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 — Raft 共识双适配层 (替代传统 REST 数据网关)
+// RaftKV — Raft 共识双适配层 (替代传统 REST 数据网关)
 //
 // 架构原则:
 //   1. 所有跨系统状态变更，必须经过 Raft 提案 → 共识 → 落盘 → 应用
@@ -1391,7 +1391,7 @@ func InitAdapters(
 
 	clusterID := os.Getenv("NODE_ID")
 	if clusterID == "" {
-		clusterID = "daijin235-cluster"
+		clusterID = "raftkv-cluster"
 	}
 	k8sAdapter := NewK8sAdapter(clusterID, "k8s", proposer, stateMachine, sm3Hasher)
 	agentAdapter := NewAgentAdapter(proposer, stateMachine, sm3Hasher)

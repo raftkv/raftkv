@@ -1,5 +1,5 @@
 ============================================================================
-岱境235 V2.3 — 鲲鹏裸金属极限压测与安全熔断报告
+RaftKV V2.3 — 鲲鹏裸金属极限压测与安全熔断报告
 ============================================================================
 压测时间: 2026-08-23 23:20 ~ 23:25
 服务器: 172.38.3.147 (DG-S920X20 Kunpeng aarch64)
@@ -69,7 +69,7 @@ MiB Swap: 4000.0 total,    0.0 free, 4000.0 used  [!!! Swap耗尽]
   PID 3930xxx  stress-ng-cpu     CPU=97.8% MEM=0.1%
   PID 3930xxx  stress-ng-cpu     CPU=96.5% MEM=0.1%
   PID 3930xxx  stress-ng-cpu     CPU=95.9% MEM=0.1%
-  PID 332621   daijin235-v2.3    CPU=12.3% MEM=1.3%
+  PID 332621   raftkv-v2.3    CPU=12.3% MEM=1.3%
 
 五、压测数据 (熔断前采集)
 ----------
@@ -109,7 +109,7 @@ node-1: state=Follower, leader=node-2, term=284 [恢复]
 node-2: state=Leader,    leader=node-2, term=284 [稳定]
 node-3: state=Follower, leader=node-2, term=284 [恢复]
 
-systemctl is-active daijin235_cluster: active [V2.2-S未受影响]
+systemctl is-active raftkv_cluster: active [V2.2-S未受影响]
 
 资源恢复:
   CPU: 降至 3.2% us (正常)

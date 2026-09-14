@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module05 — 工业级自愈与进程守护系统
+// RaftKV Module05 — 工业级自愈与进程守护系统
 //
 // 文件：supervisor.go
 // 职责：Supervisor 核心 — New/Start/Stop 生命周期 + AddWorker/RemoveWorker 注册 +

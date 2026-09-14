@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = "Continue"
-$outFile = "D:\235备份文件\V2.4_Performance_Sandbox\tests\evidence\d3-batch2-p1\E08-rerun5\batch3-profile\profile-postfix.csv"
+$outFile = ".\tests\evidence\d3-batch2-p1\E08-rerun5\batch3-profile\profile-postfix.csv"
 $nodes = 1..5
 
 $header = "timestamp"
@@ -11,7 +11,7 @@ for ($i = 0; $i -lt $rounds; $i++) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = $ts
     foreach ($n in $nodes) {
-        $name = "daijin235-node-$n"
+        $name = "raftkv-node-$n"
         $memstat = docker exec $name sh -c "grep -E '^(anon|file) ' /sys/fs/cgroup/memory.stat 2>/dev/null" 2>$null
         $anon = ($memstat | Where-Object { $_ -match "^anon " } | ForEach-Object { ($_ -split ' ')[1] })
         $file = ($memstat | Where-Object { $_ -match "^file " } | ForEach-Object { ($_ -split ' ')[1] })

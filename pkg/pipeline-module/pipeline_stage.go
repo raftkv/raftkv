@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module03 — 高吞吐数据流转 Pipeline
+// RaftKV Module03 — 高吞吐数据流转 Pipeline
 //
 // Stage 抽象：Pipeline 的最小执行单元。
 //   - IngestStage  接入：接收外部数据，注入 Pipeline

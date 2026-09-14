@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module02 — WAL + 国密 SM4 持久化存储引擎独立沙箱验证测试程序
+// RaftKV Module02 — WAL + 国密 SM4 持久化存储引擎独立沙箱验证测试程序
 //
 // 验证目标：
 //   1. SM4 加密/解密自测通过（GB/T 32907-2016 标准测试向量 + 多轮随机明文）
@@ -27,7 +27,7 @@ import (
 	"os"
 	"path/filepath"
 
-	walsm4 "daijin235/wal-sm4-module"
+	walsm4 "raftkv/wal-sm4-module"
 )
 
 // =========================================================================
@@ -105,7 +105,7 @@ func main() {
 func printHeader() {
 	fmt.Println(colorBold + colorCyan)
 	fmt.Println("🚀 ==========================================================")
-	fmt.Println("🚀   岱境235 Module02 — WAL + 国密 SM4 持久化存储引擎")
+	fmt.Println("🚀   RaftKV Module02 — WAL + 国密 SM4 持久化存储引擎")
 	fmt.Println("🚀   独立沙箱实机跑测  |  纯标准库零外部依赖  |  SM4 自研")
 	fmt.Println("🚀 ==========================================================")
 	fmt.Println(colorReset)
@@ -185,7 +185,7 @@ func testSM4SelfTest() bool {
 	// 1d. SM4-CTR + HMAC 认证加密原语自测
 	sm4Key, _ := hex.DecodeString(sm4KeyHex)
 	hmacKey, _ := hex.DecodeString(hmacKeyHex)
-	payload := []byte("岱境235国密SM4持久化存储引擎认证加密自测载荷-HelloSM4")
+	payload := []byte("RaftKV国密SM4持久化存储引擎认证加密自测载荷-HelloSM4")
 	encPayload, err := walsm4.SM4EncryptBlock(sm4Key, payload[:16])
 	if err == nil {
 		decPayload, err2 := walsm4.SM4DecryptBlock(sm4Key, encPayload)
@@ -230,7 +230,7 @@ func testPlainWAL() bool {
 
 	originals := make([][]byte, logCount)
 	for i := 0; i < logCount; i++ {
-		data := []byte(fmt.Sprintf("岱境235-明文WAL-日志条目-%02d-PersistenceEngine", i+1))
+		data := []byte(fmt.Sprintf("RaftKV-明文WAL-日志条目-%02d-PersistenceEngine", i+1))
 		originals[i] = data
 		if err := wal.Append(walsm4.WALEntry{
 			Index: int64(i + 1),
@@ -313,7 +313,7 @@ func testEncryptedWAL() bool {
 
 	originals := make([][]byte, logCount)
 	for i := 0; i < logCount; i++ {
-		data := []byte(fmt.Sprintf("岱境235-国密SM4加密WAL-日志条目-%02d-Confidential", i+1))
+		data := []byte(fmt.Sprintf("RaftKV-国密SM4加密WAL-日志条目-%02d-Confidential", i+1))
 		originals[i] = data
 		if err := es.AppendEntry(walsm4.WALEntry{
 			Index: int64(i + 1),
@@ -395,7 +395,7 @@ func testDiskCiphertext() bool {
 	}
 
 	// 明文标记（用于确认磁盘上不可见）
-	plaintextMarker := "PLAINTEXT_SHOULD_NOT_APPEAR_ON_DISK_岱境235"
+	plaintextMarker := "PLAINTEXT_SHOULD_NOT_APPEAR_ON_DISK_RaftKV"
 	if err := es.AppendData([]byte(plaintextMarker)); err != nil {
 		fmt.Printf(colorRed+"❌ 磁盘密文测试: 写入失败: %v\n"+colorReset, err)
 		es.Close()

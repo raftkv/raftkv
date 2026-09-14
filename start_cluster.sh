@@ -1,8 +1,8 @@
 #!/bin/bash
 # DaiJin235 5-node Raft cluster + relay_agent startup script (bare-metal)
 
-BASE_DIR=/root/daijin235_cluster
-GW=$BASE_DIR/daijin235_gateway
+BASE_DIR=/root/raftkv_cluster
+GW=$BASE_DIR/raftkv_gateway
 RELAY=/root/relay_agent_linux_arm64
 LOG_DIR=$BASE_DIR/logs
 PID_DIR=$BASE_DIR/pids
@@ -15,7 +15,7 @@ stop_all() {
     for f in $PID_DIR/*.pid; do
         [ -f "$f" ] && kill $(cat "$f") 2>/dev/null
     done
-    pkill -f daijin235_gateway 2>/dev/null
+    pkill -f raftkv_gateway 2>/dev/null
     pkill -f relay_agent_linux 2>/dev/null
     rm -f $PID_DIR/*.pid
     sleep 2
@@ -88,7 +88,7 @@ case "${1:-start}" in
         check_health
         echo ''
         echo '=== All processes ==='
-        ps aux | grep -E 'daijin235_gateway|relay_agent' | grep -v grep
+        ps aux | grep -E 'raftkv_gateway|relay_agent' | grep -v grep
         ;;
     stop)
         stop_all
@@ -96,7 +96,7 @@ case "${1:-start}" in
         ;;
     status)
         echo '=== Running processes ==='
-        ps aux | grep -E 'daijin235_gateway|relay_agent' | grep -v grep
+        ps aux | grep -E 'raftkv_gateway|relay_agent' | grep -v grep
         echo ''
         check_health
         ;;

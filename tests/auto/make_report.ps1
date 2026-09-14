@@ -65,7 +65,7 @@ if ($state.phases.PSObject.Properties.Name -contains "P5") {
 }
 
 [void]$sb.AppendLine("## 节点存活检查")
-$containers = docker ps -a --format "{{.Names}}`t{{.Status}}" 2>$null | Select-String "daijin235"
+$containers = docker ps -a --format "{{.Names}}`t{{.Status}}" 2>$null | Select-String "raftkv"
 foreach ($line in $containers) {
     [void]$sb.AppendLine("- $line")
 }

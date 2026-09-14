@@ -1,7 +1,7 @@
 package main
 
 // =========================================================================
-// 岱境235 跨模块集成验证 — Module03 Pipeline → Module02 SM4+WAL
+// RaftKV 跨模块集成验证 — Module03 Pipeline → Module02 SM4+WAL
 //
 // 极简集成测试：不依赖完整 5 节点系统，仅验证两个模块的接口匹配性。
 //
@@ -30,8 +30,8 @@ import (
 	"sync"
 	"time"
 
-	pipeline "daijin235/pipeline-module"
-	walsm4 "daijin235/wal-sm4-module"
+	pipeline "raftkv/pipeline-module"
+	walsm4 "raftkv/wal-sm4-module"
 )
 
 // =========================================================================
@@ -80,7 +80,7 @@ const (
 // =========================================================================
 
 func main() {
-	section("岱境235 跨模块集成验证：Module03 Pipeline → Module02 SM4+WAL")
+	section("RaftKV 跨模块集成验证：Module03 Pipeline → Module02 SM4+WAL")
 	infof("测试规模: %d 条数据, 零外部依赖, 纯 Go 标准库", N)
 
 	// 清理旧 WAL
@@ -94,7 +94,7 @@ func main() {
 	if len(sm4Key) != 16 {
 		sm4Key = []byte("${SM4_TEST_KEY}") // 占位符，16字节，实际部署必须通过 SM4_KEY 环境变量注入
 	}
-	hmacKeyArr := sha256.Sum256([]byte("daijin235-hmac-secret-2026"))
+	hmacKeyArr := sha256.Sum256([]byte("raftkv-hmac-secret-2026"))
 	hmacKey := hmacKeyArr[:] // 32 字节
 	okf("SM4 主密钥: %x (%d 字节, 符合 GB/T 32907-2016)", sm4Key, len(sm4Key))
 	okf("HMAC 密钥: %x... (%d 字节, SHA-256)", hmacKey[:8], len(hmacKey))
@@ -186,7 +186,7 @@ func main() {
 	originalData := make([][]byte, N)
 	originalSet := make(map[string]int, N)
 	for i := 0; i < N; i++ {
-		s := fmt.Sprintf("PAYLOAD-%04d-CONTENT-daijin235-sm4-wal-test", i)
+		s := fmt.Sprintf("PAYLOAD-%04d-CONTENT-raftkv-sm4-wal-test", i)
 		originalData[i] = []byte(s)
 		originalSet[s]++
 	}

@@ -1,5 +1,5 @@
 // =========================================================================
-// 岱境235 Module03 — 高吞吐数据流转 Pipeline 沙箱验证测试
+// RaftKV Module03 — 高吞吐数据流转 Pipeline 沙箱验证测试
 //
 // 验证项：
 //   a) 多阶段 Pipeline（接入→处理→输出）串联正确
@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"daijin235/pipeline-module"
+	"raftkv/pipeline-module"
 )
 
 // -------------------------------------------------------------------------
@@ -55,7 +55,7 @@ func section(s string)     { fmt.Printf("\n%s\n", title(s)) }
 // -------------------------------------------------------------------------
 
 func main() {
-	fmt.Printf("%s%s🚀 岱境235 Module03 — 高吞吐数据流转 Pipeline 沙箱验证%s\n", cBold, cCyan, cReset)
+	fmt.Printf("%s%s🚀 RaftKV Module03 — 高吞吐数据流转 Pipeline 沙箱验证%s\n", cBold, cCyan, cReset)
 	fmt.Printf("%s🔑 零外部依赖 | 纯标准库 | GOOS=%s GOARCH=%s | Go %s%s\n",
 		cCyan, runtime.GOOS, runtime.GOARCH, runtime.Version(), cReset)
 	fmt.Println()

@@ -1,4 +1,4 @@
-module daijin235
+module raftkv
 
 go 1.24.0
 

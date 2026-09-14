@@ -25,8 +25,8 @@ fi
 
 # ── 配置 ──
 LAST_GREEN_TAG="${LAST_GREEN_TAG:-v1.0.0-dev6}"
-IMAGE_NAME="daijin235-v26:ci-knife"
-ROLLBACK_IMAGE="daijin235-v26:ci-rollback"
+IMAGE_NAME="raftkv:latest-knife"
+ROLLBACK_IMAGE="raftkv:latest-rollback"
 LICENSE_DIR="${LICENSE_DIR:-/licenses}"
 FP_ANCHOR="${FP_ANCHOR:-tcx4-v25-test}"
 RUN_ID="run-$(date +%Y%m%d_%H%M%S)"
@@ -118,10 +118,10 @@ fi
 # F1纪律: strings搜旧key必须0次命中
 echo "[build] key leak scan..." | tee -a "${RUN_EVIDENCE}/build.log"
 leak=$(docker run --rm --entrypoint sh "$IMAGE_NAME" \
-    -c 'grep -c "daijin235_012345" /app/gateway 2>/dev/null || true')
+    -c 'grep -c "raftkv_sm4test01" /app/gateway 2>/dev/null || true')
 echo "key leak hits: $leak" | tee -a "${RUN_EVIDENCE}/build.log"
 if [ "$leak" != "0" ]; then
-    do_rollback "BUILD" "key leak: $leak hits of daijin235_012345 in binary"
+    do_rollback "BUILD" "key leak: $leak hits of raftkv_sm4test01 in binary"
 fi
 echo "[build] PASS: build + key leak scan clean"
 

@@ -35,7 +35,7 @@ func main() {
 	initLeader := envOr("LEADER_ID", *leaderID, "")
 
 	fmt.Println(strings.Repeat("=", 60))
-	fmt.Printf("  岱境235 State Protection Research Build\n")
+	fmt.Printf("  RaftKV State Protection Research Build\n")
 	fmt.Printf("  版本: %s  构建: %s\n", Version, BuildTime)
 	fmt.Printf("  [研究镜像] 此镜像与V2.2-S商业镜像完全隔离\n")
 	fmt.Println(strings.Repeat("=", 60))

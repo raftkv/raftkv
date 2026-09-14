@@ -1,17 +1,17 @@
-﻿# 岱境235 单次数据采集脚本
+﻿# RaftKV 单次数据采集脚本
 # 用法: powershell -File collect_point.ps1 -PointNum <N> -ElapsedMin <M>
 param(
     [int]$PointNum = 1,
     [int]$ElapsedMin = 0
 )
 
-$logFile = "C:\Users\27998\Desktop\edge_4h_monitor.log"
+$logFile = "<HOME>\Desktop\edge_4h_monitor.log"
 $nodes = @(
-    "daijin235_go_engine-node-1-1",
-    "daijin235_go_engine-node-2-1",
-    "daijin235_go_engine-node-3-1",
-    "daijin235_go_engine-node-4-1",
-    "daijin235_go_engine-node-5-1"
+    "raftkv_go_engine-node-1-1",
+    "raftkv_go_engine-node-2-1",
+    "raftkv_go_engine-node-3-1",
+    "raftkv_go_engine-node-4-1",
+    "raftkv_go_engine-node-5-1"
 )
 $nodeNames = @("node-1","node-2","node-3","node-4","node-5")
 
