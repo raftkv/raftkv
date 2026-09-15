@@ -3,11 +3,13 @@
 > 日期: 2026-09-15
 > 链: CHAIN-4 发布收官与公网亮相
 > 前链: CHAIN-3 开源交付链 (COMPLETE, v0.5.0)
-> 状态: **IN_PROGRESS**
+> 状态: **COMPLETE — 闭案，进入观察期**
 > 版本: v0.5.0
 > License: Apache-2.0
-> HEAD: f1f3842
+> HEAD: e6815fc (含 vet 修复 ceb1343)
 > Tag: v0.5.0 → f1f3842
+> 仓库: https://github.com/raftkv/raftkv (Public, CI 全绿)
+> 验收: 机器裁决 9/13 + 4 项误伤补证 → 修正终裁 13/13 PASS
 
 ## CHAIN-4 链状态
 
@@ -99,6 +101,15 @@ proto 包名 `daijin235` 和 gRPC service path `/daijin235.RaftService/*` 保留
 
 ## 后续方向
 
+- v0.6.0: module path 变更 `raftkv` → `github.com/raftkv/raftkv`
 - v0.6.0: CI 回归门在线化（需 verdict.json 证据自动生成）
+- 阶段二: Gitee 镜像（信创曝光前再建）
+
+## 观察期
+
+- 起始: 2026-09-15
+- 周期: 1-2 周
+- 监控: issue/安全类反馈
+- 纪律: 零宣传（无 topic/无公告/无社区外链）
 - v0.7.0: protoc 可用后重命名 proto 包名（消除 RL-07 例外）
 - v1.0.0: 首个生产部署 + API 连续一季度零破坏变更后升级
