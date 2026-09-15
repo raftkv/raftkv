@@ -110,30 +110,34 @@
 | meter_diff | 每批闭案必跑 | 未跑 → 断链停机 |
 ---
 
-## CHAIN-4: 发布收官与公网亮相
+## CHAIN-4: 发布收官与公网亮相 — ✅ COMPLETE
 
 > 开链: 2026-09-15
+> 闭链: 2026-09-15
 > 前链: CHAIN-3 (COMPLETE, v0.5.0)
-> 目标: 闭合三个未验证项，全绿后"真发布"
+> HEAD: ceb1343 (含 vet 修复)
+> 仓库: https://github.com/raftkv/raftkv (Public, CI 全绿)
 
 ### 任务1: 备份三级闭环 (铁律11核验) — ✅ COMPLETE
 - 核验 v0.5.0 tag → f1f3842 完整性
 - git bundle 产出 v0.5.0-release.bundle (74MB, MD5: 2e01b264...)
-- 双物理位: <PROJECT_ROOT> + <HOME>/backup_chain4/
+- 三物理位: <PROJECT_ROOT> + <HOME>/backup_chain4/ + <HOME>/raftkv_backup/
 - 核验单: docs/chain4_backup_verify.md
 
-### 任务2: 陌生环境发布验证 (OSS-EXPR-01 纪律) — ⏳ PENDING
-- 干净容器按 Quickstart 逐字走通
-- 模拟"第一次接触本项目的用户"
-- 卡壳处 = 文档缺陷，回改文档并重走
+### 任务2: 陌生环境发布验证 (OSS-EXPR-01 纪律) — ✅ COMPLETE
+- 逐字走 Quickstart 完成，2 个文档缺陷已修复
+- 走查留证: docs/chain4_walkthrough_evidence.md
 
-### 任务3: 公网亮相准备 (只备选项，不执行) — ⏳ PENDING
-- 列出公开发布决策项供用户裁决
-- 每项给出建议+理由
-- 禁止自行创建任何远端仓库
+### 任务3: 公网亮相准备 — ✅ COMPLETE
+- 四道裁决全批复 (GitHub / org:raftkv / Public+零宣传 / OSS-EXPR-01)
 
-### 任务4: 红线门 — ⏳ PENDING
-- 泄露扫描终扫 (含大写变体、env/deploy 专项)
-- 回归门 10 线全绿
-- 三级备份凭证 + 走查留证齐备
-- 全过后申报闭案，待用户裁决任务3选项后才执行公网推送
+### 任务4: 红线门 + 公网推送 — ✅ COMPLETE
+- 泄露终扫零残留 + 回归门 10 线全绿
+- 公网推送完成: https://github.com/raftkv/raftkv
+- CI 全绿: Build + Vet + Unit Tests + Regression Gate
+- 零宣传纪律生效 (无 topic/无公告/无引流徽章)
+- 1-2 周观察期开始
+
+### 后续待办 (v0.6.0)
+- module path 变更: `raftkv` → `github.com/raftkv/raftkv`
+- Gitee 镜像 (阶段二信创曝光前再建)
