@@ -1,13 +1,18 @@
 # RaftKV
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![License: AGPLv3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8.svg)](https://go.dev/)
-[![Version](https://img.shields.io/badge/version-v0.5.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.5.1-orange.svg)](CHANGELOG.md)
 
 RaftKV is a distributed key-value store built on a Raft consensus engine with
 SM4-encrypted WAL storage, snapshot-based log compaction, and pipeline-optimized
 log replication. It provides both HTTP and gRPC interfaces, mTLS for inter-node
 communication, and a built-in chaos injection toolkit for resilience testing.
+
+> **License**: This software is licensed under the **GNU Affero General Public
+> License v3 (AGPLv3)**. Network use of modified versions requires source code
+> disclosure. For commercial licensing or proprietary use, contact the project
+> owner.
 
 ---
 
