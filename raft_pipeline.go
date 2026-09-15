@@ -477,8 +477,11 @@ func PipelineConfigFromEnv() PipelineConfig {
 	if v := os.Getenv("WAL_ENABLE"); v == "false" || v == "0" {
 		cfg.EnableWAL = false
 	}
-	if v := os.Getenv("WAL_PATH"); v != "" {
-		cfg.WALPath = v
+	walPathEnv := os.Getenv("WAL_PATH")
+	if walPathEnv != "" {
+		cfg.WALPath = walPathEnv
+	} else if cfg.EnableWAL {
+		log.Fatalf("[pipeline] WAL_PATH 未设置，拒绝静默回落到默认路径 %q（多节点共享 WAL 将导致数据损坏），请显式设置 WAL_PATH 环境变量", cfg.WALPath)
 	}
 
 	if v := os.Getenv("SINK_ENABLE"); v == "true" || v == "1" {
