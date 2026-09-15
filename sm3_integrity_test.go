@@ -124,7 +124,7 @@ func TestUnifiedStateMachineDefaultHasher(t *testing.T) {
 func TestStateMachineApplyTamperRejected(t *testing.T) {
 	sm := NewUnifiedStateMachine(NewStandardSM3())
 
-	ru := ResourceUnit{
+	ru := &ResourceUnit{
 		ID:          "ru-test-node-001",
 		Name:        "test-node",
 		ClusterID:   "cluster-test",
@@ -149,8 +149,12 @@ func TestStateMachineApplyTamperRejected(t *testing.T) {
 	if err := json.Unmarshal(raw, &tampered); err != nil {
 		t.Fatalf("反序列化失败: %v", err)
 	}
-	tamperedRU := ru
-	tamperedRU.Name = "TAMPERED-BY-REDTEAM"
+	tamperedRU := &ResourceUnit{
+		ID:          ru.ID,
+		Name:        "TAMPERED-BY-REDTEAM",
+		ClusterID:   ru.ClusterID,
+		ClusterType: ru.ClusterType,
+	}
 	badPayload, _ := json.Marshal(tamperedRU)
 	tampered.Payload = badPayload
 	badRaw, _ := tampered.ToBytes()
