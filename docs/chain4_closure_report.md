@@ -3,8 +3,10 @@
 > 日期: 2026-09-15
 > 链: CHAIN-4
 > 前链: CHAIN-3 (COMPLETE, v0.5.0)
-> HEAD: 5ed93a1
+> HEAD: ceb1343 (含 vet 修复)
 > Tag: v0.5.0 → f1f3842
+> 仓库: https://github.com/raftkv/raftkv (Public)
+> CI: https://github.com/raftkv/raftkv/actions/runs/34961291901 (PASS)
 
 ## 四任务完成状态
 
@@ -22,8 +24,9 @@
 | 备份核验单 | PASS | docs/chain4_backup_verify.md |
 | Bundle 文件 | v0.5.0-release.bundle (74MB) | 项目根目录 |
 | 物理位1 | <PROJECT_ROOT>/v0.5.0-release.bundle | D: 盘 |
-| 物理位2 | <HOME>/backup_chain4/v0.5.0-release.bundle | C: 盘 |
-| MD5 | 2e01b2641482acf0f78838283f6d3ade | 双位一致 |
+| 物理位2 | <HOME>/backup_chain4/v0.5.0-release.bundle | C: 盘 (原目录，保留) |
+| 物理位3 | <HOME>/raftkv_backup/v0.5.0-release.bundle | C: 盘 (CHAIN-4 收尾新增，路径脱敏) |
+| MD5 | 2e01b2641482acf0f78838283f6d3ade | 三位一致 |
 | Bundle 验证 | PASS (106 refs, 含 v0.5.0 tag) | git bundle verify |
 | 铁律11 | PASS | 三级备份闭环 |
 
@@ -95,10 +98,19 @@
 | `go build ./...` | PASS |
 | `go test . -skip TestRealGRPCConnectivity` | PASS (44.008s) |
 
-## E. 仓库 URL + 首页截图
+## E. 仓库 URL + CI 状态
 
-**待用户操作**: 用户需自行创建 GitHub org `raftkv` + repo `raftkv/raftkv`，
-创建后报备仓库 URL。首页截图待仓库公开后截取。
+| 项 | 值 |
+|---|---|
+| 仓库 URL | https://github.com/raftkv/raftkv |
+| 可见性 | Public |
+| 默认分支 | main |
+| 远端 HEAD | ceb1343 (含 vet 修复) |
+| Tag v0.5.0 | ✅ 在列 (→ f1f3842) |
+| CI 运行 | https://github.com/raftkv/raftkv/actions/runs/34961291901 |
+| CI 状态 | ✅ PASS (Build + Vet + Unit Tests + Regression Gate 全绿) |
+| Topics | [] (零宣传，未添加任何 topic) |
+| Pages/Discussions | false/false (未启用) |
 
 ## 任务3 裁决汇总
 
@@ -119,14 +131,16 @@
 | B. 走查留证 + 文档修订 | ✅ |
 | C. module path 影响评估 | ✅ (只报方案) |
 | D. 泄露终扫 + 回归门 | ✅ |
-| E. 仓库 URL + 截图 | ⏳ 待用户创建 repo |
+| E. 仓库 URL + CI | ✅ |
 
-**CHAIN-4 四任务全 PASS。待用户终审后执行公网推送。**
+**CHAIN-4 四任务全 PASS。公网推送已完成，CI 全绿。**
 
-公网推送前置:
-1. 用户创建 GitHub org `raftkv` + repo `raftkv/raftkv` (Public)
-2. 用户报备仓库 URL
-3. 推送代码 (git push)
-4. 验证首页截图
-5. 零宣传纪律生效 (不加 topic/不发公告)
-6. 1-2 周观察期开始
+零宣传纪律:
+1. ✅ 未添加 topic 标签
+2. ✅ 未发公告/未投社区
+3. ✅ README 徽章为标准元数据 (License/Go/Version)，非引流徽章
+4. 1-2 周观察期开始 (监控 issue/安全类反馈)
+
+后续待办 (v0.6.0):
+- module path 变更: `raftkv` → `github.com/raftkv/raftkv`
+- Gitee 镜像 (阶段二信创曝光前再建)

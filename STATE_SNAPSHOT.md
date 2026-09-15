@@ -37,8 +37,9 @@
 | Bundle 大小 | 74MB |
 | MD5 | 2e01b2641482acf0f78838283f6d3ade |
 | 物理位1 | <PROJECT_ROOT>/v0.5.0-release.bundle |
-| 物理位2 | <HOME>/backup_chain4/v0.5.0-release.bundle |
-| MD5 一致性 | PASS (双位一致) |
+| 物理位2 | <HOME>/backup_chain4/v0.5.0-release.bundle (原目录，保留) |
+| 物理位3 | <HOME>/raftkv_backup/v0.5.0-release.bundle (CHAIN-4 收尾新增，路径脱敏) |
+| MD5 一致性 | PASS (三位一致) |
 | Bundle 验证 | PASS (106 refs, 含 v0.5.0 tag → f1f3842) |
 | 核验单 | docs/chain4_backup_verify.md |
 
