@@ -65,7 +65,7 @@
 | 敏感模式 | 源码命中 | 说明 |
 |----------|----------|------|
 | `235备份` | 0 | STATE_SNAPSHOT.md 已脱敏为 `<PROJECT_ROOT>` |
-| `<UID>` | 0 | QUEUE.md + STATE_SNAPSHOT.md 已脱敏为 `<HOME>` |
+| `<UID>` | **翻案: 原报0实为2** | 原销案因扫描工具文件清单盲区遗漏chain4_backup_verify.md; 2026-09-20复查纠正, 已清理为 `<HOME>` |
 | `daijin235_012345` | 0 | 无残留 |
 | `DAIJIN235` (大写) | 0 | CHAIN-3 补漏已修复 |
 | `daijin235` (小写, 非proto) | 0 | 仅 .gitignore 旧二进制名 + 文档 RL-07 说明 |

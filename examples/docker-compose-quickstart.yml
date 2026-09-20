@@ -19,7 +19,7 @@ services:
       - "9001:9000"
       - "9501:9500"
     environment:
-      - SM4_KEY=726166746b765f736d34746573743031
+      - SM4_KEY=726166746b765f736d34746573743031  # TEST KEY ONLY - do not use in production
       - NODE_ID=node-1
       - GRPC_PORT=9500
       - HTTP_PORT=9000
@@ -45,7 +45,7 @@ services:
       - "9002:9000"
       - "9502:9500"
     environment:
-      - SM4_KEY=726166746b765f736d34746573743031
+      - SM4_KEY=726166746b765f736d34746573743031  # TEST KEY ONLY - do not use in production
       - NODE_ID=node-2
       - GRPC_PORT=9500
       - HTTP_PORT=9000
@@ -71,7 +71,7 @@ services:
       - "9003:9000"
       - "9503:9500"
     environment:
-      - SM4_KEY=726166746b765f736d34746573743031
+      - SM4_KEY=726166746b765f736d34746573743031  # TEST KEY ONLY - do not use in production
       - NODE_ID=node-3
       - GRPC_PORT=9500
       - HTTP_PORT=9000
@@ -97,7 +97,7 @@ services:
       - "9004:9000"
       - "9504:9500"
     environment:
-      - SM4_KEY=726166746b765f736d34746573743031
+      - SM4_KEY=726166746b765f736d34746573743031  # TEST KEY ONLY - do not use in production
       - NODE_ID=node-4
       - GRPC_PORT=9500
       - HTTP_PORT=9000
@@ -123,7 +123,7 @@ services:
       - "9005:9000"
       - "9505:9500"
     environment:
-      - SM4_KEY=726166746b765f736d34746573743031
+      - SM4_KEY=726166746b765f736d34746573743031  # TEST KEY ONLY - do not use in production
       - NODE_ID=node-5
       - GRPC_PORT=9500
       - HTTP_PORT=9000

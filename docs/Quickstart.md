@@ -33,7 +33,7 @@ rejected). For production use, generate a license via `cmd/license-tool`
 and keep `LICENSE_FAIL_MODE=closed` (the default).
 
 ```bash
-# SM4 key: 16 bytes as 32-char hex (example key for testing only)
+# SM4 key: 16 bytes as 32-char hex (TEST KEY ONLY - do not use in production)
 export SM4_KEY="726166746b765f736d34746573743031"
 
 # Demo mode: allows startup without a license (read-only)

@@ -65,8 +65,8 @@
 
 | 文件 | 行号 | 内容 | 处置 |
 |------|------|------|------|
-| tests/evidence/.../node-5-exit137-log.txt | 11 | `192.168.80.2:9500` | gitignored |
-| tests/evidence/.../pass-report.md | 25 | `192.168.80.3` | gitignored |
+| tests/evidence/.../node-5-exit137-log.txt | 11 | `192.0.2.2:9500` | gitignored |
+| tests/evidence/.../pass-report.md | 25 | `192.0.2.3` | gitignored |
 | share_all.bat | 19 | `192.168.` LAN 检测 | → 保留（通用 LAN 检测） |
 | cmd/diag_tool/main.go | 293 | `192.168.1.10:9501` (注释示例) | → 保留（示例地址） |
 
@@ -116,7 +116,7 @@ gRPC service 路径 `/daijin235.RaftService/AppendEntries` 由 proto 生成（.p
 ## 5. 验收标准
 
 - `git grep "235备份"` = 0 命中 ✓
-- `git grep "<UID>"` = 0 命中 ✓
+- `git grep "<UID>"` = 0 命中 **[翻案: 原报0命中实为2命中, 2026-09-20已清理]**
 - `git grep "daijin235"` ≤ 4 命中（仅 proto 文件 + gRPC service path，附 RL-07 说明）✓
 - `git grep "daijin235_012345"` = 0 命中 ✓
 - `git grep "C:\\Users"` = 0 命中 ✓
@@ -128,7 +128,7 @@ gRPC service 路径 `/daijin235.RaftService/AppendEntries` 由 proto 生成（.p
 | 检查项 | 结果 | 说明 |
 |--------|------|------|
 | 本地路径 `235备份` | 0 命中 | 全部替换为相对路径/占位符 |
-| 用户路径 `<UID>` | 0 命中 | 全部替换为 `<HOME>` |
+| 用户路径 `<UID>` | **翻案: 0→2→0** | 原报0命中实为2命中(chain4_backup_verify.md + chain3_scan_report.md), 2026-09-20已清理为 `<HOME>` |
 | 私有标识 `daijin235` | 4 命中 | 仅 proto/daijin235.proto（RL-07）+ grpc_server.go gRPC path（RL-07） |
 | 硬编码密钥 `daijin235_012345` | 0 命中 | 替换为 `raftkv_sm4test01`（16字节） |
 | 中文标识 `岱境235` | 1 命中 | proto 文件注释（RL-07） |

@@ -56,6 +56,6 @@
 | Unit tests | `go test . -skip TestRealGRPCConnectivity -count=1` | PASS |
 | Example build | `go build ./examples/kv_client/` | PASS |
 | Scan: no `235备份` | `git grep "235备份"` | 0 hits |
-| Scan: no `<UID>` | `git grep "<UID>"` | 0 hits |
+| Scan: no `<UID>` | `git grep "<UID>"` | **翻案: 原报0 hits实为2 hits** (chain4_backup_verify.md + chain3_scan_report.md); 2026-09-20已清理 |
 | Scan: no `DAIJIN235` | `git grep "DAIJIN235"` | 0 hits (excluding evidence/) |
 | Scan: no `daijin235_012345` | `git grep "daijin235_012345"` | 0 hits |

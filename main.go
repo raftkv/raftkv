@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -41,11 +42,27 @@ var (
 	GitCommit = "v251-sm3-integrity"
 )
 
+const sm4TestKeyHex = "726166746b765f736d34746573743031" // TEST KEY ONLY - public by design (README/docs公开示例钥,公开是设计使然)
+
+// sm4TestKeyGuard 检查 SM4 密钥是否为公开测试密钥。
+// production=true 时使用测试密钥则返回错误；非生产模式仅警告放行。
+func sm4TestKeyGuard(sm4Key []byte, production bool) error {
+	sm4TestKey, _ := hex.DecodeString(sm4TestKeyHex)
+	if bytes.Equal(sm4Key, sm4TestKey) {
+		if production {
+			return fmt.Errorf("SM4_KEY 为测试密钥 (raftkv_sm4test01), 测试密钥禁入生产")
+		}
+		log.Println("[main] 警告: SM4_KEY 为测试密钥 (raftkv_sm4test01), 仅限开发/测试使用, 禁止用于生产")
+	}
+	return nil
+}
+
 func main() {
 	id := flag.String("id", "", "节点唯一 ID (环境变量: NODE_ID)")
 	port := flag.String("port", "", "gRPC 服务端口 (环境变量: GRPC_PORT)")
 	httpPort := flag.String("http", "", "HTTP API 端口 (环境变量: HTTP_PORT)")
 	peersRaw := flag.String("peers", "", "Peer 列表 (环境变量: PEERS)")
+	production := flag.Bool("production", false, "生产模式 (禁止使用测试密钥)")
 	flag.Parse()
 
 	// 环境变量回退：命令行参数为空时从环境变量读取
@@ -59,7 +76,10 @@ func main() {
 	}
 	// SM4_KEY 早期校验（fail-closed）：在 peer 连接等耗时初始化之前校验，
 	// 确保 SM4_KEY 缺失/非法时进程立即以非零码退出（D3-F1011 修复）。
-	_ = loadSM4KeyFromEnv()
+	sm4Key := loadSM4KeyFromEnv()
+	if err := sm4TestKeyGuard(sm4Key, *production); err != nil {
+		log.Fatalf("[main] 拒绝以 --production 模式启动: %v", err)
+	}
 	httpListen := envOr("HTTP_PORT", *httpPort, "9000")
 	httpBind := envOr("HTTP_BIND", "", "127.0.0.1")
 	peerList := envOr("PEERS", *peersRaw, "")

@@ -22,7 +22,7 @@
 ### 步骤3: 恢复别名
 1. docker network disconnect node-1
 2. docker network connect **--alias node-1** node-1
-3. 验证DNS: `nslookup node-1` → **192.168.80.3**（别名恢复确认）
+3. 验证DNS: `nslookup node-1` → **192.0.2.3**（别名恢复确认）
 
 ### 步骤4: 验证自愈全链
 - Leader(node-2) stats: `gaps=map[node-1:0] degraded=[]`

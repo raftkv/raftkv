@@ -8,7 +8,7 @@ At line:1 char:32
 [状态] id=node-5 state=Follower term=2584 leader=node-3 commit=24830 peers=4
 [管线] committed=16 walErr=0 sinkErr=0 sinkWritten=0 fallback=0 healthy=false
 2026/09/09 00:29:22 [raft/node-5] [raft/node-5] RequestVote → node-1 失败: rpc error: code = Unavailable desc = connectio
-n error: desc = "transport: Error while dialing: dial tcp 192.168.80.2:9500: i/o timeout"
+n error: desc = "transport: Error while dialing: dial tcp 192.0.2.2:9500: i/o timeout"
 2026/09/09 00:29:23 [raft/node-5] [raft/node-5] RequestVote → node-3 失败: rpc error: code = DeadlineExceeded desc = cont
 ext deadline exceeded
 2026/09/09 00:29:23 [raft/node-5] [raft/node-5] 选举失败 (得票 1/5, term=2585)

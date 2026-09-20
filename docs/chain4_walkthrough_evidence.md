@@ -21,7 +21,7 @@
 - Quickstart 原文: `export SM4_KEY="raftkv_sm4test01"`
 - 实际行为: 进程退出，报错 "SM4_KEY 非法，拒绝启动 (fail-closed): 必须为 32 位 hex 编码的 16 字节密钥"
 - 根因: SM4_KEY 环境变量要求 32 字符 hex 编码（16 字节），非 ASCII 字符串
-- 修复: 改为 `export SM4_KEY="726166746b765f736d34746573743031"` (raftkv_sm4test01 的 hex 编码)
+- 修复: 改为 `export SM4_KEY="726166746b765f736d34746573743031"` (raftkv_sm4test01 的 hex 编码, TEST KEY ONLY - do not use in production)
 
 ### Step 3: Start (`./raftkv -id node-1 -port 9500 -http 9000`)
 

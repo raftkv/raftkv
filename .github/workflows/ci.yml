@@ -51,7 +51,7 @@ jobs:
         with:
           go-version: "1.24.0"
 
-      - name: Set SM4 key
+      - name: Set SM4 key  # TEST KEY ONLY - do not use in production
         run: echo "SM4_KEY=raftkv_sm4test01" >> $GITHUB_ENV
 
       - name: Run tests
