@@ -344,6 +344,17 @@ Full architecture document: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 
+## Test Environment & Fault Domain
+
+| Aspect | Description |
+|--------|-------------|
+| Test environment | Single-machine containerized deployment (Docker) |
+| Fault domain | Unisolated (same host / same disk / same NIC) |
+| Covered | Process-level faults (container/process termination) |
+| Not covered | Node-level / datacenter-level fault tolerance (requires multi-host environment, tested separately) |
+
+---
+
 ## Known Limitations
 
 - **proto package name**: `protoc` is not available in the build environment.
