@@ -89,3 +89,20 @@ tools/loadgen/loadgen.exe
 
 # --- batch21 证据目录（显式排除，RL-08）---
 tests/evidence/d3-batch21/
+# --- 内部文档（不进公网）---
+LEDGER.md
+QUEUE.md
+STATE_SNAPSHOT.md
+双模式授权配置说明.md
+_state_protection_research/
+docs/governance/AUDIT.md
+docs/governance/MISBEHAVIOR.md
+docs/chain3_scan_report.md
+docs/chain4_backup_verify.md
+docs/chain4_closure_report.md
+docs/chain4_walkthrough_evidence.md
+docs/chain3_redline_gate.md
+docs/chain1_morning_report.md
+docs/chain2_campaign4_morning_report.md
+docs/campaign3_closure_review.md
+docs/release_artifacts.md
