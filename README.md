@@ -1,5 +1,11 @@
 # RaftKV
 
+> **⚠️ This repository has been migrated.**
+> 
+> **New repository**: https://github.com/raftkv/raftkv-v1
+> 
+> This repo is archived as of 2026-10-02. All future development continues at the new location. This repo's git history contained internal artifacts that could not be cleanly removed without history rewriting (which violates our redline policy), so a fresh repository was created instead.
+
 [![License: AGPLv3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8.svg)](https://go.dev/)
 [![Version](https://img.shields.io/badge/version-v0.5.1-orange.svg)](CHANGELOG.md)
